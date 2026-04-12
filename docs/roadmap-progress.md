@@ -15,7 +15,7 @@ Owner: team
    - Remaining: none.
 
 2. ✅ Auth and profile/preferences
-   - Evidence: Step 2 implementation completed on 2026-04-12 (shared v1 contracts, API auth/profile/preferences routes + domain services, migration SQL, and unit/integration test coverage).
+   - Evidence: Step 2 implementation completed on 2026-04-12 in commit 9b3e8cf (shared v1 contracts, API auth/profile/preferences routes + domain services, migration SQL, and unit/integration test coverage).
    - Remaining: none.
 
 3. 🟨 Resume upload and parsing pipeline
