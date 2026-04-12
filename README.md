@@ -15,46 +15,28 @@ The product is designed to help a user:
 - track what they have seen, saved, hidden, or applied to
 - prepare tailored materials without fully automating the user out of the process
 
-## MVP capabilities
+## Current repository status
 
-- user profile and preferences
-- resume upload and structured extraction
-- multi-source job ingestion
-- canonical job model and deduplication
-- explainable matching and ranking
-- search, filtering, save, hide, bookmark, and shortlist flows
-- lightweight application tracker
-- reminders and digest notifications
-- resume/application preparation support
-
-## Suggested repository structure
+This repository is currently scaffolded as a TypeScript monorepo with a minimal runnable baseline:
 
 ```text
 apps/
-  web/
-  api/
-  worker/
+  api/      # Node API skeleton with health endpoint
+  web/      # Placeholder web homepage server
+  worker/   # Background worker entrypoint stub
 packages/
-  shared/
-  config/
+  shared/   # Shared types/constants
 docs/
-.github/
-  copilot-instructions.md
-  instructions/
-  prompts/
-AGENTS.md
 ```
 
 ## Suggested local commands
 
-These commands assume a `pnpm` workspace. Adjust after the real repo is created.
-
 ```bash
 pnpm install
 pnpm dev
+pnpm build
 pnpm lint
 pnpm typecheck
-pnpm test
 ```
 
 ## Documentation index
@@ -80,10 +62,3 @@ Recommended order for early implementation:
 7. explainable scoring
 8. tracker and reminders
 9. application support tooling
-
-## Notes for AI-assisted development
-
-If you are using VS Code and GitHub Copilot:
-- keep `AGENTS.md` and `.github/copilot-instructions.md` current
-- use `.github/instructions/` for path-specific rules
-- use `.github/prompts/` for repeated tasks such as new connector creation and feature scaffolding
