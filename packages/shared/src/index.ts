@@ -11,3 +11,50 @@ export const appStates = {
 } as const;
 
 export type AppState = (typeof appStates)[keyof typeof appStates];
+
+export {
+  authContractVersion,
+  authLoginRequestSchema,
+  authRegisterRequestSchema,
+  authSessionSchema,
+  authUserSchema,
+  emailSchema,
+  userIdSchema,
+} from './contracts/auth/v1.js';
+
+export {
+  notificationPreferencesSchema,
+  preferencesContractVersion,
+  remotePreferenceSchema,
+  senioritySchema,
+  userPreferencesPayloadSchema,
+  userPreferencesSchema,
+} from './contracts/preferences/v1.js';
+
+export {
+  profileContractVersion,
+  userProfilePayloadSchema,
+  userProfileSchema,
+  workAuthorizationSchema,
+} from './contracts/profile/v1.js';
+
+export type {
+  AuthLoginRequest,
+  AuthRegisterRequest,
+  AuthSession,
+  AuthUser,
+} from './contracts/auth/v1.js';
+
+export type {
+  NotificationPreferences,
+  RemotePreference,
+  Seniority,
+  UserPreferences,
+  UserPreferencesPayload,
+} from './contracts/preferences/v1.js';
+
+export type {
+  UserProfile,
+  UserProfilePayload,
+  WorkAuthorization,
+} from './contracts/profile/v1.js';

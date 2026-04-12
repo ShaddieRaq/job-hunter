@@ -4,4 +4,7 @@ Shared contracts and utilities for Job Hunter apps.
 
 ## Current scope
 - shared enum-like constants for cross-app workflow states
-- foundation for future schemas, DTOs, and validation contracts
+- v1 runtime-validated contracts (Zod) for:
+	- auth
+	- user profile
+	- user preferences

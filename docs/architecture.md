@@ -2,6 +2,14 @@
 
 This document describes the intended architecture for the Job Hunter MVP and realistic v1.
 
+## Implementation status
+
+As of 2026-04-12, Step 2 is implemented in the API and shared packages:
+- shared v1 contracts for auth, profile, and preferences
+- API v1 routes for auth/profile/preferences
+- domain service validation for preference constraints
+- initial SQL migration for auth/profile/preferences persistence tables
+
 ## Guiding approach
 
 Build the MVP as a **modular monolith** with background workers.

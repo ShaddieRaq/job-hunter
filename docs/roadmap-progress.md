@@ -14,15 +14,11 @@ Owner: team
    - Evidence: scaffold workspace/apps/shared/tooling and guidance layers are merged.
    - Remaining: none.
 
-2. 🟨 Auth and profile/preferences
-   - Evidence: selected as next implementation target by roadmap order.
-   - Remaining:
-     - define versioned profile/preference contracts
-     - add API endpoints and domain services
-     - add persistence model/migrations
-     - add unit/integration tests for boundary and rule logic
+2. ✅ Auth and profile/preferences
+   - Evidence: Step 2 implementation completed on 2026-04-12 (shared v1 contracts, API auth/profile/preferences routes + domain services, migration SQL, and unit/integration test coverage).
+   - Remaining: none.
 
-3. ⬜ Resume upload and parsing pipeline
+3. 🟨 Resume upload and parsing pipeline
 4. ⬜ Connector framework and first connectors
 5. ⬜ Canonical job catalog and dedupe v1
 6. ⬜ Search/feed UI
@@ -31,12 +27,12 @@ Owner: team
 9. ⬜ Resume/application support
 
 ## Current focus
-- Active step: 2 (auth and profile/preferences)
-- Next PR target: define shared contracts + API skeleton for profile/preferences only
+- Active step: 3 (resume upload and parsing pipeline)
+- Next PR target: add resume metadata contracts and API upload endpoint skeleton with object-storage abstraction
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
 1. step status changes
-2. evidence (PR or commit reference)
+2. evidence (PR or commit reference; local commits may be referenced before PR exists)
 3. remaining work for any in-progress step

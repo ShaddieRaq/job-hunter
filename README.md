@@ -17,17 +17,32 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is currently scaffolded as a TypeScript monorepo with a minimal runnable baseline:
+This repository is a TypeScript monorepo with Step 2 (auth and profile/preferences) implemented:
 
 ```text
 apps/
-  api/      # Node API skeleton with health endpoint
+  api/      # Node API with health + auth/profile/preferences v1 endpoints
   web/      # Placeholder web homepage server
   worker/   # Background worker entrypoint stub
 packages/
-  shared/   # Shared types/constants
+  shared/   # Shared types and runtime-validated contracts (Zod)
 docs/
 ```
+
+### Implemented API surface (v1)
+
+- POST /v1/auth/register
+- POST /v1/auth/login
+- GET /v1/profile
+- PUT /v1/profile
+- GET /v1/preferences
+- PUT /v1/preferences
+
+### Persistence and tests currently included
+
+- Initial migration for users/sessions/profiles/preferences schema under apps/api/migrations
+- In-memory repository adapter for local runtime behavior
+- API unit and integration tests for boundary validation and preference rule logic
 
 ## Suggested local commands
 
@@ -55,7 +70,7 @@ pnpm typecheck
 
 Recommended order for early implementation:
 1. repository skeleton
-2. auth and user profile/preferences
+2. auth and user profile/preferences (done)
 3. resume upload and parsing
 4. connector framework and first job sources
 5. canonical jobs and dedupe
