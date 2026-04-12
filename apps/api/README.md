@@ -15,6 +15,10 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `POST /v1/resumes`
 	- `GET /v1/resumes`
 	- `GET /v1/resumes/:resumeId`
+- AI bootstrap v1 endpoints:
+	- `POST /v1/ai/extract/resume`
+	- `POST /v1/ai/extract/job`
+	- `POST /v1/ai/explain-match`
 - Domain service validation for preference constraints (salary and seniority ranges)
 - Resume parsing service with deterministic text extraction heuristics
 - Object-storage abstraction with in-memory adapter for uploaded resume files

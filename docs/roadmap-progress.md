@@ -24,14 +24,17 @@ Owner: team
 4. ⬜ Connector framework and first connectors
 5. ⬜ Canonical job catalog and dedupe v1
 6. ⬜ Search/feed UI
-7. ⬜ Explainable match scoring
+7. 🟨 Explainable match scoring
 8. ⬜ Tracker and reminders
 9. ⬜ Resume/application support
 
 ## Current focus
-- Active step: 4 (connector framework and first connectors)
-- Next PR target: define connector interface contracts and add the first official/public connector skeleton with fixture-backed parsing tests
+- Active step: 7 (explainable match scoring) and AI Phase A foundation
+- Next PR target: wire provider-backed structured outputs and add fixture-driven extraction + explanation eval harness
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
+
+## Recent evidence
+- 2026-04-12: AI bootstrap contract and API route scaffolding added (`/v1/ai/extract/resume`, `/v1/ai/extract/job`, `/v1/ai/explain-match`) with deterministic placeholder service and tests.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

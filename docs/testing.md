@@ -9,6 +9,8 @@ Steps 2 and 3 (auth/profile/preferences and resume pipeline) include:
 - integration tests for auth/profile/preferences API request boundaries and happy paths
 - unit tests for resume upload service parse behavior and error paths
 - integration tests for resume upload/list/detail route boundaries and unsupported-format handling
+- AI bootstrap unit tests for deterministic extraction and explanation behavior
+- AI bootstrap integration tests for `/v1/ai/*` route boundaries
 
 ## Testing goals
 
@@ -74,6 +76,14 @@ Required:
 - edge case tests for deal breakers
 - regression tests for explanation outputs
 - versioning expectations when score model changes
+
+
+### AI extraction or explanation change
+Required:
+- schema validation tests for input/output contracts
+- deterministic fallback behavior tests when provider output is invalid
+- fixture-based eval tests for factuality and unsupported-claim rate
+- regression tests for recommendation class changes (`apply`, `review`, `skip`)
 
 ### Deduplication change
 Required:

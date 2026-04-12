@@ -8,6 +8,8 @@ import {
   createAuthProfileService,
   type AuthProfileService,
 } from './modules/auth-profile/service.js';
+import { handleAiRoutes } from './modules/ai/routes.js';
+import { createAiService, type AiService } from './modules/ai/service.js';
 import { createInMemoryObjectStorage } from './modules/resume/in-memory-object-storage.js';
 import { createInMemoryResumeRepository } from './modules/resume/in-memory-repository.js';
 import { createHeuristicResumeParser } from './modules/resume/parser.js';
@@ -18,6 +20,8 @@ const defaultAuthProfileService = createAuthProfileService({
   repository: createInMemoryAuthProfileRepository(),
 });
 
+const defaultAiService = createAiService();
+
 const defaultResumeService = createResumeService({
   repository: createInMemoryResumeRepository(),
   objectStorage: createInMemoryObjectStorage(),
@@ -27,6 +31,7 @@ const defaultResumeService = createResumeService({
 export interface CreateApiServerOptions {
   authProfileService?: AuthProfileService;
   resumeService?: ResumeService;
+  aiService?: AiService;
 }
 
 const isHealthRequest = (req: IncomingMessage): boolean =>
@@ -37,6 +42,7 @@ const handleRequest = async (
   res: ServerResponse,
   authProfileService: AuthProfileService,
   resumeService: ResumeService,
+  aiService: AiService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
     sendJson(res, 200, { status: 'ok', service: 'api' });
@@ -60,6 +66,15 @@ const handleRequest = async (
     return;
   }
 
+  const aiHandled = await handleAiRoutes(req, res, {
+    authProfileService,
+    aiService,
+  });
+
+  if (aiHandled) {
+    return;
+  }
+
   sendJson(res, 404, { error: 'not_found' });
 };
 
@@ -80,9 +95,10 @@ const handleUnhandledError = (res: ServerResponse, error: unknown): void => {
 export const createApiServer = ({
   authProfileService = defaultAuthProfileService,
   resumeService = defaultResumeService,
+  aiService = defaultAiService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
-    void handleRequest(req, res, authProfileService, resumeService).catch((error: unknown) => {
+    void handleRequest(req, res, authProfileService, resumeService, aiService).catch((error: unknown) => {
       handleUnhandledError(res, error);
     });
   });

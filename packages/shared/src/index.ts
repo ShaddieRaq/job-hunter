@@ -44,6 +44,23 @@ export {
   resumeUploadResponseSchema,
 } from './contracts/resume/v1.js';
 
+
+export {
+  aiContractVersion,
+  extractedJobSchema,
+  extractedResumeSchema,
+  extractionMetadataSchema,
+  jobExtractionRequestSchema,
+  jobExtractionResponseSchema,
+  matchExplanationRequestSchema,
+  matchExplanationResponseSchema,
+  matchExplanationSchema,
+  resumeExtractionRequestSchema,
+  resumeExtractionResponseSchema,
+  scoreBreakdownSchema,
+  yearsOfExperienceSchema,
+} from './contracts/ai/v1.js';
+
 export {
   profileContractVersion,
   userProfilePayloadSchema,
@@ -77,6 +94,20 @@ export type {
   ResumeUploadRequest,
   ResumeUploadResponse,
 } from './contracts/resume/v1.js';
+
+
+export type {
+  ExtractedJob,
+  ExtractedResume,
+  JobExtractionRequest,
+  JobExtractionResponse,
+  MatchExplanation,
+  MatchExplanationRequest,
+  MatchExplanationResponse,
+  ResumeExtractionRequest,
+  ResumeExtractionResponse,
+  ScoreBreakdown,
+} from './contracts/ai/v1.js';
 
 export type {
   UserProfile,
