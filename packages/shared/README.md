@@ -8,3 +8,4 @@ Shared contracts and utilities for Job Hunter apps.
 	- auth
 	- user profile
 	- user preferences
+	- resume upload/metadata/structured profile

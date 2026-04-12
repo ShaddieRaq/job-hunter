@@ -17,11 +17,11 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Step 2 (auth and profile/preferences) implemented:
+This repository is a TypeScript monorepo with Step 3 (resume upload and parsing pipeline) implemented:
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume v1 endpoints
   web/      # Placeholder web homepage server
   worker/   # Background worker entrypoint stub
 packages/
@@ -37,12 +37,17 @@ docs/
 - PUT /v1/profile
 - GET /v1/preferences
 - PUT /v1/preferences
+- POST /v1/resumes
+- GET /v1/resumes
+- GET /v1/resumes/:resumeId
 
 ### Persistence and tests currently included
 
 - Initial migration for users/sessions/profiles/preferences schema under apps/api/migrations
+- Resume metadata + structured profile migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
-- API unit and integration tests for boundary validation and preference rule logic
+- In-memory object storage abstraction for resume files
+- API unit and integration tests for auth/profile/preferences and resume upload/parsing behavior
 
 ## Suggested local commands
 
@@ -71,7 +76,7 @@ pnpm typecheck
 Recommended order for early implementation:
 1. repository skeleton
 2. auth and user profile/preferences (done)
-3. resume upload and parsing
+3. resume upload and parsing (done)
 4. connector framework and first job sources
 5. canonical jobs and dedupe
 6. search and discovery UI

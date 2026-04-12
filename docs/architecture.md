@@ -4,11 +4,16 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Step 2 is implemented in the API and shared packages:
+As of 2026-04-12, Steps 2 and 3 are implemented in the API and shared packages:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
 - initial SQL migration for auth/profile/preferences persistence tables
+- shared v1 contracts for resume upload, metadata, and structured profile output
+- API v1 routes for resume upload/list/detail
+- object-storage abstraction with in-memory adapter for uploaded resume files
+- deterministic text resume parser wired into the resume upload pipeline
+- SQL migration for resumes and structured profile extraction snapshots
 
 ## Guiding approach
 

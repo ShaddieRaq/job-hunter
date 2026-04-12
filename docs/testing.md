@@ -4,9 +4,11 @@ This document defines the testing expectations for the Job Hunter MVP.
 
 ## Current coverage snapshot
 
-Step 2 (auth and profile/preferences) includes:
+Steps 2 and 3 (auth/profile/preferences and resume pipeline) include:
 - unit tests for preference rule validation and normalization behavior
 - integration tests for auth/profile/preferences API request boundaries and happy paths
+- unit tests for resume upload service parse behavior and error paths
+- integration tests for resume upload/list/detail route boundaries and unsupported-format handling
 
 ## Testing goals
 

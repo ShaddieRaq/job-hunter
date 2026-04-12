@@ -83,9 +83,16 @@ Suggested fields:
 - user_id
 - file_uri
 - original_filename
+- content_type
+- size_bytes
+- checksum_sha256
 - parsed_text
 - parser_version
+- parse_status
+- uploaded_at
+- parsed_at
 - created_at
+- updated_at
 
 ## ResumeStructuredProfile
 Represents structured data extracted from a resume.

@@ -32,6 +32,19 @@ export {
 } from './contracts/preferences/v1.js';
 
 export {
+  resumeContentTypeSchema,
+  resumeContractVersion,
+  resumeDetailsResponseSchema,
+  resumeIdSchema,
+  resumeListResponseSchema,
+  resumeMetadataSchema,
+  resumeParseStatusSchema,
+  resumeStructuredProfileSchema,
+  resumeUploadRequestSchema,
+  resumeUploadResponseSchema,
+} from './contracts/resume/v1.js';
+
+export {
   profileContractVersion,
   userProfilePayloadSchema,
   userProfileSchema,
@@ -52,6 +65,18 @@ export type {
   UserPreferences,
   UserPreferencesPayload,
 } from './contracts/preferences/v1.js';
+
+export type {
+  ResumeContentType,
+  ResumeDetailsResponse,
+  ResumeId,
+  ResumeListResponse,
+  ResumeMetadata,
+  ResumeParseStatus,
+  ResumeStructuredProfile,
+  ResumeUploadRequest,
+  ResumeUploadResponse,
+} from './contracts/resume/v1.js';
 
 export type {
   UserProfile,

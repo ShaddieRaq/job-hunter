@@ -8,13 +8,25 @@ import {
   createAuthProfileService,
   type AuthProfileService,
 } from './modules/auth-profile/service.js';
+import { createInMemoryObjectStorage } from './modules/resume/in-memory-object-storage.js';
+import { createInMemoryResumeRepository } from './modules/resume/in-memory-repository.js';
+import { createHeuristicResumeParser } from './modules/resume/parser.js';
+import { handleResumeRoutes } from './modules/resume/routes.js';
+import { createResumeService, type ResumeService } from './modules/resume/service.js';
 
 const defaultAuthProfileService = createAuthProfileService({
   repository: createInMemoryAuthProfileRepository(),
 });
 
+const defaultResumeService = createResumeService({
+  repository: createInMemoryResumeRepository(),
+  objectStorage: createInMemoryObjectStorage(),
+  parser: createHeuristicResumeParser(),
+});
+
 export interface CreateApiServerOptions {
   authProfileService?: AuthProfileService;
+  resumeService?: ResumeService;
 }
 
 const isHealthRequest = (req: IncomingMessage): boolean =>
@@ -24,6 +36,7 @@ const handleRequest = async (
   req: IncomingMessage,
   res: ServerResponse,
   authProfileService: AuthProfileService,
+  resumeService: ResumeService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
     sendJson(res, 200, { status: 'ok', service: 'api' });
@@ -35,6 +48,15 @@ const handleRequest = async (
   });
 
   if (handled) {
+    return;
+  }
+
+  const resumeHandled = await handleResumeRoutes(req, res, {
+    authProfileService,
+    resumeService,
+  });
+
+  if (resumeHandled) {
     return;
   }
 
@@ -57,9 +79,10 @@ const handleUnhandledError = (res: ServerResponse, error: unknown): void => {
 
 export const createApiServer = ({
   authProfileService = defaultAuthProfileService,
+  resumeService = defaultResumeService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
-    void handleRequest(req, res, authProfileService).catch((error: unknown) => {
+    void handleRequest(req, res, authProfileService, resumeService).catch((error: unknown) => {
       handleUnhandledError(res, error);
     });
   });
