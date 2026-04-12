@@ -40,6 +40,9 @@ docs/
 - POST /v1/resumes
 - GET /v1/resumes
 - GET /v1/resumes/:resumeId
+- POST /v1/ai/extract/resume
+- POST /v1/ai/extract/job
+- POST /v1/ai/explain-match
 
 ### Persistence and tests currently included
 
@@ -67,6 +70,7 @@ pnpm typecheck
 - `docs/domain-model.md` - core data model and business rules
 - `docs/testing.md` - testing strategy and quality gates
 - `docs/roadmap-progress.md` - current roadmap status and next step tracker
+- `docs/ai-implementation-plan.md` - Phase A AI implementation checklist and contracts
 - `.github/copilot-instructions.md` - repo-wide Copilot guidance
 - `.github/instructions/*.instructions.md` - scoped instructions by area
 - `.github/prompts/*.prompt.md` - reusable prompts for repeated workflows

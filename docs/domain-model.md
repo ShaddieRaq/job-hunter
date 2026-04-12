@@ -357,3 +357,50 @@ Examples:
 - Do not store all explanation logic as freeform prose only.
 - Do not rely on raw JSON payloads as the operational model.
 - Do not hardcode source-specific enums into the canonical layer without normalization.
+
+
+## AIExtractionRun
+Tracks one extraction invocation for resume/job structured outputs.
+
+Suggested fields:
+- id
+- user_id
+- source_type                  # resume | job
+- source_entity_id
+- schema_version
+- extractor_version
+- model_version
+- input_checksum
+- output_json
+- status                       # success | failed | partial
+- failure_code
+- created_at
+
+## MatchExplanationSnapshot
+Stores generated explanation text linked to deterministic score evidence.
+
+Suggested fields:
+- id
+- user_id
+- canonical_job_id
+- scoring_version
+- score_breakdown_json
+- strengths_json
+- gaps_json
+- deal_breakers_json
+- explanation_json
+- generator_version
+- model_version
+- created_at
+
+## AIEvalRun
+Stores extraction/explanation eval results for regression tracking.
+
+Suggested fields:
+- id
+- eval_suite_name
+- eval_suite_version
+- target_component             # extraction | explanation
+- metrics_json
+- pass_fail
+- executed_at

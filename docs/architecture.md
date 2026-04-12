@@ -10,7 +10,9 @@ As of 2026-04-12, Steps 2 and 3 are implemented in the API and shared packages:
 - domain service validation for preference constraints
 - initial SQL migration for auth/profile/preferences persistence tables
 - shared v1 contracts for resume upload, metadata, and structured profile output
+- shared v1 contracts for AI extraction and explainable match reasoning payloads
 - API v1 routes for resume upload/list/detail
+- API v1 AI bootstrap routes for resume extraction, job extraction, and match explanation
 - object-storage abstraction with in-memory adapter for uploaded resume files
 - deterministic text resume parser wired into the resume upload pipeline
 - SQL migration for resumes and structured profile extraction snapshots
@@ -82,6 +84,9 @@ Maps source records into canonical fields and groups duplicate jobs.
 
 ### Matching and ranking
 Generates explainable user-specific match scores.
+
+### AI orchestration
+Owns provider-facing extraction and explanation orchestration while preserving deterministic domain decisions.
 
 ### Search and discovery
 Serves job feed queries, filters, sorting, and saved searches.
