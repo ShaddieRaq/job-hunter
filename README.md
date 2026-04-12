@@ -46,6 +46,7 @@ pnpm typecheck
 - `docs/architecture.md` - target architecture and module boundaries
 - `docs/domain-model.md` - core data model and business rules
 - `docs/testing.md` - testing strategy and quality gates
+- `docs/roadmap-progress.md` - current roadmap status and next step tracker
 - `.github/copilot-instructions.md` - repo-wide Copilot guidance
 - `.github/instructions/*.instructions.md` - scoped instructions by area
 - `.github/prompts/*.prompt.md` - reusable prompts for repeated workflows
