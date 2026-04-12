@@ -19,7 +19,7 @@ Owner: team
    - Remaining: none.
 
 3. ✅ Resume upload and parsing pipeline
-   - Evidence: Step 3 implementation completed on 2026-04-12 in commit df591b3 (shared resume v1 contracts, API resume routes/service/object-storage abstraction, migration `0002_resume_pipeline.sql`, and unit/integration tests).
+   - Evidence: Step 3 implementation completed on 2026-04-12 in commit df591b3 and is included in mainline history up through b593171 (shared resume v1 contracts, API resume routes/service/object-storage abstraction, migration `0002_resume_pipeline.sql`, and unit/integration tests).
    - Remaining: none.
 4. ⬜ Connector framework and first connectors
 5. ⬜ Canonical job catalog and dedupe v1
