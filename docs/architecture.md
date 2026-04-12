@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2 and 3 are implemented in the API and shared packages:
+As of 2026-04-12, Steps 2 and 3 are implemented and Step 7 AI foundation work is active in the API and shared packages:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -12,7 +12,10 @@ As of 2026-04-12, Steps 2 and 3 are implemented in the API and shared packages:
 - shared v1 contracts for resume upload, metadata, and structured profile output
 - shared v1 contracts for AI extraction and explainable match reasoning payloads
 - API v1 routes for resume upload/list/detail
-- API v1 AI bootstrap routes for resume extraction, job extraction, and match explanation
+- API v1 AI routes for resume extraction, job extraction, and match explanation
+- AI provider abstraction with OpenAI structured-output adapter and deterministic fallback handling
+- explicit provider failure-mode mapping (`invalid_json_schema`, `provider_timeout`, `provider_refusal`, `provider_http_error`)
+- fixture-driven extraction/explanation eval harness baseline with threshold-enforced tests
 - object-storage abstraction with in-memory adapter for uploaded resume files
 - deterministic text resume parser wired into the resume upload pipeline
 - SQL migration for resumes and structured profile extraction snapshots

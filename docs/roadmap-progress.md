@@ -25,16 +25,19 @@ Owner: team
 5. ⬜ Canonical job catalog and dedupe v1
 6. ⬜ Search/feed UI
 7. 🟨 Explainable match scoring
+   - Evidence: provider-backed structured AI outputs are now wired through the API AI module with OpenAI adapter + deterministic fallback, and fixture-driven extraction/explanation eval harness coverage is in place (`apps/api/src/modules/ai/*`, `apps/api/test/evals/*`, `apps/api/test/fixtures/ai-eval-fixtures.ts`).
+   - Remaining: connect score breakdown generation to canonical-job ranking workflows and persist/expose versioned scoring artifacts.
 8. ⬜ Tracker and reminders
 9. ⬜ Resume/application support
 
 ## Current focus
 - Active step: 7 (explainable match scoring) and AI Phase A foundation
-- Next PR target: wire provider-backed structured outputs and add fixture-driven extraction + explanation eval harness
+- Next PR target: wire deterministic score breakdown generation into canonical job ranking flow and expose versioned explanation artifacts for feed/detail surfaces
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
 - 2026-04-12: AI bootstrap contract and API route scaffolding added (`/v1/ai/extract/resume`, `/v1/ai/extract/job`, `/v1/ai/explain-match`) with deterministic placeholder service and tests.
+- 2026-04-12: AI provider abstraction landed with OpenAI structured JSON schema adapter, deterministic fallback handling for provider failures, and fixture-driven extraction + explanation eval harness with threshold-enforced tests.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

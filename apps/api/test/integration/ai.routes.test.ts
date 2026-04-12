@@ -3,13 +3,18 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import test from 'node:test';
 
-import { createApiServer } from '../../src/server.js';
+import { AiProviderError } from '../../src/modules/ai/errors.js';
+import { createAiService } from '../../src/modules/ai/service.js';
+import type { AiProvider } from '../../src/modules/ai/types.js';
+import { createApiServer, type CreateApiServerOptions } from '../../src/server.js';
 
-const startServer = async (): Promise<{
+const startServer = async (
+  options?: CreateApiServerOptions,
+): Promise<{
   baseUrl: string;
   close: () => Promise<void>;
 }> => {
-  const server = createApiServer();
+  const server = createApiServer(options);
 
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -52,6 +57,28 @@ const registerAndGetAccessToken = async (baseUrl: string): Promise<string> => {
   assert.equal(response.status, 200);
   const body = (await response.json()) as { session: { accessToken: string } };
   return body.session.accessToken;
+};
+
+const refusalProvider: AiProvider = {
+  providerId: 'refusal-provider',
+  async extractResume() {
+    throw new AiProviderError('provider_refusal', {
+      providerId: 'refusal-provider',
+      message: 'forced refusal',
+    });
+  },
+  async extractJob() {
+    throw new AiProviderError('provider_refusal', {
+      providerId: 'refusal-provider',
+      message: 'forced refusal',
+    });
+  },
+  async explainMatch() {
+    throw new AiProviderError('provider_refusal', {
+      providerId: 'refusal-provider',
+      message: 'forced refusal',
+    });
+  },
 };
 
 test('ai routes return contract-valid extraction and explanations', async () => {
@@ -118,6 +145,42 @@ test('ai routes return contract-valid extraction and explanations', async () => 
     };
 
     assert.equal(explainBody.explanation.recommendation, 'apply');
+  } finally {
+    await app.close();
+  }
+});
+
+test('ai routes return explicit provider error code when fallback is disabled', async () => {
+  const app = await startServer({
+    aiService: createAiService({
+      provider: refusalProvider,
+      fallbackProvider: null,
+    }),
+  });
+
+  try {
+    const accessToken = await registerAndGetAccessToken(app.baseUrl);
+
+    const response = await fetch(`${app.baseUrl}/v1/ai/extract/resume`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        rawText: 'TypeScript engineer profile.',
+      }),
+    });
+
+    assert.equal(response.status, 502);
+
+    const body = (await response.json()) as {
+      error: string;
+      details: { providerId: string };
+    };
+
+    assert.equal(body.error, 'provider_refusal');
+    assert.equal(body.details.providerId, 'refusal-provider');
   } finally {
     await app.close();
   }

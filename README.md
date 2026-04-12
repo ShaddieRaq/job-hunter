@@ -17,11 +17,11 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Step 3 (resume upload and parsing pipeline) implemented:
+This repository is a TypeScript monorepo with Steps 2 and 3 complete and Step 7 AI foundation work in progress:
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences/resume v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume + AI extraction/explanation v1 endpoints
   web/      # Placeholder web homepage server
   worker/   # Background worker entrypoint stub
 packages/
@@ -50,7 +50,8 @@ docs/
 - Resume metadata + structured profile migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
-- API unit and integration tests for auth/profile/preferences and resume upload/parsing behavior
+- API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
+- Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals
 
 ## Suggested local commands
 

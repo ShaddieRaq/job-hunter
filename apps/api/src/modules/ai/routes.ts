@@ -10,6 +10,7 @@ import {
 import { HttpError } from '../../http/http-errors.js';
 import { readJsonBody, sendJson } from '../../http/json.js';
 import type { AuthProfileService } from '../auth-profile/service.js';
+import { isAiProviderError } from './errors.js';
 import type { AiService } from './service.js';
 
 export interface AiRoutesDependencies {
@@ -78,6 +79,21 @@ const getPathname = (req: IncomingMessage): string => {
   return new URL(requestUrl, 'http://localhost').pathname;
 };
 
+const executeAiOperation = async <T>(operation: () => Promise<T>): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error: unknown) {
+    if (isAiProviderError(error)) {
+      throw new HttpError(502, error.code, {
+        providerId: error.providerId,
+        providerDetails: error.details ?? null,
+      });
+    }
+
+    throw error;
+  }
+};
+
 export const handleAiRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -90,7 +106,9 @@ export const handleAiRoutes = async (
     const accessToken = requireAccessToken(req);
     const user = await authProfileService.authenticate(accessToken);
     const payload = await parseBody(req, resumeExtractionRequestSchema);
-    const response = aiService.extractResume(user.userId, payload);
+    const response = await executeAiOperation(async () =>
+      aiService.extractResume(user.userId, payload),
+    );
 
     sendJson(res, 200, {
       contractVersion: aiContractVersion,
@@ -105,7 +123,9 @@ export const handleAiRoutes = async (
     const accessToken = requireAccessToken(req);
     await authProfileService.authenticate(accessToken);
     const payload = await parseBody(req, jobExtractionRequestSchema);
-    const response = aiService.extractJob(payload);
+    const response = await executeAiOperation(async () =>
+      aiService.extractJob(payload),
+    );
 
     sendJson(res, 200, {
       contractVersion: aiContractVersion,
@@ -119,7 +139,9 @@ export const handleAiRoutes = async (
     const accessToken = requireAccessToken(req);
     await authProfileService.authenticate(accessToken);
     const payload = await parseBody(req, matchExplanationRequestSchema);
-    const response = aiService.explainMatch(payload);
+    const response = await executeAiOperation(async () =>
+      aiService.explainMatch(payload),
+    );
 
     sendJson(res, 200, {
       contractVersion: aiContractVersion,

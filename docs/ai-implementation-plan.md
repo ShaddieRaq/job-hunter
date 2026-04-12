@@ -21,8 +21,27 @@ This document turns the recommended AI roadmap into concrete implementation work
   - `POST /v1/ai/extract/resume`
   - `POST /v1/ai/extract/job`
   - `POST /v1/ai/explain-match`
-- Deterministic placeholder `AiService` implementation so frontend/backend teams can start integrating against stable contracts before external model wiring.
-- Unit + integration tests covering route wiring and baseline behavior.
+- Provider-backed AI orchestration in `apps/api/src/modules/ai`:
+  - provider abstraction + deterministic fallback path
+  - OpenAI adapter using strict `json_schema` structured output mode
+  - explicit failure mode mapping for `invalid_json_schema`, `provider_timeout`, and `provider_refusal`
+- Fixture-driven AI eval harness baseline in `apps/api/test/evals` and `apps/api/test/fixtures`:
+  - extraction precision/recall counters
+  - explanation recommendation/factuality checks
+  - threshold-enforced eval test for CI
+- Unit + integration tests covering route wiring, provider handling, and eval baseline.
+
+## Phase A progress snapshot
+
+- A1 Structured extraction pipeline: 🟨 in progress
+  - Done: provider adapter interface, OpenAI structured-output adapter, metadata propagation, deterministic fallback, and provider failure handling paths.
+  - Remaining: production provider configuration hardening and environment-level rollout guardrails.
+- A2 Explainable match narrative layer: 🟨 in progress
+  - Done: explanation generation can run via provider with evidence-only prompt constraints and schema-bound output validation.
+  - Remaining: tighten unsupported-claim guardrails with broader fixture coverage and scoring-module integration.
+- A3 Eval harness baseline: 🟨 in progress
+  - Done: fixture corpus + extraction/explanation eval harness + threshold test.
+  - Remaining: wire eval command into repository CI workflow once pipeline definitions are in place.
 
 ## Phase A task breakdown
 
