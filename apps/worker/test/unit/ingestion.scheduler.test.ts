@@ -5,8 +5,10 @@ import {
   canonicalRebuildResponseSchema,
   connectorContractVersion,
   jobsContractVersion,
+  notificationsContractVersion,
   type CanonicalRebuildResponse,
   type ConnectorSyncResponse,
+  type NotificationDispatchAllUsersResponse,
   type SourceName,
 } from '@job-hunter/shared';
 
@@ -53,6 +55,20 @@ const buildRebuildResponse = (
   return parsed;
 };
 
+const buildDispatchAllResponse = (
+  overrides: Partial<NotificationDispatchAllUsersResponse> = {},
+): NotificationDispatchAllUsersResponse => ({
+  contractVersion: notificationsContractVersion,
+  attemptedUsers: 2,
+  dispatchedUsers: 2,
+  failedUsers: 0,
+  queuedCount: 3,
+  sentCount: 3,
+  skippedCount: 0,
+  errors: [],
+  ...overrides,
+});
+
 test('runIngestionCycle reports healthy when sync and rebuild both succeed', async () => {
   const client: IngestionApiClient = {
     async listConnectorNames() {
@@ -63,6 +79,9 @@ test('runIngestionCycle reports healthy when sync and rebuild both succeed', asy
     },
     async rebuildCanonicalCatalog() {
       return buildRebuildResponse();
+    },
+    async dispatchHighFitNotificationsForAllUsers() {
+      return buildDispatchAllResponse();
     },
   };
 
@@ -81,6 +100,8 @@ test('runIngestionCycle reports healthy when sync and rebuild both succeed', asy
   assert.equal(summary.syncResults.length, 1);
   assert.equal(summary.connectorFailures.length, 0);
   assert.equal(summary.rebuildResult?.sourceJobsScanned, 12);
+  assert.equal(summary.highFitDispatchResult?.sentCount, 3);
+  assert.equal(summary.highFitDispatchFailure, null);
   assert.equal(summary.errors.length, 0);
 });
 
@@ -103,6 +124,10 @@ test('runIngestionCycle marks degraded when at least one connector fails', async
       calls.push('rebuild');
       return buildRebuildResponse();
     },
+    async dispatchHighFitNotificationsForAllUsers() {
+      calls.push('dispatch');
+      return buildDispatchAllResponse();
+    },
   };
 
   const summary = await runIngestionCycle({
@@ -120,6 +145,51 @@ test('runIngestionCycle marks degraded when at least one connector fails', async
   assert.equal(summary.connectorFailures.length, 1);
   assert.match(summary.connectorFailures[0]?.error ?? '', /connector_downstream_timeout/);
   assert.equal(calls.includes('rebuild'), true);
+  assert.equal(calls.includes('dispatch'), true);
+});
+
+test('runIngestionCycle marks degraded when high-fit dispatch reports failed users', async () => {
+  const client: IngestionApiClient = {
+    async listConnectorNames() {
+      return ['greenhouse_public_board'];
+    },
+    async syncConnector() {
+      return buildSyncResponse('greenhouse_public_board');
+    },
+    async rebuildCanonicalCatalog() {
+      return buildRebuildResponse();
+    },
+    async dispatchHighFitNotificationsForAllUsers() {
+      return buildDispatchAllResponse({
+        attemptedUsers: 3,
+        dispatchedUsers: 2,
+        failedUsers: 1,
+        queuedCount: 2,
+        sentCount: 2,
+        skippedCount: 0,
+        errors: ['user:abc:dispatch_failed'],
+      });
+    },
+  };
+
+  const summary = await runIngestionCycle({
+    client,
+    maxRecordsPerSync: 200,
+    maxSourceJobsForRebuild: 500,
+    retryMaxAttempts: 1,
+    retryBackoffMs: 1,
+    now: () => new Date('2026-04-13T10:06:00.000Z'),
+    sleep: async () => undefined,
+  });
+
+  assert.equal(summary.healthStatus, 'degraded');
+  assert.equal(summary.highFitDispatchResult?.failedUsers, 1);
+  assert.equal(summary.highFitDispatchFailure, null);
+  assert.ok(
+    summary.errors.some((error) =>
+      error.includes('dispatch_high_fit_notifications_for_all_users:failed_users:1'),
+    ),
+  );
 });
 
 test('withRetry retries failed operations with exponential backoff', async () => {
@@ -160,6 +230,9 @@ test('ingestion scheduler tracks status after manual trigger', async () => {
     },
     async rebuildCanonicalCatalog() {
       return buildRebuildResponse();
+    },
+    async dispatchHighFitNotificationsForAllUsers() {
+      return buildDispatchAllResponse();
     },
   };
 

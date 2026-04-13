@@ -64,3 +64,18 @@ test('upsertPreferences normalizes list duplicates and whitespace', async () => 
   assert.deepEqual(updated.preferredTitles, ['Software Engineer', 'Data Engineer']);
   assert.deepEqual(updated.preferredSkills, ['TypeScript', 'Node.js']);
 });
+
+test('listUserIds returns registered user IDs with optional limits', async () => {
+  const service = createService();
+
+  const first = await service.register({ email: 'list-users-1@test.dev' });
+  const second = await service.register({ email: 'list-users-2@test.dev' });
+
+  const allUserIds = await service.listUserIds();
+  assert.equal(allUserIds.length, 2);
+  assert.ok(allUserIds.includes(first.user.userId));
+  assert.ok(allUserIds.includes(second.user.userId));
+
+  const limitedUserIds = await service.listUserIds(1);
+  assert.equal(limitedUserIds.length, 1);
+});

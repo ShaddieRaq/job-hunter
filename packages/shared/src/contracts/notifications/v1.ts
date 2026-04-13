@@ -61,6 +61,19 @@ export const notificationDispatchResponseSchema = z
   })
   .strict();
 
+export const notificationDispatchAllUsersResponseSchema = z
+  .object({
+    contractVersion: z.literal(notificationsContractVersion),
+    attemptedUsers: z.number().int().min(0).max(10_000),
+    dispatchedUsers: z.number().int().min(0).max(10_000),
+    failedUsers: z.number().int().min(0).max(10_000),
+    queuedCount: z.number().int().min(0).max(500_000),
+    sentCount: z.number().int().min(0).max(500_000),
+    skippedCount: z.number().int().min(0).max(500_000),
+    errors: z.array(trimmedText(500)).max(500),
+  })
+  .strict();
+
 export type NotificationId = z.infer<typeof notificationIdSchema>;
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 export type NotificationChannel = z.infer<typeof notificationChannelSchema>;
@@ -72,4 +85,7 @@ export type NotificationDispatchRequest = z.infer<
 export type NotificationListResponse = z.infer<typeof notificationListResponseSchema>;
 export type NotificationDispatchResponse = z.infer<
   typeof notificationDispatchResponseSchema
+>;
+export type NotificationDispatchAllUsersResponse = z.infer<
+  typeof notificationDispatchAllUsersResponseSchema
 >;

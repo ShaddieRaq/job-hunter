@@ -1,6 +1,7 @@
 import type {
   CanonicalRebuildResponse,
   ConnectorSyncResponse,
+  NotificationDispatchAllUsersResponse,
   SourceName,
 } from '@job-hunter/shared';
 
@@ -42,6 +43,9 @@ export interface IngestionRunSummary {
   rebuildAttempts: number | null;
   rebuildResult: CanonicalRebuildResponse | null;
   rebuildFailure: string | null;
+  highFitDispatchAttempts: number | null;
+  highFitDispatchResult: NotificationDispatchAllUsersResponse | null;
+  highFitDispatchFailure: string | null;
   healthStatus: IngestionRunHealthStatus;
   errors: string[];
 }
@@ -115,10 +119,15 @@ const calculateHealthStatus = (
   syncResults: IngestionConnectorRunResult[],
   connectorFailures: IngestionConnectorFailure[],
   rebuildFailure: string | null,
+  highFitDispatchResult: NotificationDispatchAllUsersResponse | null,
+  highFitDispatchFailure: string | null,
 ): IngestionRunHealthStatus => {
   const hasDegradedSync = syncResults.some(
     (result) => result.failedCount > 0 || result.healthStatus !== 'healthy',
   );
+  const hasHighFitDispatchFailures =
+    highFitDispatchFailure !== null ||
+    (highFitDispatchResult !== null && highFitDispatchResult.failedUsers > 0);
 
   if (connectorNames.length === 0) {
     return 'unhealthy';
@@ -132,7 +141,12 @@ const calculateHealthStatus = (
     return 'unhealthy';
   }
 
-  if (connectorFailures.length > 0 || hasDegradedSync || rebuildFailure) {
+  if (
+    connectorFailures.length > 0 ||
+    hasDegradedSync ||
+    rebuildFailure ||
+    hasHighFitDispatchFailures
+  ) {
     return 'degraded';
   }
 
@@ -145,6 +159,9 @@ const cloneSummary = (summary: IngestionRunSummary): IngestionRunSummary => ({
   syncResults: summary.syncResults.map((result) => ({ ...result })),
   connectorFailures: summary.connectorFailures.map((failure) => ({ ...failure })),
   rebuildResult: summary.rebuildResult ? { ...summary.rebuildResult } : null,
+  highFitDispatchResult: summary.highFitDispatchResult
+    ? { ...summary.highFitDispatchResult }
+    : null,
   errors: [...summary.errors],
 });
 
@@ -218,6 +235,9 @@ export const runIngestionCycle = async ({
   let rebuildAttempts: number | null = null;
   let rebuildResult: CanonicalRebuildResponse | null = null;
   let rebuildFailure: string | null = null;
+  let highFitDispatchAttempts: number | null = null;
+  let highFitDispatchResult: NotificationDispatchAllUsersResponse | null = null;
+  let highFitDispatchFailure: string | null = null;
 
   const connectorNames: SourceName[] = [];
   const syncResults: IngestionConnectorRunResult[] = [];
@@ -253,6 +273,9 @@ export const runIngestionCycle = async ({
       rebuildAttempts,
       rebuildResult,
       rebuildFailure,
+      highFitDispatchAttempts,
+      highFitDispatchResult,
+      highFitDispatchFailure,
       healthStatus: 'unhealthy',
       errors,
     };
@@ -312,12 +335,44 @@ export const runIngestionCycle = async ({
     }
   }
 
+  if (rebuildResult !== null && rebuildFailure === null) {
+    try {
+      const dispatched = await withRetry(
+        'dispatch_high_fit_notifications_for_all_users',
+        async () =>
+          client.dispatchHighFitNotificationsForAllUsers(now().toISOString()),
+        {
+          maxAttempts: retryMaxAttempts,
+          baseBackoffMs: retryBackoffMs,
+          sleep,
+        },
+      );
+
+      highFitDispatchAttempts = dispatched.attempts;
+      highFitDispatchResult = dispatched.value;
+
+      if (dispatched.value.failedUsers > 0) {
+        errors.push(
+          `dispatch_high_fit_notifications_for_all_users:failed_users:${dispatched.value.failedUsers}`,
+        );
+      }
+    } catch (error: unknown) {
+      highFitDispatchAttempts = retryMaxAttempts;
+      highFitDispatchFailure = toErrorMessage(error);
+      errors.push(
+        `dispatch_high_fit_notifications_for_all_users:${highFitDispatchFailure}`,
+      );
+    }
+  }
+
   const completedAtDate = now();
   const healthStatus = calculateHealthStatus(
     connectorNames,
     syncResults,
     connectorFailures,
     rebuildFailure,
+    highFitDispatchResult,
+    highFitDispatchFailure,
   );
 
   return {
@@ -331,6 +386,9 @@ export const runIngestionCycle = async ({
     rebuildAttempts,
     rebuildResult,
     rebuildFailure,
+    highFitDispatchAttempts,
+    highFitDispatchResult,
+    highFitDispatchFailure,
     healthStatus,
     errors,
   };
@@ -414,7 +472,7 @@ export const createIngestionScheduler = ({
     }
 
     logger.info(
-      `[worker] ingestion cycle ${summary.healthStatus} (sync=${summary.syncResults.length}, failures=${summary.connectorFailures.length})`,
+      `[worker] ingestion cycle ${summary.healthStatus} (sync=${summary.syncResults.length}, failures=${summary.connectorFailures.length}, highFitDispatchFailedUsers=${summary.highFitDispatchResult?.failedUsers ?? 0})`,
     );
 
     updateNextScheduledAt();

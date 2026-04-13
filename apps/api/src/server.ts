@@ -158,6 +158,11 @@ const defaultNotificationService = createNotificationService({
       );
     },
   },
+  userIdReader: {
+    async listUserIds(limit) {
+      return defaultAuthProfileService.listUserIds(limit);
+    },
+  },
 });
 
 const defaultSavedSearchService = createSavedSearchService();

@@ -14,6 +14,7 @@ import type { NotificationRepository } from './repository.js';
 const defaultListLimit = 50;
 const maxListLimit = 500;
 const dispatchLimit = 500;
+const dispatchAllUsersLimit = 10_000;
 const highFitMinimumOverallScore = 75;
 const highFitEligibleTrackerStates = new Set<TrackerState>([
   'discovered',
@@ -53,6 +54,14 @@ const parseIsoToEpochMs = (value: string): number | null => {
   return parsed;
 };
 
+const toErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'unknown_error';
+};
+
 export interface ReminderReader {
   listReminders(options: {
     userId: string;
@@ -76,6 +85,10 @@ export interface HighFitCandidateReader {
   }): Promise<HighFitNotificationCandidate[]>;
 }
 
+export interface UserIdReader {
+  listUserIds(limit?: number): Promise<string[]>;
+}
+
 export interface DispatchReminderNotificationsInput {
   referenceTime?: string;
 }
@@ -84,6 +97,16 @@ export interface DispatchReminderNotificationsResult {
   queuedCount: number;
   sentCount: number;
   skippedCount: number;
+}
+
+export interface DispatchAllHighFitNotificationsResult {
+  attemptedUsers: number;
+  dispatchedUsers: number;
+  failedUsers: number;
+  queuedCount: number;
+  sentCount: number;
+  skippedCount: number;
+  errors: string[];
 }
 
 export interface NotificationService {
@@ -100,11 +123,15 @@ export interface NotificationService {
     userId: string,
     input?: DispatchReminderNotificationsInput,
   ): Promise<DispatchReminderNotificationsResult>;
+  dispatchHighFitNotificationsForAllUsers(
+    input?: DispatchReminderNotificationsInput,
+  ): Promise<DispatchAllHighFitNotificationsResult>;
 }
 
 export interface CreateNotificationServiceOptions {
   reminderReader: ReminderReader;
   highFitCandidateReader?: HighFitCandidateReader;
+  userIdReader?: UserIdReader;
   repository?: NotificationRepository;
   now?: () => Date;
 }
@@ -120,107 +147,14 @@ const isHighFitTrackerStateEligible = (trackerState: TrackerState | null): boole
 export const createNotificationService = ({
   reminderReader,
   highFitCandidateReader,
+  userIdReader,
   repository = createInMemoryNotificationRepository(),
   now = () => new Date(),
-}: CreateNotificationServiceOptions): NotificationService => ({
-  async listNotifications({ userId, status, limit }) {
-    const resolvedLimit = normalizeLimit(limit);
-
-    return repository.listNotifications({
-      userId,
-      status,
-      limit: resolvedLimit,
-    });
-  },
-
-  async dispatchDueReminderNotifications(userId, input) {
-    const referenceTimeIso = input?.referenceTime ?? now().toISOString();
-    const referenceTimeMs = parseIsoToEpochMs(referenceTimeIso);
-
-    if (referenceTimeMs === null) {
-      return {
-        queuedCount: 0,
-        sentCount: 0,
-        skippedCount: 0,
-      };
-    }
-
-    const reminders = await reminderReader.listReminders({
-      userId,
-      status: 'pending',
-      limit: dispatchLimit,
-    });
-
-    let queuedCount = 0;
-    let skippedCount = 0;
-
-    for (const reminder of reminders) {
-      const dueAtMs = parseIsoToEpochMs(reminder.dueAt);
-      if (dueAtMs === null || dueAtMs > referenceTimeMs) {
-        continue;
-      }
-
-      const existing = await repository.findReminderDueNotification(
-        userId,
-        reminder.reminderId,
-      );
-
-      if (existing) {
-        skippedCount += 1;
-        continue;
-      }
-
-      const nowIso = now().toISOString();
-      const notification: NotificationLog = {
-        notificationId: randomUUID(),
-        userId,
-        reminderId: reminder.reminderId,
-        canonicalJobId: reminder.canonicalJobId,
-        matchArtifactVersion: null,
-        notificationType: 'reminder_due',
-        channel: 'in_app',
-        status: 'queued',
-        message: buildReminderDueMessage(reminder),
-        scheduledFor: reminder.dueAt,
-        sentAt: null,
-        failedAt: null,
-        errorCode: null,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-
-      await repository.createNotification(notification);
-      queuedCount += 1;
-    }
-
-    const queuedNotifications = await repository.listQueuedNotifications({
-      userId,
-      scheduledBefore: referenceTimeIso,
-      limit: dispatchLimit,
-      notificationType: 'reminder_due',
-    });
-
-    let sentCount = 0;
-
-    for (const queuedNotification of queuedNotifications) {
-      const nowIso = now().toISOString();
-      await repository.updateNotification({
-        ...queuedNotification,
-        status: 'sent',
-        sentAt: nowIso,
-        updatedAt: nowIso,
-      });
-      sentCount += 1;
-    }
-
-    return {
-      queuedCount,
-      sentCount,
-      skippedCount,
-    };
-  },
-
-  async dispatchHighFitNotifications(userId, input) {
+}: CreateNotificationServiceOptions): NotificationService => {
+  const dispatchHighFitNotificationsForUser = async (
+    userId: string,
+    input?: DispatchReminderNotificationsInput,
+  ): Promise<DispatchReminderNotificationsResult> => {
     if (!highFitCandidateReader) {
       return {
         queuedCount: 0,
@@ -322,5 +256,156 @@ export const createNotificationService = ({
       sentCount,
       skippedCount,
     };
-  },
-});
+  };
+
+  return {
+    async dispatchHighFitNotificationsForAllUsers(input) {
+      if (!userIdReader || !highFitCandidateReader) {
+        return {
+          attemptedUsers: 0,
+          dispatchedUsers: 0,
+          failedUsers: 0,
+          queuedCount: 0,
+          sentCount: 0,
+          skippedCount: 0,
+          errors: [],
+        };
+      }
+
+      const userIds = await userIdReader.listUserIds(dispatchAllUsersLimit);
+      let dispatchedUsers = 0;
+      let failedUsers = 0;
+      let queuedCount = 0;
+      let sentCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      for (const userId of userIds) {
+        try {
+          const result = await dispatchHighFitNotificationsForUser(userId, input);
+          queuedCount += result.queuedCount;
+          sentCount += result.sentCount;
+          skippedCount += result.skippedCount;
+          dispatchedUsers += 1;
+        } catch (error: unknown) {
+          failedUsers += 1;
+          if (errors.length < dispatchLimit) {
+            const errorMessage = toErrorMessage(error);
+            errors.push(`user:${userId}:${errorMessage}`.slice(0, 500));
+          }
+        }
+      }
+
+      return {
+        attemptedUsers: userIds.length,
+        dispatchedUsers,
+        failedUsers,
+        queuedCount,
+        sentCount,
+        skippedCount,
+        errors,
+      };
+    },
+
+    async listNotifications({ userId, status, limit }) {
+      const resolvedLimit = normalizeLimit(limit);
+
+      return repository.listNotifications({
+        userId,
+        status,
+        limit: resolvedLimit,
+      });
+    },
+
+    async dispatchDueReminderNotifications(userId, input) {
+      const referenceTimeIso = input?.referenceTime ?? now().toISOString();
+      const referenceTimeMs = parseIsoToEpochMs(referenceTimeIso);
+
+      if (referenceTimeMs === null) {
+        return {
+          queuedCount: 0,
+          sentCount: 0,
+          skippedCount: 0,
+        };
+      }
+
+      const reminders = await reminderReader.listReminders({
+        userId,
+        status: 'pending',
+        limit: dispatchLimit,
+      });
+
+      let queuedCount = 0;
+      let skippedCount = 0;
+
+      for (const reminder of reminders) {
+        const dueAtMs = parseIsoToEpochMs(reminder.dueAt);
+        if (dueAtMs === null || dueAtMs > referenceTimeMs) {
+          continue;
+        }
+
+        const existing = await repository.findReminderDueNotification(
+          userId,
+          reminder.reminderId,
+        );
+
+        if (existing) {
+          skippedCount += 1;
+          continue;
+        }
+
+        const nowIso = now().toISOString();
+        const notification: NotificationLog = {
+          notificationId: randomUUID(),
+          userId,
+          reminderId: reminder.reminderId,
+          canonicalJobId: reminder.canonicalJobId,
+          matchArtifactVersion: null,
+          notificationType: 'reminder_due',
+          channel: 'in_app',
+          status: 'queued',
+          message: buildReminderDueMessage(reminder),
+          scheduledFor: reminder.dueAt,
+          sentAt: null,
+          failedAt: null,
+          errorCode: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
+
+        await repository.createNotification(notification);
+        queuedCount += 1;
+      }
+
+      const queuedNotifications = await repository.listQueuedNotifications({
+        userId,
+        scheduledBefore: referenceTimeIso,
+        limit: dispatchLimit,
+        notificationType: 'reminder_due',
+      });
+
+      let sentCount = 0;
+
+      for (const queuedNotification of queuedNotifications) {
+        const nowIso = now().toISOString();
+        await repository.updateNotification({
+          ...queuedNotification,
+          status: 'sent',
+          sentAt: nowIso,
+          updatedAt: nowIso,
+        });
+        sentCount += 1;
+      }
+
+      return {
+        queuedCount,
+        sentCount,
+        skippedCount,
+      };
+    },
+
+    async dispatchHighFitNotifications(userId, input) {
+      return dispatchHighFitNotificationsForUser(userId, input);
+    },
+  };
+};

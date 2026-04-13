@@ -4,8 +4,10 @@ import {
   canonicalRebuildResponseSchema,
   connectorListResponseSchema,
   connectorSyncResponseSchema,
+  notificationDispatchAllUsersResponseSchema,
   type CanonicalRebuildResponse,
   type ConnectorSyncResponse,
+  type NotificationDispatchAllUsersResponse,
   type SourceName,
 } from '@job-hunter/shared';
 
@@ -18,6 +20,9 @@ export interface IngestionApiClient {
     maxRecords: number,
   ): Promise<ConnectorSyncResponse>;
   rebuildCanonicalCatalog(maxSourceJobs: number): Promise<CanonicalRebuildResponse>;
+  dispatchHighFitNotificationsForAllUsers(
+    referenceTime?: string,
+  ): Promise<NotificationDispatchAllUsersResponse>;
 }
 
 export interface CreateIngestionApiClientOptions {
@@ -292,6 +297,32 @@ export const createIngestionApiClient = ({
       const parsed = canonicalRebuildResponseSchema.safeParse(body);
       if (!parsed.success) {
         throw new Error('invalid_rebuild_response');
+      }
+
+      return parsed.data;
+    },
+
+    async dispatchHighFitNotificationsForAllUsers(
+      referenceTime,
+    ): Promise<NotificationDispatchAllUsersResponse> {
+      const { response, body } = await authedRequest(
+        '/v1/notifications/high-fit/dispatch-all',
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            referenceTime,
+          }),
+        },
+      );
+
+      assertOkOrThrow(response, body, 'dispatch_high_fit_notifications_for_all_users');
+
+      const parsed = notificationDispatchAllUsersResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new Error('invalid_high_fit_dispatch_all_response');
       }
 
       return parsed.data;

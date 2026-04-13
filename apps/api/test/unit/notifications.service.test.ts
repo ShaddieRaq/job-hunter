@@ -329,3 +329,111 @@ test('dispatchHighFitNotifications is idempotent by canonical job and artifact v
   assert.equal(second.sentCount, 0);
   assert.equal(second.skippedCount, 1);
 });
+
+test('dispatchHighFitNotificationsForAllUsers aggregates queued and sent counts', async () => {
+  const firstUserId = '7f1f7a79-6df8-45e2-b5cf-af8c1028e451';
+  const secondUserId = '9c07f8db-4bfd-4d6f-ae76-6d8f5be71ae0';
+
+  const service = createNotificationService({
+    reminderReader: {
+      async listReminders() {
+        return [];
+      },
+    },
+    userIdReader: {
+      async listUserIds() {
+        return [firstUserId, secondUserId];
+      },
+    },
+    highFitCandidateReader: {
+      async listCandidates({ userId }) {
+        if (userId === firstUserId) {
+          return [
+            createHighFitCandidate({
+              canonicalJobId: 'f59ac287-d79d-4510-9a7a-c6d378ec8a54',
+              latestScoreArtifact: createMatchScoreArtifact({
+                userId,
+                canonicalJobId: 'f59ac287-d79d-4510-9a7a-c6d378ec8a54',
+                artifactVersion: 40,
+              }),
+            }),
+          ];
+        }
+
+        return [
+          createHighFitCandidate({
+            canonicalJobId: 'da656887-aee5-4cd0-b2ad-88f5712cbd43',
+            latestScoreArtifact: createMatchScoreArtifact({
+              userId,
+              canonicalJobId: 'da656887-aee5-4cd0-b2ad-88f5712cbd43',
+              artifactVersion: 41,
+            }),
+          }),
+        ];
+      },
+    },
+    now: () => new Date('2026-04-12T16:00:00.000Z'),
+  });
+
+  const result = await service.dispatchHighFitNotificationsForAllUsers({
+    referenceTime: '2026-04-12T16:00:00.000Z',
+  });
+
+  assert.equal(result.attemptedUsers, 2);
+  assert.equal(result.dispatchedUsers, 2);
+  assert.equal(result.failedUsers, 0);
+  assert.equal(result.queuedCount, 2);
+  assert.equal(result.sentCount, 2);
+  assert.equal(result.skippedCount, 0);
+  assert.deepEqual(result.errors, []);
+});
+
+test('dispatchHighFitNotificationsForAllUsers reports per-user failures without aborting', async () => {
+  const firstUserId = 'd89f0ce7-50f1-437e-8f89-a7c915f0d1c5';
+  const secondUserId = '42cc2042-1785-44ea-b545-d84fef5fd9b0';
+
+  const service = createNotificationService({
+    reminderReader: {
+      async listReminders() {
+        return [];
+      },
+    },
+    userIdReader: {
+      async listUserIds() {
+        return [firstUserId, secondUserId];
+      },
+    },
+    highFitCandidateReader: {
+      async listCandidates({ userId }) {
+        if (userId === secondUserId) {
+          throw new Error('candidate_lookup_failed');
+        }
+
+        return [
+          createHighFitCandidate({
+            canonicalJobId: '2bfe4bc9-bf92-4c60-abf9-f0cb67e13f35',
+            latestScoreArtifact: createMatchScoreArtifact({
+              userId,
+              canonicalJobId: '2bfe4bc9-bf92-4c60-abf9-f0cb67e13f35',
+              artifactVersion: 42,
+            }),
+          }),
+        ];
+      },
+    },
+    now: () => new Date('2026-04-12T16:00:00.000Z'),
+  });
+
+  const result = await service.dispatchHighFitNotificationsForAllUsers({
+    referenceTime: '2026-04-12T16:00:00.000Z',
+  });
+
+  assert.equal(result.attemptedUsers, 2);
+  assert.equal(result.dispatchedUsers, 1);
+  assert.equal(result.failedUsers, 1);
+  assert.equal(result.queuedCount, 1);
+  assert.equal(result.sentCount, 1);
+  assert.equal(result.skippedCount, 0);
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0] ?? '', /candidate_lookup_failed/);
+});

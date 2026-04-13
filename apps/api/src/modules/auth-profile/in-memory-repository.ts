@@ -57,6 +57,15 @@ export const createInMemoryAuthProfileRepository = (): AuthProfileRepository => 
       return user ? cloneUser(user) : null;
     },
 
+    async listUserIds(limit) {
+      const userIds = Array.from(usersById.keys());
+      if (limit === undefined) {
+        return userIds;
+      }
+
+      return userIds.slice(0, Math.max(0, limit));
+    },
+
     async saveSession(session) {
       sessionsByToken.set(session.accessToken, cloneSession(session));
     },

@@ -10,6 +10,7 @@ export interface AuthProfileRepository {
   insertUser(user: AuthUser): Promise<void>;
   findUserByEmail(email: string): Promise<AuthUser | null>;
   findUserById(userId: string): Promise<AuthUser | null>;
+  listUserIds(limit?: number): Promise<string[]>;
 
   saveSession(session: SessionRecord): Promise<void>;
   findSessionByToken(accessToken: string): Promise<SessionRecord | null>;

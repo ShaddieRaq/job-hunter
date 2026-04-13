@@ -7,6 +7,7 @@ Background process for asynchronous workflows.
 	- lists configured connectors via API
 	- runs connector sync for each source
 	- runs canonical catalog rebuild after sync
+	- dispatches high-fit alerts across users after successful rebuild cycles
 	- retries failed API operations with exponential backoff
 - Operational status surface:
 	- `GET /health`
@@ -28,5 +29,6 @@ Background process for asynchronous workflows.
 ## Test coverage
 
 - unit coverage for ingestion cycle health outcomes (healthy/degraded)
+- unit coverage for high-fit dispatch-all aggregation/failure handling in ingestion cycles
 - unit coverage for retry behavior and exponential backoff
 - unit coverage for scheduler status tracking via manual trigger

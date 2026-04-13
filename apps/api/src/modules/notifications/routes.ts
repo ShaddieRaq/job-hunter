@@ -187,5 +187,28 @@ export const handleNotificationRoutes = async (
     return true;
   }
 
+  if (method === 'POST' && pathname === '/v1/notifications/high-fit/dispatch-all') {
+    const accessToken = requireAccessToken(req);
+    await authProfileService.authenticate(accessToken);
+
+    const payload = await parseBody(req, notificationDispatchRequestSchema);
+
+    const result = await notificationService.dispatchHighFitNotificationsForAllUsers({
+      referenceTime: payload.referenceTime,
+    });
+
+    sendJson(res, 200, {
+      contractVersion: notificationsContractVersion,
+      attemptedUsers: result.attemptedUsers,
+      dispatchedUsers: result.dispatchedUsers,
+      failedUsers: result.failedUsers,
+      queuedCount: result.queuedCount,
+      sentCount: result.sentCount,
+      skippedCount: result.skippedCount,
+      errors: result.errors,
+    });
+    return true;
+  }
+
   return false;
 };

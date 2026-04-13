@@ -42,7 +42,7 @@ Owner: team
 
 ## Current focus
 - Active step: maintain MVP-validated baseline and prioritize next-value connector and UX improvements
-- Next PR target: post-validation product iteration (worker-scheduled high-fit dispatch cadence and additional official/public connectors)
+- Next PR target: post-validation product iteration (additional official/public connectors and feed UX refinements)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -71,7 +71,7 @@ Owner: team
 
 5. ✅ P2 - high-fit alerts/digests (`Medium` risk)
    - Scope: extend notifications with recommendation-threshold-based high-fit alert/digest generation.
-   - Delivery evidence: notification contract/service/repository updates with score-threshold and tracker-state eligibility gating plus authenticated high-fit dispatch route (`packages/shared/src/contracts/notifications/v1.ts`, `apps/api/src/modules/notifications/service.ts`, `apps/api/src/modules/notifications/routes.ts`, `apps/api/src/modules/notifications/in-memory-repository.ts`, `apps/api/src/server.ts`) and regression coverage (`apps/api/test/unit/notifications.service.test.ts`, `apps/api/test/integration/notifications.routes.test.ts`).
+   - Delivery evidence: notification contract/service/repository updates with score-threshold and tracker-state eligibility gating plus authenticated high-fit dispatch routes (`packages/shared/src/contracts/notifications/v1.ts`, `apps/api/src/modules/notifications/service.ts`, `apps/api/src/modules/notifications/routes.ts`, `apps/api/src/modules/notifications/in-memory-repository.ts`, `apps/api/src/server.ts`), worker post-rebuild high-fit dispatch cadence wiring (`apps/worker/src/ingestion/client.ts`, `apps/worker/src/ingestion/scheduler.ts`), and regression coverage (`apps/api/test/unit/notifications.service.test.ts`, `apps/api/test/integration/notifications.routes.test.ts`, `apps/worker/test/unit/ingestion.scheduler.test.ts`).
    - Completion check: users receive explainable high-fit alerts without manual polling.
 
 ## Validation gate criteria
@@ -103,6 +103,7 @@ Owner: team
 - 2026-04-13: MVP remediation slice 4 landed with saved-search contracts, authenticated API create/list/get/delete routes, and web feed save/apply/delete flows backed by API/web regression coverage.
 - 2026-04-13: MVP remediation slice 5 landed with recommendation-threshold high-fit alert dispatch (`POST /v1/notifications/high-fit/dispatch`), score-artifact idempotency keys, tracker-state suppression for terminal workflows, and unit/integration coverage for alert eligibility plus duplicate suppression.
 - 2026-04-13: Post-validation UX polish landed with feed-integrated high-fit alert visibility (sent notification fetch, high-fit-only panel rendering, and direct jump-to-job navigation) covered by web integration regression tests.
+- 2026-04-13: Post-validation worker cadence landed with high-fit dispatch-all orchestration (`POST /v1/notifications/high-fit/dispatch-all`) triggered after successful worker rebuild cycles, plus API/worker regression coverage for aggregate and degraded dispatch paths.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

@@ -48,7 +48,7 @@ Post-MVP hardening coverage currently includes:
 - web feed regression tests for high-fit-first recommendation defaults and explicit recommendation filter parsing behavior
 - AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
 - notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating and duplicate suppression
-- worker unit tests for scheduled connector sync + canonical rebuild orchestration, retry/backoff behavior, and run-status tracking
+- worker unit tests for scheduled connector sync + canonical rebuild orchestration, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and run-status tracking
 - manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
 
 ## Testing goals

@@ -28,6 +28,8 @@ const seniorityOrder: Record<Seniority, number> = {
   principal: 5,
 };
 
+const maxUserListLimit = 10_000;
+
 const dedupeList = (values: string[]): string[] => {
   const deduped: string[] = [];
   const seen = new Set<string>();
@@ -85,10 +87,23 @@ const normalizePreferencesPayload = (
   };
 };
 
+const normalizeUserListLimit = (limit: number | undefined): number | undefined => {
+  if (limit === undefined) {
+    return undefined;
+  }
+
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error('invalid_user_list_limit');
+  }
+
+  return Math.min(limit, maxUserListLimit);
+};
+
 export interface AuthProfileService {
   register(request: AuthRegisterRequest): Promise<AuthSession>;
   login(request: AuthLoginRequest): Promise<AuthSession>;
   authenticate(accessToken: string): Promise<AuthUser>;
+  listUserIds(limit?: number): Promise<string[]>;
 
   getProfile(userId: string): Promise<UserProfile>;
   upsertProfile(userId: string, payload: UserProfilePayload): Promise<UserProfile>;
@@ -208,6 +223,11 @@ export const createAuthProfileService = ({
     }
 
     return user;
+  },
+
+  async listUserIds(limit) {
+    const normalizedLimit = normalizeUserListLimit(limit);
+    return repository.listUserIds(normalizedLimit);
   },
 
   async getProfile(userId) {

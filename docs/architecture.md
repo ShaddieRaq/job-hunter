@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices 1 through 5:
+As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices 1 through 5 and post-validation high-fit delivery iterations:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -40,11 +40,11 @@ As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices
 - tracker state transition API slice with explicit transition rules and auditable transition-event history
 - reminder task API slice with authenticated create/list/detail/complete routes and completion lifecycle
 - notification API slice with authenticated log listing and due-reminder dispatch workflows
-- high-fit alert dispatch workflow keyed to recommendation thresholds and tracker-state eligibility
+- high-fit alert dispatch workflow keyed to recommendation thresholds and tracker-state eligibility, including authenticated dispatch-all cadence support for worker orchestration
 - application API slice with authenticated create/list/detail/update workflows and canonical/resume validation
 - tracker transition observer linkage for auto-created follow-up reminders on key workflow states
 - authenticated tracker discovery-action endpoint semantics for save/shortlist/hide workflows
-- worker scheduler orchestration for scheduled connector sync + canonical rebuild cycles with retry/backoff and health/status endpoints
+- worker scheduler orchestration for scheduled connector sync + canonical rebuild cycles with retry/backoff, followed by high-fit dispatch-all cadence and health/status endpoints
 - explicit AI provider-boundary payload minimization/redaction guardrails with upstream provider error-detail minimization
 - saved-search persistence contracts plus authenticated API create/list/get/delete routes and web feed save/apply/delete controls
 - SQL migration for versioned match score artifacts
@@ -166,10 +166,11 @@ Stores like/dislike/hide signals and later tuning inputs.
 4. digests and follow-up reminders are generated
 
 ### 5. High-fit alert flow
-1. notification dispatch scans latest scored jobs for each user
-2. recommendation-threshold eligibility checks select high-fit jobs (apply recommendation, minimum overall score, no deal breakers)
-3. tracker-state gating suppresses alerts for terminal workflow states
-4. idempotent notification records are queued and dispatched as in-app alerts
+1. worker ingestion cadence triggers high-fit dispatch-all after successful canonical rebuild cycles
+2. notification dispatch scans latest scored jobs for each user
+3. recommendation-threshold eligibility checks select high-fit jobs (apply recommendation, minimum overall score, no deal breakers)
+4. tracker-state gating suppresses alerts for terminal workflow states
+5. idempotent notification records are queued and dispatched as in-app alerts
 
 ## Storage strategy
 

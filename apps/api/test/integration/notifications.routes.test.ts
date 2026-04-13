@@ -369,6 +369,35 @@ test('notification routes enforce auth and request validation', async () => {
     );
 
     assert.equal(invalidHighFitDispatchBody.status, 400);
+
+    const unauthorizedHighFitDispatchAll = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch-all`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(unauthorizedHighFitDispatchAll.status, 401);
+
+    const invalidHighFitDispatchAllBody = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch-all`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          referenceTime: 'not-a-date',
+        }),
+      },
+    );
+
+    assert.equal(invalidHighFitDispatchAllBody.status, 400);
   } finally {
     await app.close();
   }
@@ -515,6 +544,96 @@ test('notification routes dispatch high-fit alerts and list sent logs', async ()
     assert.equal(secondDispatchBody.queuedCount, 0);
     assert.equal(secondDispatchBody.sentCount, 0);
     assert.equal(secondDispatchBody.skippedCount, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('notification routes dispatch high-fit alerts across users with aggregate result', async () => {
+  const firstUserId = '1c9d48b6-752f-43cc-9f9d-87a091f6dbaa';
+  const secondUserId = '5d6ecccd-f396-4201-b414-bf6165e32ab0';
+
+  const notificationService = createNotificationService({
+    reminderReader: {
+      async listReminders() {
+        return [];
+      },
+    },
+    userIdReader: {
+      async listUserIds() {
+        return [firstUserId, secondUserId];
+      },
+    },
+    highFitCandidateReader: {
+      async listCandidates({ userId }) {
+        if (userId === secondUserId) {
+          throw new Error('candidate_lookup_failed');
+        }
+
+        return [
+          {
+            canonicalJobId: 'f4b91168-9d31-4a52-84ad-e16d15731e24',
+            canonicalCompanyName: 'Acme Labs',
+            canonicalTitle: 'Staff Platform Engineer',
+            latestScoreArtifact: createMatchScoreArtifact(
+              'f4b91168-9d31-4a52-84ad-e16d15731e24',
+              {
+                userId,
+                artifactVersion: 25,
+              },
+            ),
+            trackerState: 'reviewing',
+          },
+        ];
+      },
+    },
+    now: (() => {
+      let current = Date.parse('2026-04-12T16:30:00.000Z');
+      return () => {
+        current += 1_000;
+        return new Date(current);
+      };
+    })(),
+  });
+
+  const app = await startServer({
+    notificationService,
+  });
+
+  try {
+    const accessToken = await registerAndGetAccessToken(app.baseUrl);
+
+    const dispatchResponse = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch-all`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(dispatchResponse.status, 200);
+    const dispatchBody = (await dispatchResponse.json()) as {
+      attemptedUsers: number;
+      dispatchedUsers: number;
+      failedUsers: number;
+      queuedCount: number;
+      sentCount: number;
+      skippedCount: number;
+      errors: string[];
+    };
+
+    assert.equal(dispatchBody.attemptedUsers, 2);
+    assert.equal(dispatchBody.dispatchedUsers, 1);
+    assert.equal(dispatchBody.failedUsers, 1);
+    assert.equal(dispatchBody.queuedCount, 1);
+    assert.equal(dispatchBody.sentCount, 1);
+    assert.equal(dispatchBody.skippedCount, 0);
+    assert.equal(dispatchBody.errors.length, 1);
+    assert.match(dispatchBody.errors[0] ?? '', /candidate_lookup_failed/);
   } finally {
     await app.close();
   }

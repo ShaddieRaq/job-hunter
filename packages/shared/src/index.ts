@@ -143,6 +143,7 @@ export {
 
 export {
   notificationChannelSchema,
+  notificationDispatchAllUsersResponseSchema,
   notificationDispatchRequestSchema,
   notificationDispatchResponseSchema,
   notificationIdSchema,
@@ -292,6 +293,7 @@ export type {
 
 export type {
   NotificationChannel,
+  NotificationDispatchAllUsersResponse,
   NotificationDispatchRequest,
   NotificationDispatchResponse,
   NotificationId,
