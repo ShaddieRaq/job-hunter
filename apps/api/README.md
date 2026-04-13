@@ -43,6 +43,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `POST /v1/reminders`
 	- `GET /v1/reminders/:reminderId`
 	- `PUT /v1/reminders/:reminderId/complete`
+	- tracker transitions to `applied` and `interview` auto-create follow-up reminder tasks
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)
 	- deterministic fallback provider for resilient local/dev behavior

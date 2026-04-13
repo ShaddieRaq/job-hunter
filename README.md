@@ -17,11 +17,11 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 7 complete and Step 8 tracker foundations in progress:
+This repository is a TypeScript monorepo with Steps 2 through 7 complete and Step 8 tracker/reminder slices in progress:
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder v1 endpoints
   web/      # Server-rendered feed/detail UI with auth, filters, and sync/rebuild controls
   worker/   # Background worker entrypoint stub
 packages/
@@ -59,6 +59,10 @@ docs/
 - GET /v1/tracker/jobs/:canonicalJobId
 - PUT /v1/tracker/jobs/:canonicalJobId/state
 - GET /v1/tracker/jobs/:canonicalJobId/history
+- GET /v1/reminders
+- POST /v1/reminders
+- GET /v1/reminders/:reminderId
+- PUT /v1/reminders/:reminderId/complete
 
 ### Persistence and tests currently included
 
@@ -69,21 +73,23 @@ docs/
 - Canonical dedupe trace-event migration under apps/api/migrations
 - Match scoring artifact migration under apps/api/migrations
 - Tracker state + transition audit migration under apps/api/migrations
+- Reminder task lifecycle migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
 - In-memory connector repository + Greenhouse public board connector adapter
 - API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
 - Connector fixture-driven unit tests plus connector route integration tests
 - Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals
+- Tracker/reminder unit and integration tests for transition history, reminder lifecycle, and tracker-linked reminder side effects
 
 ## Suggested local commands
 
 ```bash
-pnpm install
-pnpm dev
-pnpm build
-pnpm lint
-pnpm typecheck
+corepack pnpm install
+corepack pnpm dev
+corepack pnpm build
+corepack pnpm lint
+corepack pnpm -r typecheck
 ```
 
 ## Documentation index

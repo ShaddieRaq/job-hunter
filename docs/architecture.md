@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2 through 7 are implemented and Step 8 tracker foundations are in progress:
+As of 2026-04-12, Steps 2 through 7 are implemented and Step 8 tracker/reminder slices are in progress:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -35,7 +35,10 @@ As of 2026-04-12, Steps 2 through 7 are implemented and Step 8 tracker foundatio
 - feed/detail query paths backed by canonical catalog with latest score artifact joins
 - server-rendered web feed/detail experience with auth session handling, preference-aligned filtering/sorting, and explicit sync/rebuild controls
 - tracker state transition API slice with explicit transition rules and auditable transition-event history
+- reminder task API slice with authenticated create/list/detail/complete routes and completion lifecycle
+- tracker transition observer linkage for auto-created follow-up reminders on key workflow states
 - SQL migration for versioned match score artifacts
+- SQL migrations for tracker state history and reminder task lifecycle
 
 ## Guiding approach
 
