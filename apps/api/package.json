@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@job-hunter/shared": "workspace:*",
+    "pg": "^8.16.3",
     "zod": "^3.24.3"
   },
   "devDependencies": {
+    "@types/pg": "^8.15.5",
     "@types/node": "^22.14.0",
     "tsx": "^4.19.3"
   }

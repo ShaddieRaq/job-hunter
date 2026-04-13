@@ -58,6 +58,17 @@ Structured Node.js API for the Job Hunter modular monolith.
 ## Connector configuration
 
 - `GREENHOUSE_BOARD_TOKEN`: Greenhouse board token used by the default public-board connector instance (default: `stripe` for local/dev bootstrap)
+- `CONNECTOR_REPOSITORY`: repository mode for connector source state (`in-memory` default, `postgres` optional)
+
+## Canonical catalog repository configuration
+
+- `CANONICAL_JOBS_REPOSITORY`: repository mode for canonical jobs (`in-memory` default, `postgres` optional)
+
+## PostgreSQL adapter configuration
+
+- `DATABASE_URL`: required for any `postgres` repository mode
+- `PG_POOL_MAX`: optional maximum pool size (default: `10`)
+- `PG_IDLE_TIMEOUT_MS`: optional pool idle timeout in milliseconds (default: `30000`)
 
 ## AI eval harness
 

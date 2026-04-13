@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 
 import { isHttpError } from './http/http-errors.js';
 import { sendJson } from './http/json.js';
+import { getSharedPostgresPool } from './db/postgres.js';
 import { createInMemoryAuthProfileRepository } from './modules/auth-profile/in-memory-repository.js';
 import { handleAuthProfileRoutes } from './modules/auth-profile/routes.js';
 import {
@@ -11,6 +12,7 @@ import {
 import { handleAiRoutes } from './modules/ai/routes.js';
 import { createAiService, type AiService } from './modules/ai/service.js';
 import { createInMemoryCanonicalJobRepository } from './modules/canonical-jobs/in-memory-repository.js';
+import { createPostgresCanonicalJobRepository } from './modules/canonical-jobs/postgres-repository.js';
 import { handleCanonicalJobRoutes } from './modules/canonical-jobs/routes.js';
 import {
   createCanonicalJobsService,
@@ -18,6 +20,7 @@ import {
 } from './modules/canonical-jobs/service.js';
 import { createGreenhousePublicBoardConnector } from './modules/connectors/greenhouse-public-board-connector.js';
 import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
+import { createPostgresConnectorRepository } from './modules/connectors/postgres-repository.js';
 import { handleConnectorRoutes } from './modules/connectors/routes.js';
 import {
   createConnectorService,
@@ -35,8 +38,46 @@ const defaultAuthProfileService = createAuthProfileService({
 
 const defaultAiService = createAiService();
 
+const postgresPool = getSharedPostgresPool();
+
+const connectorRepositoryMode = (
+  process.env.CONNECTOR_REPOSITORY ?? 'in-memory'
+).toLowerCase();
+
+const canonicalRepositoryMode = (
+  process.env.CANONICAL_JOBS_REPOSITORY ?? 'in-memory'
+).toLowerCase();
+
+const resolveConnectorRepository = () => {
+  if (connectorRepositoryMode === 'postgres') {
+    if (!postgresPool) {
+      throw new Error(
+        'CONNECTOR_REPOSITORY=postgres requires DATABASE_URL to be set',
+      );
+    }
+
+    return createPostgresConnectorRepository(postgresPool);
+  }
+
+  return createInMemoryConnectorRepository();
+};
+
+const resolveCanonicalRepository = () => {
+  if (canonicalRepositoryMode === 'postgres') {
+    if (!postgresPool) {
+      throw new Error(
+        'CANONICAL_JOBS_REPOSITORY=postgres requires DATABASE_URL to be set',
+      );
+    }
+
+    return createPostgresCanonicalJobRepository(postgresPool);
+  }
+
+  return createInMemoryCanonicalJobRepository();
+};
+
 const defaultConnectorService = createConnectorService({
-  repository: createInMemoryConnectorRepository(),
+  repository: resolveConnectorRepository(),
   connectors: [
     createGreenhousePublicBoardConnector({
       boardToken: process.env.GREENHOUSE_BOARD_TOKEN ?? 'stripe',
@@ -48,7 +89,7 @@ const defaultConnectorService = createConnectorService({
 
 const defaultCanonicalJobsService = createCanonicalJobsService({
   sourceJobReader: defaultConnectorService,
-  repository: createInMemoryCanonicalJobRepository(),
+  repository: resolveCanonicalRepository(),
 });
 
 const defaultResumeService = createResumeService({
