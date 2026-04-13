@@ -180,3 +180,36 @@ test('transitionTrackedJobState rejects unknown canonical jobs', async () => {
       error.statusCode === 404,
   );
 });
+
+test('transitionTrackedJobState notifies transition observers for emitted events', async () => {
+  const canonicalJobId = '8f9cca95-b826-4952-9ab8-f5d9ce0c1265';
+  const observedTransitions: string[] = [];
+
+  const service = createTrackerService({
+    canonicalJobLookup: {
+      async getCanonicalJob(id) {
+        return id === canonicalJobId ? createCanonicalJob(canonicalJobId) : null;
+      },
+    },
+    transitionObservers: [
+      {
+        async onTrackerTransition(event) {
+          observedTransitions.push(event.toState);
+        },
+      },
+    ],
+    now: () => new Date(nowIso),
+  });
+
+  await service.transitionTrackedJobState('user-5', {
+    canonicalJobId,
+    targetState: 'discovered',
+  });
+
+  await service.transitionTrackedJobState('user-5', {
+    canonicalJobId,
+    targetState: 'discovered',
+  });
+
+  assert.deepEqual(observedTransitions, ['discovered']);
+});

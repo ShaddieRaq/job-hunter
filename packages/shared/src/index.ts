@@ -101,6 +101,18 @@ export {
 } from './contracts/jobs/v1.js';
 
 export {
+  reminderCompleteRequestSchema,
+  reminderCreateRequestSchema,
+  reminderIdSchema,
+  reminderListResponseSchema,
+  reminderResponseSchema,
+  reminderStatusSchema,
+  remindersContractVersion,
+  reminderTaskSchema,
+  reminderTaskTypeSchema,
+} from './contracts/reminders/v1.js';
+
+export {
   profileContractVersion,
   userProfilePayloadSchema,
   userProfileSchema,
@@ -195,6 +207,17 @@ export type {
   FeedJobCard,
   FeedResponse,
 } from './contracts/jobs/v1.js';
+
+export type {
+  ReminderCompleteRequest,
+  ReminderCreateRequest,
+  ReminderId,
+  ReminderListResponse,
+  ReminderResponse,
+  ReminderStatus,
+  ReminderTask,
+  ReminderTaskType,
+} from './contracts/reminders/v1.js';
 
 export type {
   UserProfile,

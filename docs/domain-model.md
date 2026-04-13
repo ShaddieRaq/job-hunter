@@ -254,11 +254,15 @@ Suggested fields:
 - id
 - user_id
 - canonical_job_id
-- application_id
 - task_type
+- title
+- note
 - due_at
+- status
+- linked_tracker_event_id
+- created_at
+- updated_at
 - completed_at
-- payload_json
 
 ## FeedbackEvent
 Represents user feedback that can later improve ranking.

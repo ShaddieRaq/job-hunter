@@ -72,6 +72,10 @@ export interface TransitionTrackerStateResult {
   event: TrackerTransitionEvent | null;
 }
 
+export interface TrackerTransitionObserver {
+  onTrackerTransition(event: TrackerTransitionEvent): Promise<void>;
+}
+
 export interface TrackerService {
   listTrackedJobs(options: {
     userId: string;
@@ -96,12 +100,14 @@ export interface TrackerService {
 export interface CreateTrackerServiceOptions {
   canonicalJobLookup: CanonicalJobLookup;
   repository?: TrackerRepository;
+  transitionObservers?: TrackerTransitionObserver[];
   now?: () => Date;
 }
 
 export const createTrackerService = ({
   canonicalJobLookup,
   repository = createInMemoryTrackerRepository(),
+  transitionObservers = [],
   now = () => new Date(),
 }: CreateTrackerServiceOptions): TrackerService => ({
   async listTrackedJobs({ userId, state, limit }) {
@@ -171,6 +177,10 @@ export const createTrackerService = ({
     };
 
     await repository.insertTransitionEvent(event);
+
+    for (const observer of transitionObservers) {
+      await observer.onTrackerTransition(event);
+    }
 
     return {
       tracker: savedTracker,
