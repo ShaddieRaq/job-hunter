@@ -32,7 +32,7 @@ Step 8 tracker/reminder/notification slices currently include:
 - tracker route integration tests for authenticated list/detail/transition/history boundaries and invalid-transition handling
 - tracker route integration tests for explicit discovery action endpoint semantics (`POST /v1/tracker/jobs/:canonicalJobId/actions/:action`)
 - reminder route integration tests for authenticated create/list/detail/complete boundaries, validation/auth errors, and tracker-transition side-effect coverage
-- notification route integration tests for authenticated reminder/high-fit dispatch and log-list boundaries plus validation/auth errors
+- notification route integration tests for authenticated reminder/high-fit/high-fit-dispatch-all dispatch and log-list boundaries plus validation/auth errors
 
 Step 9 resume/application support baseline currently includes:
 - application service unit tests for create/update lifecycle, duplicate prevention, resume validation, and list filtering
@@ -47,7 +47,7 @@ Post-MVP hardening coverage currently includes:
 - saved-search unit/integration tests for create/list/get/delete API behavior and web feed save/apply/delete flows
 - web feed regression tests for high-fit-first recommendation defaults and explicit recommendation filter parsing behavior
 - AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
-- notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating and duplicate suppression
+- notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating + duplicate suppression and `/v1/notifications/high-fit/dispatch-all` aggregate partial-failure reporting
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and run-status tracking
 - manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
 

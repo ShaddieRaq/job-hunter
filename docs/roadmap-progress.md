@@ -50,9 +50,9 @@ Owner: team
 - Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 5).
 
 1. ✅ P0 - scheduled import jobs (`High` risk)
-   - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff and health reporting.
-   - Delivery evidence: worker ingestion API client + scheduler implementation (`apps/worker/src/ingestion/client.ts`, `apps/worker/src/ingestion/scheduler.ts`), worker job status endpoints (`apps/worker/src/index.ts`), and worker unit coverage (`apps/worker/test/unit/ingestion.scheduler.test.ts`).
-   - Completion check: worker can run scheduled sync/rebuild cycles and expose latest run health/status without manual `/actions/sync` and `/actions/rebuild` triggers.
+   - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff, post-rebuild high-fit dispatch cadence, and health reporting.
+   - Delivery evidence: worker ingestion API client + scheduler implementation (`apps/worker/src/ingestion/client.ts`, `apps/worker/src/ingestion/scheduler.ts`), authenticated API high-fit dispatch-all route (`apps/api/src/modules/notifications/routes.ts`), worker job status endpoints (`apps/worker/src/index.ts`), and worker unit coverage (`apps/worker/test/unit/ingestion.scheduler.test.ts`).
+   - Completion check: worker can run scheduled sync/rebuild + high-fit dispatch cycles and expose latest run health/status (including dispatch aggregates/failures) without manual `/actions/sync` and `/actions/rebuild` triggers.
 
 2. ✅ P1 - explicit discovery actions save/hide/shortlist (`High` risk)
    - Scope: add first-class feed actions and API semantics for save/bookmark/hide/shortlist, mapped to tracker workflow states.

@@ -48,7 +48,9 @@ Structured Node.js API for the Job Hunter modular monolith.
 - Notification v1 endpoints:
 	- `GET /v1/notifications`
 	- `POST /v1/notifications/reminders/dispatch`
-	- dispatch endpoint queues + marks sent due reminder notifications for authenticated users (in-app scaffold)
+	- `POST /v1/notifications/high-fit/dispatch`
+	- `POST /v1/notifications/high-fit/dispatch-all`
+	- dispatch endpoints queue + mark sent due reminder and high-fit notifications for authenticated users, with dispatch-all aggregate reporting for worker cadence orchestration
 - Application v1 endpoints:
 	- `GET /v1/applications`
 	- `POST /v1/applications`

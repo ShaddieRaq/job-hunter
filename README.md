@@ -103,7 +103,7 @@ docs/
 - Application unit and integration tests for create/list/detail/update workflows and validation paths
 - Application material-guidance unit/integration coverage and web integration coverage for assistant rendering
 - Web integration tests for sign-in/feed/detail, tracker discovery action flows, plus application create/list/detail/update workflows
-- Worker unit tests for scheduled ingestion health outcomes, retry/backoff behavior, and scheduler status tracking
+- Worker unit tests for scheduled ingestion health outcomes, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and scheduler status tracking
 - Saved-search API and web integration tests for create/list/get/delete and feed apply/delete flows
 - AI provider-boundary minimization regression tests for redacted payload handling and provider error-detail minimization
 - Notification service and route coverage for recommendation-threshold high-fit alert dispatch and idempotency

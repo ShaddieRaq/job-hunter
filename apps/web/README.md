@@ -7,13 +7,15 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 - Feed view backed by `GET /v1/feed`
 - Job detail view backed by `GET /v1/feed/:canonicalJobId`
 - Discovery tracker actions (save/shortlist/hide) backed by `POST /v1/tracker/jobs/:canonicalJobId/actions/:action`
+- Saved-search create/apply/delete workflows backed by `GET/POST/DELETE /v1/saved-searches*`
+- Feed high-fit alerts panel backed by sent notification reads via `GET /v1/notifications?status=sent`
 - Application tracker list/detail views backed by `GET /v1/applications*`
 - Application create/update actions backed by `POST /v1/applications` and `PUT /v1/applications/:applicationId`
 - Structured material assistant rendering backed by `GET /v1/applications/:applicationId/material-guidance`
 - Preference-aligned filtering and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
 - Resume/application material guidance checklists in job and application detail views
-- Integration tests for sign-in, feed/detail tracker actions, sync/rebuild actions, and application workflow routes
+- Integration tests for sign-in, feed/detail tracker actions, saved-search and high-fit alert panel workflows, sync/rebuild actions, and application workflow routes
 
 ## Runtime configuration
 - `WEB_PORT`: web server port (default `3000`)
