@@ -3,7 +3,11 @@ import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import test from 'node:test';
 
-import type { CanonicalJobDetail, CanonicalJobId } from '@job-hunter/shared';
+import type {
+  CanonicalJobDetail,
+  CanonicalJobId,
+  MatchScoreArtifact,
+} from '@job-hunter/shared';
 
 import { createNotificationService } from '../../src/modules/notifications/service.js';
 import { createReminderService } from '../../src/modules/reminders/service.js';
@@ -44,6 +48,37 @@ const createCanonicalJob = (canonicalJobId: CanonicalJobId): CanonicalJobDetail 
     ],
   };
 };
+
+const createMatchScoreArtifact = (
+  canonicalJobId: CanonicalJobId,
+  overrides?: Partial<MatchScoreArtifact>,
+): MatchScoreArtifact => ({
+  userId: '8b027aa6-dfd3-4fb5-9276-b6e9a257f543',
+  canonicalJobId,
+  artifactVersion: 1,
+  scoringVersion: 'deterministic-v1',
+  scoreBreakdown: {
+    overallScore: 84,
+    titleScore: 85,
+    skillScore: 83,
+    seniorityScore: 82,
+    locationScore: 88,
+    compensationScore: 80,
+    domainScore: 79,
+    requirementScore: 84,
+    trajectoryScore: 81,
+    penaltyScore: 5,
+  },
+  strengths: ['Strong backend alignment'],
+  gaps: ['Limited domain depth'],
+  dealBreakers: [],
+  recommendation: 'apply',
+  explanation: null,
+  explanationMetadata: null,
+  explanationErrorCode: null,
+  scoredAt: '2026-04-12T16:00:00.000Z',
+  ...overrides,
+});
 
 const startServer = async (
   options?: CreateApiServerOptions,
@@ -305,6 +340,181 @@ test('notification routes enforce auth and request validation', async () => {
     );
 
     assert.equal(invalidDispatchBodyResponse.status, 400);
+
+    const unauthorizedHighFitDispatch = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(unauthorizedHighFitDispatch.status, 401);
+
+    const invalidHighFitDispatchBody = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          referenceTime: 'not-a-date',
+        }),
+      },
+    );
+
+    assert.equal(invalidHighFitDispatchBody.status, 400);
+  } finally {
+    await app.close();
+  }
+});
+
+test('notification routes dispatch high-fit alerts and list sent logs', async () => {
+  const eligibleCanonicalJobId =
+    'f4b91168-9d31-4a52-84ad-e16d15731e24' as CanonicalJobId;
+
+  const notificationService = createNotificationService({
+    reminderReader: {
+      async listReminders() {
+        return [];
+      },
+    },
+    highFitCandidateReader: {
+      async listCandidates() {
+        return [
+          {
+            canonicalJobId: eligibleCanonicalJobId,
+            canonicalCompanyName: 'Acme Labs',
+            canonicalTitle: 'Staff Platform Engineer',
+            latestScoreArtifact: createMatchScoreArtifact(eligibleCanonicalJobId, {
+              artifactVersion: 5,
+            }),
+            trackerState: 'reviewing',
+          },
+          {
+            canonicalJobId: 'ba580870-9e5c-4f2c-9884-dbf37ddf21df',
+            canonicalCompanyName: 'Later Corp',
+            canonicalTitle: 'Backend Engineer',
+            latestScoreArtifact: createMatchScoreArtifact(
+              'ba580870-9e5c-4f2c-9884-dbf37ddf21df',
+              {
+                artifactVersion: 6,
+                scoreBreakdown: {
+                  overallScore: 74,
+                  titleScore: 85,
+                  skillScore: 83,
+                  seniorityScore: 82,
+                  locationScore: 88,
+                  compensationScore: 80,
+                  domainScore: 79,
+                  requirementScore: 84,
+                  trajectoryScore: 81,
+                  penaltyScore: 5,
+                },
+              },
+            ),
+            trackerState: 'reviewing',
+          },
+        ];
+      },
+    },
+    now: (() => {
+      let current = Date.parse('2026-04-12T16:30:00.000Z');
+      return () => {
+        current += 1_000;
+        return new Date(current);
+      };
+    })(),
+  });
+
+  const app = await startServer({
+    notificationService,
+  });
+
+  try {
+    const accessToken = await registerAndGetAccessToken(app.baseUrl);
+
+    const dispatchResponse = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(dispatchResponse.status, 200);
+    const dispatchBody = (await dispatchResponse.json()) as {
+      queuedCount: number;
+      sentCount: number;
+      skippedCount: number;
+    };
+
+    assert.equal(dispatchBody.queuedCount, 1);
+    assert.equal(dispatchBody.sentCount, 1);
+    assert.equal(dispatchBody.skippedCount, 0);
+
+    const notificationsResponse = await fetch(
+      `${app.baseUrl}/v1/notifications?status=sent&limit=10`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(notificationsResponse.status, 200);
+    const notificationsBody = (await notificationsResponse.json()) as {
+      notifications: Array<{
+        notificationType: string;
+        canonicalJobId: string;
+        reminderId: string | null;
+        matchArtifactVersion: number | null;
+      }>;
+    };
+
+    assert.equal(notificationsBody.notifications.length, 1);
+    assert.equal(
+      notificationsBody.notifications[0]?.notificationType,
+      'high_fit_alert',
+    );
+    assert.equal(
+      notificationsBody.notifications[0]?.canonicalJobId,
+      eligibleCanonicalJobId,
+    );
+    assert.equal(notificationsBody.notifications[0]?.reminderId, null);
+    assert.equal(notificationsBody.notifications[0]?.matchArtifactVersion, 5);
+
+    const secondDispatchResponse = await fetch(
+      `${app.baseUrl}/v1/notifications/high-fit/dispatch`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(secondDispatchResponse.status, 200);
+    const secondDispatchBody = (await secondDispatchResponse.json()) as {
+      queuedCount: number;
+      sentCount: number;
+      skippedCount: number;
+    };
+
+    assert.equal(secondDispatchBody.queuedCount, 0);
+    assert.equal(secondDispatchBody.sentCount, 0);
+    assert.equal(secondDispatchBody.skippedCount, 1);
   } finally {
     await app.close();
   }

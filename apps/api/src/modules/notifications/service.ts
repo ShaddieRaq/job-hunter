@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  MatchScoreArtifact,
   NotificationLog,
   NotificationStatus,
   ReminderTask,
+  TrackerState,
 } from '@job-hunter/shared';
 
 import { createInMemoryNotificationRepository } from './in-memory-repository.js';
@@ -12,6 +14,13 @@ import type { NotificationRepository } from './repository.js';
 const defaultListLimit = 50;
 const maxListLimit = 500;
 const dispatchLimit = 500;
+const highFitMinimumOverallScore = 75;
+const highFitEligibleTrackerStates = new Set<TrackerState>([
+  'discovered',
+  'shortlisted',
+  'reviewing',
+  'ready_to_apply',
+]);
 
 const normalizeLimit = (limit: number | undefined): number => {
   if (limit === undefined) {
@@ -23,6 +32,15 @@ const normalizeLimit = (limit: number | undefined): number => {
 
 const buildReminderDueMessage = (reminder: ReminderTask): string => {
   const baseMessage = `Reminder due: ${reminder.title}`;
+  return baseMessage.slice(0, 500);
+};
+
+const buildHighFitAlertMessage = (
+  candidate: HighFitNotificationCandidate,
+  artifact: MatchScoreArtifact,
+): string => {
+  const scoreLabel = artifact.scoreBreakdown.overallScore.toFixed(1);
+  const baseMessage = `High-fit alert: ${candidate.canonicalTitle} at ${candidate.canonicalCompanyName} scored ${scoreLabel}.`;
   return baseMessage.slice(0, 500);
 };
 
@@ -41,6 +59,21 @@ export interface ReminderReader {
     status?: 'pending' | 'completed';
     limit?: number;
   }): Promise<ReminderTask[]>;
+}
+
+export interface HighFitNotificationCandidate {
+  canonicalJobId: string;
+  canonicalCompanyName: string;
+  canonicalTitle: string;
+  latestScoreArtifact: MatchScoreArtifact | null;
+  trackerState: TrackerState | null;
+}
+
+export interface HighFitCandidateReader {
+  listCandidates(options: {
+    userId: string;
+    limit?: number;
+  }): Promise<HighFitNotificationCandidate[]>;
 }
 
 export interface DispatchReminderNotificationsInput {
@@ -63,16 +96,30 @@ export interface NotificationService {
     userId: string,
     input?: DispatchReminderNotificationsInput,
   ): Promise<DispatchReminderNotificationsResult>;
+  dispatchHighFitNotifications(
+    userId: string,
+    input?: DispatchReminderNotificationsInput,
+  ): Promise<DispatchReminderNotificationsResult>;
 }
 
 export interface CreateNotificationServiceOptions {
   reminderReader: ReminderReader;
+  highFitCandidateReader?: HighFitCandidateReader;
   repository?: NotificationRepository;
   now?: () => Date;
 }
 
+const isHighFitArtifact = (artifact: MatchScoreArtifact): boolean =>
+  artifact.recommendation === 'apply' &&
+  artifact.scoreBreakdown.overallScore >= highFitMinimumOverallScore &&
+  artifact.dealBreakers.length === 0;
+
+const isHighFitTrackerStateEligible = (trackerState: TrackerState | null): boolean =>
+  trackerState === null || highFitEligibleTrackerStates.has(trackerState);
+
 export const createNotificationService = ({
   reminderReader,
+  highFitCandidateReader,
   repository = createInMemoryNotificationRepository(),
   now = () => new Date(),
 }: CreateNotificationServiceOptions): NotificationService => ({
@@ -129,6 +176,7 @@ export const createNotificationService = ({
         userId,
         reminderId: reminder.reminderId,
         canonicalJobId: reminder.canonicalJobId,
+        matchArtifactVersion: null,
         notificationType: 'reminder_due',
         channel: 'in_app',
         status: 'queued',
@@ -149,6 +197,111 @@ export const createNotificationService = ({
       userId,
       scheduledBefore: referenceTimeIso,
       limit: dispatchLimit,
+      notificationType: 'reminder_due',
+    });
+
+    let sentCount = 0;
+
+    for (const queuedNotification of queuedNotifications) {
+      const nowIso = now().toISOString();
+      await repository.updateNotification({
+        ...queuedNotification,
+        status: 'sent',
+        sentAt: nowIso,
+        updatedAt: nowIso,
+      });
+      sentCount += 1;
+    }
+
+    return {
+      queuedCount,
+      sentCount,
+      skippedCount,
+    };
+  },
+
+  async dispatchHighFitNotifications(userId, input) {
+    if (!highFitCandidateReader) {
+      return {
+        queuedCount: 0,
+        sentCount: 0,
+        skippedCount: 0,
+      };
+    }
+
+    const referenceTimeIso = input?.referenceTime ?? now().toISOString();
+    const referenceTimeMs = parseIsoToEpochMs(referenceTimeIso);
+
+    if (referenceTimeMs === null) {
+      return {
+        queuedCount: 0,
+        sentCount: 0,
+        skippedCount: 0,
+      };
+    }
+
+    const candidates = await highFitCandidateReader.listCandidates({
+      userId,
+      limit: dispatchLimit,
+    });
+
+    let queuedCount = 0;
+    let skippedCount = 0;
+
+    for (const candidate of candidates) {
+      const artifact = candidate.latestScoreArtifact;
+      if (!artifact || !isHighFitArtifact(artifact)) {
+        continue;
+      }
+
+      if (!isHighFitTrackerStateEligible(candidate.trackerState)) {
+        continue;
+      }
+
+      const scoredAtMs = parseIsoToEpochMs(artifact.scoredAt);
+      if (scoredAtMs === null || scoredAtMs > referenceTimeMs) {
+        continue;
+      }
+
+      const existing = await repository.findHighFitNotification(
+        userId,
+        candidate.canonicalJobId,
+        artifact.artifactVersion,
+      );
+
+      if (existing) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const nowIso = now().toISOString();
+      const notification: NotificationLog = {
+        notificationId: randomUUID(),
+        userId,
+        reminderId: null,
+        canonicalJobId: candidate.canonicalJobId,
+        matchArtifactVersion: artifact.artifactVersion,
+        notificationType: 'high_fit_alert',
+        channel: 'in_app',
+        status: 'queued',
+        message: buildHighFitAlertMessage(candidate, artifact),
+        scheduledFor: artifact.scoredAt,
+        sentAt: null,
+        failedAt: null,
+        errorCode: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      await repository.createNotification(notification);
+      queuedCount += 1;
+    }
+
+    const queuedNotifications = await repository.listQueuedNotifications({
+      userId,
+      scheduledBefore: referenceTimeIso,
+      limit: dispatchLimit,
+      notificationType: 'high_fit_alert',
     });
 
     let sentCount = 0;

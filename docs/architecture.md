@@ -39,6 +39,7 @@ As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices
 - tracker state transition API slice with explicit transition rules and auditable transition-event history
 - reminder task API slice with authenticated create/list/detail/complete routes and completion lifecycle
 - notification API slice with authenticated log listing and due-reminder dispatch workflows
+- high-fit alert dispatch workflow keyed to recommendation thresholds and tracker-state eligibility
 - application API slice with authenticated create/list/detail/update workflows and canonical/resume validation
 - tracker transition observer linkage for auto-created follow-up reminders on key workflow states
 - authenticated tracker discovery-action endpoint semantics for save/shortlist/hide workflows
@@ -162,6 +163,12 @@ Stores like/dislike/hide signals and later tuning inputs.
 2. user moves it through tracker states
 3. notes, reminders, and documents are attached
 4. digests and follow-up reminders are generated
+
+### 5. High-fit alert flow
+1. notification dispatch scans latest scored jobs for each user
+2. recommendation-threshold eligibility checks select high-fit jobs (apply recommendation, minimum overall score, no deal breakers)
+3. tracker-state gating suppresses alerts for terminal workflow states
+4. idempotent notification records are queued and dispatched as in-app alerts
 
 ## Storage strategy
 

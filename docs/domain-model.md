@@ -300,9 +300,10 @@ Tracks notification generation and delivery.
 Suggested fields:
 - id
 - user_id
-- reminder_id
+- reminder_id                 # nullable for non-reminder notifications
 - canonical_job_id
-- notification_type
+- match_artifact_version      # nullable; links high-fit alerts to score snapshots
+- notification_type           # reminder_due | high_fit_alert
 - delivery_channel
 - message
 - scheduled_for
@@ -327,7 +328,7 @@ Suggested fields:
 - one user can have at most one active application record per canonical job in MVP workflows
 - one user can have zero or more reminders per canonical job
 - reminders may link to tracker transition events for traceable auto-created follow-ups
-- one user can have zero or more notification logs tied to reminder tasks
+- one user can have zero or more notification logs tied to reminder tasks and score-triggered high-fit alerts
 
 ## Business rules
 
@@ -352,6 +353,9 @@ Discovery actions should remain deterministic and auditable (for example, hide m
 
 ### Rule: saved searches are explicit query snapshots
 Persist the exact filter shape used by discovery (query text, recommendation filter, remote filter, sort mode, include-hidden) so reruns are reproducible.
+
+### Rule: high-fit alerts are threshold and state gated
+Alert generation should be tied to explicit score thresholds and recommendation class, and should suppress terminal tracker states to avoid noisy follow-up notifications.
 
 ### Rule: application records are user assertions
 Even if a source job disappears, the user's application history remains.

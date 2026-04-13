@@ -1,4 +1,5 @@
 import type {
+  CanonicalJobId,
   NotificationId,
   NotificationLog,
   ReminderId,
@@ -8,6 +9,12 @@ import type { NotificationRepository } from './repository.js';
 
 const reminderDueKey = (userId: string, reminderId: ReminderId): string =>
   `${userId}:${reminderId}`;
+
+const highFitKey = (
+  userId: string,
+  canonicalJobId: CanonicalJobId,
+  matchArtifactVersion: number,
+): string => `${userId}:${canonicalJobId}:${matchArtifactVersion}`;
 
 const cloneNotification = (notification: NotificationLog): NotificationLog => ({
   ...notification,
@@ -25,6 +32,7 @@ const parseIsoToEpochMs = (value: string): number | null => {
 export const createInMemoryNotificationRepository = (): NotificationRepository => {
   const notificationsById = new Map<NotificationId, NotificationLog>();
   const notificationIdByReminderDue = new Map<string, NotificationId>();
+  const notificationIdByHighFit = new Map<string, NotificationId>();
 
   return {
     async createNotification(notification) {
@@ -33,9 +41,26 @@ export const createInMemoryNotificationRepository = (): NotificationRepository =
         cloneNotification(notification),
       );
 
-      if (notification.notificationType === 'reminder_due') {
+      if (
+        notification.notificationType === 'reminder_due' &&
+        notification.reminderId !== null
+      ) {
         notificationIdByReminderDue.set(
           reminderDueKey(notification.userId, notification.reminderId),
+          notification.notificationId,
+        );
+      }
+
+      if (
+        notification.notificationType === 'high_fit_alert' &&
+        notification.matchArtifactVersion !== null
+      ) {
+        notificationIdByHighFit.set(
+          highFitKey(
+            notification.userId,
+            notification.canonicalJobId,
+            notification.matchArtifactVersion,
+          ),
           notification.notificationId,
         );
       }
@@ -49,11 +74,45 @@ export const createInMemoryNotificationRepository = (): NotificationRepository =
         cloneNotification(notification),
       );
 
-      if (notification.notificationType === 'reminder_due') {
+      if (
+        notification.notificationType === 'reminder_due' &&
+        notification.reminderId !== null
+      ) {
         notificationIdByReminderDue.set(
           reminderDueKey(notification.userId, notification.reminderId),
           notification.notificationId,
         );
+      }
+
+      if (
+        notification.notificationType === 'high_fit_alert' &&
+        notification.matchArtifactVersion !== null
+      ) {
+        notificationIdByHighFit.set(
+          highFitKey(
+            notification.userId,
+            notification.canonicalJobId,
+            notification.matchArtifactVersion,
+          ),
+          notification.notificationId,
+        );
+      }
+
+      return cloneNotification(notification);
+    },
+
+    async findHighFitNotification(userId, canonicalJobId, matchArtifactVersion) {
+      const notificationId = notificationIdByHighFit.get(
+        highFitKey(userId, canonicalJobId, matchArtifactVersion),
+      );
+
+      if (!notificationId) {
+        return null;
+      }
+
+      const notification = notificationsById.get(notificationId);
+      if (!notification || notification.userId !== userId) {
+        return null;
       }
 
       return cloneNotification(notification);
@@ -93,7 +152,12 @@ export const createInMemoryNotificationRepository = (): NotificationRepository =
       return notifications;
     },
 
-    async listQueuedNotifications({ userId, scheduledBefore, limit }) {
+    async listQueuedNotifications({
+      userId,
+      scheduledBefore,
+      limit,
+      notificationType,
+    }) {
       const scheduledBeforeMs = parseIsoToEpochMs(scheduledBefore);
       if (scheduledBeforeMs === null) {
         return [];
@@ -102,6 +166,9 @@ export const createInMemoryNotificationRepository = (): NotificationRepository =
       const notifications = [...notificationsById.values()]
         .filter((notification) => notification.userId === userId)
         .filter((notification) => notification.status === 'queued')
+        .filter((notification) =>
+          notificationType ? notification.notificationType === notificationType : true,
+        )
         .filter((notification) => {
           const scheduledForMs = parseIsoToEpochMs(notification.scheduledFor);
           return scheduledForMs !== null && scheduledForMs <= scheduledBeforeMs;

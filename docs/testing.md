@@ -28,11 +28,11 @@ Step 8 tracker/reminder/notification slices currently include:
 - tracker service unit tests for transition-rule enforcement, canonical existence checks, transition observer hooks, and transition audit history behavior
 - tracker service unit tests for discovery action mapping (`save`, `shortlist`, `hide`) to deterministic tracker states
 - reminder service unit tests for creation, completion lifecycle, dedupe-by-tracker-event behavior, and unsupported-state handling
-- notification service unit tests for due-reminder queue/send dispatch semantics and idempotency
+- notification service unit tests for due-reminder queue/send dispatch semantics, recommendation-threshold high-fit alert eligibility, and idempotency
 - tracker route integration tests for authenticated list/detail/transition/history boundaries and invalid-transition handling
 - tracker route integration tests for explicit discovery action endpoint semantics (`POST /v1/tracker/jobs/:canonicalJobId/actions/:action`)
 - reminder route integration tests for authenticated create/list/detail/complete boundaries, validation/auth errors, and tracker-transition side-effect coverage
-- notification route integration tests for authenticated dispatch/log-list boundaries and validation/auth errors
+- notification route integration tests for authenticated reminder/high-fit dispatch and log-list boundaries plus validation/auth errors
 
 Step 9 resume/application support baseline currently includes:
 - application service unit tests for create/update lifecycle, duplicate prevention, resume validation, and list filtering
@@ -46,6 +46,7 @@ Post-MVP hardening coverage currently includes:
 - saved-search unit/integration tests for create/list/get/delete API behavior and web feed save/apply/delete flows
 - web feed regression tests for high-fit-first recommendation defaults and explicit recommendation filter parsing behavior
 - AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
+- notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating and duplicate suppression
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, retry/backoff behavior, and run-status tracking
 - manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
 

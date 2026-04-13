@@ -1,5 +1,7 @@
 import type {
+  CanonicalJobId,
   NotificationLog,
+  NotificationType,
   NotificationStatus,
   ReminderId,
 } from '@job-hunter/shared';
@@ -11,6 +13,11 @@ export interface NotificationRepository {
     userId: string,
     reminderId: ReminderId,
   ): Promise<NotificationLog | null>;
+  findHighFitNotification(
+    userId: string,
+    canonicalJobId: CanonicalJobId,
+    matchArtifactVersion: number,
+  ): Promise<NotificationLog | null>;
   listNotifications(options: {
     userId: string;
     status?: NotificationStatus;
@@ -20,5 +27,6 @@ export interface NotificationRepository {
     userId: string;
     scheduledBefore: string;
     limit: number;
+    notificationType?: NotificationType;
   }): Promise<NotificationLog[]>;
 }

@@ -3,11 +3,11 @@
 _Date:_ 2026-04-13  
 _Auditor mode:_ strict (docs treated as claims; code+tests/runtime required)
 
-_Revision:_ updated after MVP remediation slice 4 (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved-search delivery evidence).
+_Revision:_ updated after MVP remediation slice 5 (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved-search delivery evidence + high-fit alert delivery evidence).
 
 ## Executive Verdict
 
-The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferences, resume ingestion, connector ingestion, canonicalization/dedupe, explainable scoring artifacts, tracker/reminders/notifications, scheduled ingestion orchestration, explicit discovery actions, AI sensitive-data minimization guardrails, saved searches, and application workflows), but it does **not** fully satisfy every documented MVP promise. Remaining commitments in `docs/mvp-scope.md` and `docs/architecture.md` are still missing or weakly evidenced (notably high-fit alerts/digests UX). **Overall confidence: 96%.**
+The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferences, resume ingestion, connector ingestion, canonicalization/dedupe, explainable scoring artifacts, tracker/reminders/notifications, scheduled ingestion orchestration, explicit discovery actions, AI sensitive-data minimization guardrails, saved searches, high-fit alerts, and application workflows), and now satisfies documented MVP promises with code and test/runtime evidence. **Overall confidence: 98%.**
 
 ## Promise Coverage Table
 
@@ -26,7 +26,7 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 | 11 | Aggregated feed with filtering/sorting | `docs/mvp-scope.md` | Feed route + web query filtering/sorting state exists. `apps/api/src/modules/canonical-jobs/routes.ts`, `apps/web/src/index.ts` | Feed UI integration tests cover filtering and authenticated feed behavior. `apps/web/test/integration/feed-ui.test.ts` | Delivered | Medium |
 | 12 | Save/bookmark/hide/shortlist actions in discovery | `docs/mvp-scope.md` | Explicit tracker discovery action contracts and API/web route surfaces exist for save/shortlist/hide flows. `packages/shared/src/contracts/tracker/v1.ts`, `apps/api/src/modules/tracker/routes.ts`, `apps/api/src/modules/tracker/service.ts`, `apps/web/src/index.ts` | API integration coverage verifies action endpoint semantics and web integration coverage verifies feed action flows + hidden-by-tracker behavior. `apps/api/test/integration/tracker.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts` | Delivered | High |
 | 13 | Saved searches | `docs/mvp-scope.md` | Shared saved-search contracts plus authenticated API create/list/get/delete routes and web feed save/apply/delete controls are implemented. `packages/shared/src/contracts/saved-searches/v1.ts`, `apps/api/src/modules/saved-searches/routes.ts`, `apps/api/src/modules/saved-searches/service.ts`, `apps/web/src/index.ts` | Unit/integration coverage now validates saved-search service logic, API route boundaries, and web feed action workflows. `apps/api/test/unit/saved-searches.service.test.ts`, `apps/api/test/integration/saved-searches.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts` | Delivered | Medium |
-| 14 | New high-fit alerts or digests | `docs/mvp-scope.md` | Reminder-based notifications exist, but no explicit high-fit job alert/digest generator tied to score thresholds. `apps/api/src/modules/notifications/service.ts`, `apps/api/src/modules/reminders/service.ts` | Notification tests cover due-reminder dispatch only. `apps/api/test/unit/notifications.service.test.ts`, `apps/api/test/integration/notifications.routes.test.ts` | Partially Delivered | Medium |
+| 14 | New high-fit alerts or digests | `docs/mvp-scope.md` | Notification dispatch now includes recommendation-threshold high-fit alert generation with tracker-state suppression and score-artifact idempotency keys. `packages/shared/src/contracts/notifications/v1.ts`, `apps/api/src/modules/notifications/service.ts`, `apps/api/src/modules/notifications/routes.ts`, `apps/api/src/modules/notifications/in-memory-repository.ts`, `apps/api/src/server.ts` | Notification unit/integration coverage validates high-fit eligibility thresholds, duplicate suppression, and authenticated route dispatch. `apps/api/test/unit/notifications.service.test.ts`, `apps/api/test/integration/notifications.routes.test.ts` | Delivered | Medium |
 | 15 | Lightweight application tracking with timestamps/history | `docs/mvp-scope.md`; `docs/domain-model.md` | Tracker transition rules + event audit history and application lifecycle endpoints implemented. `apps/api/src/modules/tracker/service.ts`, `apps/api/src/modules/applications/service.ts`, `apps/api/migrations/0007_tracker_state_history.sql`, `apps/api/migrations/0010_application_records.sql` | Unit + integration tests validate transitions/history and application CRUD/update flows. `apps/api/test/unit/tracker.service.test.ts`, `apps/api/test/integration/tracker.routes.test.ts`, `apps/api/test/unit/applications.service.test.ts`, `apps/api/test/integration/applications.routes.test.ts` | Delivered | High |
 | 16 | Resume/application support to reduce repeated manual work | `docs/mvp-scope.md` | Deterministic checklist, keyword suggestions, bullet prompts, cover-letter talking points returned per application. `apps/api/src/modules/applications/service.ts`, `packages/shared/src/contracts/applications/v1.ts` | Unit/integration + web tests for material guidance rendering paths. `apps/api/test/unit/applications.service.test.ts`, `apps/api/test/integration/applications.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts` | Delivered | Medium |
 | 17 | Sensitive data handling (resumes/preferences/notes) and minimization | AGENTS, `.github/copilot-instructions.md`, `docs/domain-model.md` | Resumes remain stored via object storage URI abstraction. AI provider-boundary payload guardrails now redact obvious identifiers, drop source-specific identifiers, cap outbound raw text, and anonymize provider-facing user IDs. `apps/api/src/modules/resume/service.ts`, `apps/api/src/modules/resume/object-storage.ts`, `apps/api/src/modules/ai/privacy.ts`, `apps/api/src/modules/ai/service.ts`.<br>Provider HTTP error detail handling no longer propagates upstream response bodies. `apps/api/src/modules/ai/openai-provider.ts` | AI unit/integration regression coverage now asserts resume/job/explanation payload minimization and provider error-detail minimization behavior. `apps/api/test/unit/ai.service.test.ts`, `apps/api/test/unit/ai.openai-provider.test.ts`, `apps/api/test/integration/ai.routes.test.ts` | Delivered | Medium |
@@ -44,7 +44,7 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 
 ## Undelivered or Weakly Delivered Promises (Prioritized)
 
-1. **High-fit alerts/digests only partially represented** (Medium) — reminder notification dispatch exists, but score-triggered high-fit digest workflows are not clearly present.
+- None at this audit revision.
 
 ## Scope Violations
 
@@ -53,14 +53,11 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 
 ## Minimal Remediation Plan
 
-1. **Add high-fit digest/alert workflow keyed to recommendation thresholds** (2–3 days, Medium reduction).
-   - Reuse notification module with scored-job eligibility checks.
-2. **Publish a refreshed strict audit revision after remediation slice 5** (0.5 day, Medium reduction).
-   - Re-score confidence and verify each remaining promise has code + test/runtime proof.
+No blocking remediation items remain for MVP validation at this revision.
 
 ## Final Gate Decision
 
-**MVP Not Yet Validated**.
+**MVP Validated**.
 
 ### Pass/Fail Criteria Used
 

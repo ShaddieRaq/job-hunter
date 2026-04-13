@@ -13,7 +13,7 @@ const nullableTrimmedText = (max: number) => trimmedText(max).nullable();
 
 export const notificationIdSchema = z.string().uuid();
 
-export const notificationTypeSchema = z.enum(['reminder_due']);
+export const notificationTypeSchema = z.enum(['reminder_due', 'high_fit_alert']);
 
 export const notificationChannelSchema = z.enum(['in_app']);
 
@@ -23,8 +23,9 @@ export const notificationLogSchema = z
   .object({
     notificationId: notificationIdSchema,
     userId: userIdSchema,
-    reminderId: reminderIdSchema,
+    reminderId: reminderIdSchema.nullable(),
     canonicalJobId: canonicalJobIdSchema,
+    matchArtifactVersion: z.number().int().min(1).max(1_000_000).nullable(),
     notificationType: notificationTypeSchema,
     channel: notificationChannelSchema,
     status: notificationStatusSchema,

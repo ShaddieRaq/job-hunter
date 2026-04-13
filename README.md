@@ -18,7 +18,7 @@ The product is designed to help a user:
 ## Current repository status
 
 This repository is a TypeScript monorepo with Steps 2 through 9 complete,
-plus MVP remediation slices 1 through 4 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches):
+plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches + high-fit alerts):
 
 ```text
 apps/
@@ -71,6 +71,7 @@ docs/
 - PUT /v1/reminders/:reminderId/complete
 - GET /v1/notifications
 - POST /v1/notifications/reminders/dispatch
+- POST /v1/notifications/high-fit/dispatch
 - GET /v1/applications
 - POST /v1/applications
 - GET /v1/applications/:applicationId
@@ -104,6 +105,7 @@ docs/
 - Worker unit tests for scheduled ingestion health outcomes, retry/backoff behavior, and scheduler status tracking
 - Saved-search API and web integration tests for create/list/get/delete and feed apply/delete flows
 - AI provider-boundary minimization regression tests for redacted payload handling and provider error-detail minimization
+- Notification service and route coverage for recommendation-threshold high-fit alert dispatch and idempotency
 
 ## Suggested local commands
 

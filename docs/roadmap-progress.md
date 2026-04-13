@@ -41,13 +41,13 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: close MVP validation gaps identified in `docs/mvp-validation-audit-2026-04-13.md`
-- Next PR target: MVP validation remediation slice 5 (high-fit alerts/digests)
+- Active step: maintain MVP-validated baseline and prioritize next-value connector and UX improvements
+- Next PR target: post-validation product iteration (additional official/public connectors and notification UX polish)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
 - Goal: move the gate from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
-- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 4).
+- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 5).
 
 1. ✅ P0 - scheduled import jobs (`High` risk)
    - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff and health reporting.
@@ -69,9 +69,9 @@ Owner: team
    - Delivery evidence: shared saved-search contracts (`packages/shared/src/contracts/saved-searches/v1.ts` + `packages/shared/src/index.ts` exports), API saved-search module/routes (`apps/api/src/modules/saved-searches/*`, `apps/api/src/server.ts`), web saved-search feed actions/UI (`apps/web/src/index.ts`), and regression coverage (`apps/api/test/unit/saved-searches.service.test.ts`, `apps/api/test/integration/saved-searches.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts`).
    - Completion check: users can store, re-apply, and delete search presets directly from discovery workflows.
 
-5. ⬜ P2 - high-fit alerts/digests (`Medium` risk)
+5. ✅ P2 - high-fit alerts/digests (`Medium` risk)
    - Scope: extend notifications with recommendation-threshold-based high-fit alert/digest generation.
-   - Delivery evidence required: scoring-threshold eligibility logic + reminder/notification wiring + unit/integration coverage.
+   - Delivery evidence: notification contract/service/repository updates with score-threshold and tracker-state eligibility gating plus authenticated high-fit dispatch route (`packages/shared/src/contracts/notifications/v1.ts`, `apps/api/src/modules/notifications/service.ts`, `apps/api/src/modules/notifications/routes.ts`, `apps/api/src/modules/notifications/in-memory-repository.ts`, `apps/api/src/server.ts`) and regression coverage (`apps/api/test/unit/notifications.service.test.ts`, `apps/api/test/integration/notifications.routes.test.ts`).
    - Completion check: users receive explainable high-fit alerts without manual polling.
 
 ## Validation gate criteria
@@ -101,6 +101,7 @@ Owner: team
 - 2026-04-13: MVP remediation slice 2 landed in commit `c821fd7` with explicit discovery save/shortlist/hide actions across shared contracts, API semantics, web feed/detail controls, and API/web test coverage.
 - 2026-04-13: MVP remediation slice 3 landed with explicit AI provider-boundary payload minimization (resume/job/explanation sanitization + user-identity anonymization), upstream provider error-detail minimization, and AI regression coverage proving sensitive text is redacted before provider invocation.
 - 2026-04-13: MVP remediation slice 4 landed with saved-search contracts, authenticated API create/list/get/delete routes, and web feed save/apply/delete flows backed by API/web regression coverage.
+- 2026-04-13: MVP remediation slice 5 landed with recommendation-threshold high-fit alert dispatch (`POST /v1/notifications/high-fit/dispatch`), score-artifact idempotency keys, tracker-state suppression for terminal workflows, and unit/integration coverage for alert eligibility plus duplicate suppression.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

@@ -129,16 +129,38 @@ const defaultReminderService = createReminderService({
   canonicalJobLookup: defaultCanonicalJobsService,
 });
 
-const defaultNotificationService = createNotificationService({
-  reminderReader: defaultReminderService,
-});
-
-const defaultSavedSearchService = createSavedSearchService();
-
 const defaultTrackerService = createTrackerService({
   canonicalJobLookup: defaultCanonicalJobsService,
   transitionObservers: [defaultReminderService],
 });
+
+const defaultNotificationService = createNotificationService({
+  reminderReader: defaultReminderService,
+  highFitCandidateReader: {
+    async listCandidates({ userId, limit }) {
+      const jobs = await defaultCanonicalJobsService.listCanonicalJobs(limit);
+
+      return Promise.all(
+        jobs.map(async (job) => {
+          const [latestScoreArtifact, trackedJob] = await Promise.all([
+            defaultAiService.getLatestMatchArtifact(userId, job.canonicalJobId),
+            defaultTrackerService.getTrackedJob(userId, job.canonicalJobId),
+          ]);
+
+          return {
+            canonicalJobId: job.canonicalJobId,
+            canonicalCompanyName: job.canonicalCompanyName,
+            canonicalTitle: job.canonicalTitle,
+            latestScoreArtifact,
+            trackerState: trackedJob?.state ?? null,
+          };
+        }),
+      );
+    },
+  },
+});
+
+const defaultSavedSearchService = createSavedSearchService();
 
 export interface CreateApiServerOptions {
   authProfileService?: AuthProfileService;
