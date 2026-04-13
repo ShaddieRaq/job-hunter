@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import {
+  type CanonicalSourceMapping,
   canonicalJobIdSchema,
   canonicalRebuildRequestSchema,
   feedRecommendationFilterSchema,
@@ -10,6 +11,7 @@ import {
   jobsContractVersion,
   type FeedJobCard,
   type FeedQuery,
+  type SourceJobSummary,
   type UserPreferences,
 } from '@job-hunter/shared';
 
@@ -17,6 +19,7 @@ import { HttpError } from '../../http/http-errors.js';
 import { readJsonBody, sendJson } from '../../http/json.js';
 import type { AiService } from '../ai/service.js';
 import type { AuthProfileService } from '../auth-profile/service.js';
+import type { ConnectorService } from '../connectors/service.js';
 import type { CanonicalJobsService } from './service.js';
 import type { TrackerService } from '../tracker/service.js';
 
@@ -25,6 +28,7 @@ export interface CanonicalJobRoutesDependencies {
   canonicalJobsService: CanonicalJobsService;
   aiService: AiService;
   trackerService: TrackerService;
+  connectorService: ConnectorService;
 }
 
 const defaultFeedLimit = 50;
@@ -401,6 +405,33 @@ const applyFeedFilters = (
   return filtered.sort(compareFeedByFit);
 };
 
+const resolveSourceJobs = async (
+  connectorService: ConnectorService,
+  mappings: CanonicalSourceMapping[],
+): Promise<SourceJobSummary[]> => {
+  const sourceJobs = await Promise.all(
+    mappings.map(async (mapping) => {
+      try {
+        return await connectorService.getSourceJob(
+          mapping.sourceName,
+          mapping.sourceJobId,
+        );
+      } catch (error) {
+        if (
+          error instanceof HttpError &&
+          error.code === 'source_connector_not_found'
+        ) {
+          return null;
+        }
+
+        throw error;
+      }
+    }),
+  );
+
+  return sourceJobs.filter((sourceJob): sourceJob is SourceJobSummary => sourceJob !== null);
+};
+
 export const handleCanonicalJobRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -409,6 +440,7 @@ export const handleCanonicalJobRoutes = async (
     canonicalJobsService,
     aiService,
     trackerService,
+    connectorService,
   }: CanonicalJobRoutesDependencies,
 ): Promise<boolean> => {
   const method = req.method ?? 'GET';
@@ -517,11 +549,17 @@ export const handleCanonicalJobRoutes = async (
         parsedCanonicalJobId.data,
       );
 
+      const sourceJobs = await resolveSourceJobs(
+        connectorService,
+        canonical.sourceMappings,
+      );
+
       sendJson(res, 200, {
         contractVersion: jobsContractVersion,
         canonical,
         latestScoreArtifact,
         dedupeEvents,
+        sourceJobs,
       });
       return true;
     }

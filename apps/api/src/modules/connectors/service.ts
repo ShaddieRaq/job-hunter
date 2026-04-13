@@ -11,7 +11,11 @@ import type {
 
 import { HttpError } from '../../http/http-errors.js';
 import { createInMemoryConnectorRepository } from './in-memory-repository.js';
-import type { ConnectorRepository, UpsertSourceJobResult } from './repository.js';
+import type {
+  ConnectorRepository,
+  SourceJobRecord,
+  UpsertSourceJobResult,
+} from './repository.js';
 import { connectorJobCandidateSchema, type SourceConnectorDefinition } from './types.js';
 
 const defaultSourceJobLimit = 50;
@@ -107,12 +111,21 @@ const upsertResultCounts = (
   };
 };
 
+const toSourceJobSummary = (record: SourceJobRecord): SourceJobSummary => {
+  const { descriptionText: _descriptionText, rawPayload: _rawPayload, ...summary } = record;
+  return summary;
+};
+
 export interface ConnectorService {
   listConnectors(): Promise<SourceConnector[]>;
   syncConnector(
     sourceName: SourceName,
     request: ConnectorSyncRequest,
   ): Promise<Omit<ConnectorSyncResponse, 'contractVersion'>>;
+  getSourceJob(
+    sourceName: SourceName,
+    sourceJobId: string,
+  ): Promise<SourceJobSummary | null>;
   listSourceJobs(options?: {
     sourceName?: SourceName;
     limit?: number;
@@ -315,9 +328,24 @@ export const createConnectorService = ({
     });
   };
 
+  const getSourceJob = async (
+    sourceName: SourceName,
+    sourceJobId: string,
+  ): Promise<SourceJobSummary | null> => {
+    getConnectorOrThrow(sourceName);
+
+    const sourceJob = await repository.findSourceJob(sourceName, sourceJobId);
+    if (!sourceJob) {
+      return null;
+    }
+
+    return toSourceJobSummary(sourceJob);
+  };
+
   return {
     listConnectors,
     syncConnector,
+    getSourceJob,
     listSourceJobs,
   };
 };

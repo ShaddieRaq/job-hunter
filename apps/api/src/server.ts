@@ -378,6 +378,7 @@ const handleRequest = async (
     canonicalJobsService,
     aiService,
     trackerService,
+    connectorService,
   });
 
   if (canonicalHandled) {

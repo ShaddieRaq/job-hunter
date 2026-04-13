@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { matchScoreArtifactSchema } from '../ai/v1.js';
 import {
   sourceEmploymentTypeSchema,
+  sourceJobSummarySchema,
   sourceJobStatusSchema,
   sourceNameSchema,
   sourceRemoteTypeSchema,
@@ -183,6 +184,7 @@ export const feedDetailResponseSchema = z
     canonical: canonicalJobDetailSchema,
     latestScoreArtifact: matchScoreArtifactSchema.nullable(),
     dedupeEvents: z.array(canonicalDedupeTraceEventSchema).max(500),
+    sourceJobs: z.array(sourceJobSummarySchema).max(200),
   })
   .strict();
 

@@ -306,10 +306,30 @@ test('canonical routes rebuild and return canonical detail view', async () => {
       canonical: { sourceMappings: Array<{ sourceJobId: string }> };
       latestScoreArtifact: unknown;
       dedupeEvents: Array<{ eventType: string }>;
+      sourceJobs: Array<{
+        sourceName: string;
+        sourceJobId: string;
+        fetchUrl: string;
+        applicationUrl: string | null;
+        requiredSkills: string[];
+        preferredSkills: string[];
+      }>;
     };
 
     assert.equal(feedDetailBody.canonical.sourceMappings.length, 2);
     assert.equal(feedDetailBody.latestScoreArtifact, null);
+    assert.equal(feedDetailBody.sourceJobs.length, 2);
+    assert.equal(
+      feedDetailBody.sourceJobs.every((sourceJob) => sourceJob.fetchUrl.startsWith('https://')),
+      true,
+    );
+    assert.equal(
+      feedDetailBody.sourceJobs.every(
+        (sourceJob) =>
+          sourceJob.requiredSkills.length >= 1 && sourceJob.preferredSkills.length >= 1,
+      ),
+      true,
+    );
     assert.ok(
       feedDetailBody.dedupeEvents.some(
         (event) => event.eventType === 'linked_to_canonical',

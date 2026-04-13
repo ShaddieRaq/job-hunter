@@ -168,6 +168,33 @@ const feedDetailResponse = {
       occurredAt: '2026-04-12T12:00:00.000Z',
     },
   ],
+  sourceJobs: [
+    {
+      sourceName: 'greenhouse_public_board',
+      sourceJobId: '1001',
+      sourceCompanyId: 'visible-systems',
+      sourceStatus: 'open',
+      title: 'Staff Platform Engineer',
+      companyName: 'Visible Systems',
+      fetchUrl: 'https://boards.greenhouse.io/visiblesystems/jobs/1001',
+      applicationUrl: 'https://boards.greenhouse.io/visiblesystems/jobs/1001/apply',
+      locationText: 'Remote - United States',
+      remoteType: 'remote',
+      employmentType: 'full_time',
+      postedAt: '2026-04-11T00:00:00.000Z',
+      firstSeenAt: '2026-04-10T12:00:00.000Z',
+      lastSeenAt: '2026-04-12T10:00:00.000Z',
+      fetchedAt: '2026-04-12T10:00:00.000Z',
+      checksumSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      normalizedSkills: ['TypeScript', 'Node.js', 'PostgreSQL'],
+      requiredSkills: ['TypeScript', 'Node.js'],
+      preferredSkills: ['PostgreSQL'],
+      salaryMin: 180000,
+      salaryMax: 220000,
+      salaryCurrency: 'USD',
+      salaryPeriod: 'year',
+    },
+  ],
 };
 
 const applicationStatuses = new Set([
@@ -1360,6 +1387,8 @@ test('job detail renders score and dedupe context; sync and rebuild actions redi
     const detailHtml = await detailResponse.text();
     assert.match(detailHtml, /Score rationale/);
     assert.match(detailHtml, /Linked To Canonical/);
+    assert.match(detailHtml, /Source listing details/);
+    assert.match(detailHtml, /Open listing/);
 
     const syncResponse = await fetch(`${web.baseUrl}/actions/sync`, {
       method: 'POST',

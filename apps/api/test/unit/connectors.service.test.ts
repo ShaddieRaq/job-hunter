@@ -113,6 +113,17 @@ test('connector service sync is idempotent and reports inserted/updated/unchange
   });
   assert.equal(sourceJobs.length, 1);
   assert.equal(sourceJobs[0]?.sourceJobId, '1001');
+
+  const sourceJob = await service.getSourceJob('greenhouse_public_board', '1001');
+  assert.equal(sourceJob?.sourceJobId, '1001');
+  assert.equal(sourceJob?.sourceName, 'greenhouse_public_board');
+  assert.equal(sourceJob?.fetchUrl.includes('greenhouse.io'), true);
+
+  const missingSourceJob = await service.getSourceJob(
+    'greenhouse_public_board',
+    'does-not-exist',
+  );
+  assert.equal(missingSourceJob, null);
 });
 
 test('connector service marks sync as degraded when connector reports errors', async () => {

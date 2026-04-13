@@ -2469,6 +2469,76 @@ const renderStructuredMaterialGuidance = (
   `;
 };
 
+const toSourceListingKey = (sourceName: string, sourceJobId: string): string =>
+  `${sourceName}:${sourceJobId}`;
+
+const renderSourceListingDetails = (detail: FeedDetailResponse): string => {
+  const sourceJobByKey = new Map(
+    detail.sourceJobs.map((sourceJob) => [
+      toSourceListingKey(sourceJob.sourceName, sourceJob.sourceJobId),
+      sourceJob,
+    ] as const),
+  );
+
+  const rows = detail.canonical.sourceMappings
+    .map((mapping) => {
+      const sourceJob = sourceJobByKey.get(
+        toSourceListingKey(mapping.sourceName, mapping.sourceJobId),
+      );
+
+      if (!sourceJob) {
+        return `<li>
+          <span class="mono">${escapeHtml(mapping.sourceName)}:${escapeHtml(mapping.sourceJobId)}</span>
+          <br />
+          <span class="muted">Source listing details are currently unavailable for this mapping.</span>
+        </li>`;
+      }
+
+      const requiredSkills = sourceJob.requiredSkills.slice(0, 8);
+      const preferredSkills = sourceJob.preferredSkills.slice(0, 8);
+      const requiredSkillsText =
+        requiredSkills.length > 0
+          ? `${escapeHtml(requiredSkills.join(', '))}${
+              sourceJob.requiredSkills.length > requiredSkills.length ? ' ...' : ''
+            }`
+          : 'not listed';
+      const preferredSkillsText =
+        preferredSkills.length > 0
+          ? `${escapeHtml(preferredSkills.join(', '))}${
+              sourceJob.preferredSkills.length > preferredSkills.length ? ' ...' : ''
+            }`
+          : 'not listed';
+      const postedAt = sourceJob.postedAt
+        ? formatDateTime(sourceJob.postedAt)
+        : 'Unknown';
+
+      const applyLink = sourceJob.applicationUrl
+        ? `<a href="${escapeHtml(sourceJob.applicationUrl)}" target="_blank" rel="noreferrer noopener">Apply link</a>`
+        : '<span class="muted">Apply URL not listed</span>';
+
+      return `<li>
+        <p><span class="mono">${escapeHtml(sourceJob.sourceName)}:${escapeHtml(sourceJob.sourceJobId)}</span></p>
+        <div class="chip-row">
+          <span class="chip">${escapeHtml(humanizeToken(sourceJob.sourceStatus))}</span>
+          <span class="chip">${escapeHtml(humanizeToken(sourceJob.remoteType))}</span>
+          <span class="chip">${escapeHtml(humanizeToken(sourceJob.employmentType))}</span>
+          <span class="chip">Posted: ${escapeHtml(postedAt)}</span>
+        </div>
+        <p class="muted">Location: ${escapeHtml(sourceJob.locationText ?? 'Not listed')}</p>
+        <p><a href="${escapeHtml(sourceJob.fetchUrl)}" target="_blank" rel="noreferrer noopener">Open listing</a> | ${applyLink}</p>
+        <p class="muted">Required skills: ${requiredSkillsText}</p>
+        <p class="muted">Preferred skills: ${preferredSkillsText}</p>
+      </li>`;
+    })
+    .join('');
+
+  return `<article class="panel">
+    <h3>Source listing details</h3>
+    <p class="muted">Per-source posting context to help validate role expectations before applying.</p>
+    <ul class="mapping-list">${rows}</ul>
+  </article>`;
+};
+
 const renderJobApplicationPanel = (
   canonicalJobId: string,
   application: ApplicationRecord | null,
@@ -2607,6 +2677,9 @@ const renderDetailPage = (
               .join('')}
           </ul>
         </article>
+      </section>
+      <section class="detail-layout">
+        ${renderSourceListingDetails(detail)}
       </section>
       <section class="detail-layout">
         ${renderTrackerDiscoveryPanel(
