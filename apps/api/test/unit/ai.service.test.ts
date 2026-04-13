@@ -31,6 +31,29 @@ const createFailingProvider = (errorCode: 'invalid_json_schema' | 'provider_refu
   },
 });
 
+const createUnexpectedEvidenceProvider = (): AiProvider => ({
+  providerId: 'unexpected-evidence-provider',
+  async extractResume(payload) {
+    return createDeterministicAiProvider().extractResume(payload);
+  },
+  async extractJob(payload) {
+    return createDeterministicAiProvider().extractJob(payload);
+  },
+  async explainMatch() {
+    return {
+      output: {
+        summary: 'Strong fit with unsupported claims.',
+        strengths: ['Guaranteed relocation package'],
+        gaps: [],
+        dealBreakers: [],
+        recommendation: 'apply',
+      },
+      extractorVersion: 'unexpected-evidence-v1',
+      modelVersion: 'unexpected-evidence-model',
+    };
+  },
+});
+
 const createPreferences = (userId: string): UserPreferences => {
   const nowIso = new Date().toISOString();
 
@@ -228,4 +251,72 @@ test('scoreMatch surfaces salary floor conflict as deterministic deal breaker', 
       reason.toLowerCase().includes('compensation range is below'),
     ),
   );
+});
+
+test('scoreMatch applies guardrail fallback when explanation evidence is unsupported', async () => {
+  const service = createAiService({
+    provider: createUnexpectedEvidenceProvider(),
+    fallbackProvider: null,
+    scoreExplanationMode: 'provider',
+    scoreExplanationRolloutPercent: 100,
+  });
+
+  const userId = randomUUID();
+  const canonicalJobId = randomUUID();
+
+  const result = await service.scoreMatch(
+    userId,
+    createMatchScorePayload(canonicalJobId),
+    createPreferences(userId),
+  );
+
+  assert.equal(result.artifact.explanationErrorCode, 'explanation_guardrail_fallback');
+  assert.ok(result.artifact.explanation);
+  assert.ok(
+    result.artifact.explanation?.strengths.every((value) =>
+      result.artifact.strengths.includes(value),
+    ),
+  );
+});
+
+test('scoreMatch uses rollout guardrail when provider traffic is disabled', async () => {
+  const service = createAiService({
+    provider: createFailingProvider('provider_refusal'),
+    fallbackProvider: null,
+    scoreExplanationMode: 'provider',
+    scoreExplanationRolloutPercent: 0,
+  });
+
+  const userId = randomUUID();
+  const canonicalJobId = randomUUID();
+
+  const result = await service.scoreMatch(
+    userId,
+    createMatchScorePayload(canonicalJobId),
+    createPreferences(userId),
+  );
+
+  assert.equal(result.artifact.explanationErrorCode, 'explanation_rollout_excluded');
+  assert.ok(result.artifact.explanation);
+});
+
+test('scoreMatch can disable explanation generation with explicit mode', async () => {
+  const service = createAiService({
+    provider: createDeterministicAiProvider(),
+    fallbackProvider: null,
+    scoreExplanationMode: 'off',
+  });
+
+  const userId = randomUUID();
+  const canonicalJobId = randomUUID();
+
+  const result = await service.scoreMatch(
+    userId,
+    createMatchScorePayload(canonicalJobId),
+    createPreferences(userId),
+  );
+
+  assert.equal(result.artifact.explanation, null);
+  assert.equal(result.artifact.explanationMetadata, null);
+  assert.equal(result.artifact.explanationErrorCode, 'explanation_disabled');
 });

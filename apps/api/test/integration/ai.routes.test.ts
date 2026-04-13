@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import test from 'node:test';
 
 import { AiProviderError } from '../../src/modules/ai/errors.js';
+import { createDeterministicAiProvider } from '../../src/modules/ai/deterministic-provider.js';
 import { createAiService } from '../../src/modules/ai/service.js';
 import type { AiProvider } from '../../src/modules/ai/types.js';
 import { createApiServer, type CreateApiServerOptions } from '../../src/server.js';
@@ -295,6 +296,80 @@ test('score-match route persists and returns versioned artifacts', async () => {
     assert.equal(versionsBody.artifacts.length, 2);
     assert.equal(versionsBody.artifacts[0]?.artifactVersion, 2);
     assert.equal(versionsBody.artifacts[1]?.artifactVersion, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('score-match route supports explicit explanation disable mode', async () => {
+  const app = await startServer({
+    aiService: createAiService({
+      provider: createDeterministicAiProvider(),
+      fallbackProvider: null,
+      scoreExplanationMode: 'off',
+    }),
+  });
+
+  try {
+    const accessToken = await registerAndGetAccessToken(app.baseUrl);
+    const canonicalJobId = '3effdd04-2b1c-4679-b6c9-351ec9bcb487';
+
+    const response = await fetch(`${app.baseUrl}/v1/ai/score-match`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        canonicalJobId,
+        resumeExtraction: {
+          normalizedSkills: ['TypeScript', 'Node.js'],
+          domains: ['fintech'],
+          experienceRoles: ['Backend Engineer'],
+          yearsExperience: {
+            minimum: 5,
+            maximum: null,
+          },
+          inferredSeniority: 'senior',
+          preferredLocations: ['United States'],
+          remotePreference: 'remote',
+          sponsorshipRequired: false,
+          workAuthorization: 'United States',
+        },
+        jobExtraction: {
+          normalizedTitle: 'Senior Backend Engineer',
+          normalizedSkills: ['TypeScript', 'Node.js'],
+          requiredSkills: ['TypeScript', 'Node.js'],
+          preferredSkills: [],
+          requiredYearsExperience: {
+            minimum: 4,
+            maximum: null,
+          },
+          domainTags: ['fintech'],
+          seniority: 'senior',
+          locationConstraint: 'United States',
+          remoteType: 'remote',
+          sponsorshipAvailable: true,
+          salaryMin: 160000,
+          salaryMax: 200000,
+          salaryCurrency: 'USD',
+          salaryPeriod: 'year',
+        },
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as {
+      artifact: {
+        explanation: unknown;
+        explanationMetadata: unknown;
+        explanationErrorCode: string | null;
+      };
+    };
+
+    assert.equal(body.artifact.explanation, null);
+    assert.equal(body.artifact.explanationMetadata, null);
+    assert.equal(body.artifact.explanationErrorCode, 'explanation_disabled');
   } finally {
     await app.close();
   }

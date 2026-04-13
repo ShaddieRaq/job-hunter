@@ -11,6 +11,7 @@ import type {
 } from '@job-hunter/shared';
 
 import { isAiProviderError } from './errors.js';
+import { createDeterministicAiProvider } from './deterministic-provider.js';
 import { createInMemoryMatchArtifactRepository } from './in-memory-match-artifact-repository.js';
 import type { MatchArtifactRepository } from './match-artifact-repository.js';
 import {
@@ -63,6 +64,93 @@ const fallbackEligibleErrorCodes = new Set([
   'provider_refusal',
   'provider_http_error',
 ]);
+
+type ScoreExplanationMode = 'provider' | 'deterministic' | 'off';
+
+const parseScoreExplanationMode = (
+  rawValue: string | undefined,
+): ScoreExplanationMode => {
+  const normalized = rawValue?.trim().toLowerCase();
+
+  if (normalized === 'deterministic') {
+    return 'deterministic';
+  }
+
+  if (normalized === 'off') {
+    return 'off';
+  }
+
+  return 'provider';
+};
+
+const parseRolloutPercentage = (rawValue: string | undefined): number => {
+  if (!rawValue) {
+    return 100;
+  }
+
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed)) {
+    return 100;
+  }
+
+  return Math.max(0, Math.min(100, parsed));
+};
+
+const normalizeEvidence = (value: string): string => value.trim().toLowerCase();
+
+const toEvidenceSet = (values: string[]): Set<string> =>
+  new Set(values.map((value) => normalizeEvidence(value)).filter((value) => value.length > 0));
+
+const isEvidenceSubset = (values: string[], allowed: Set<string>): boolean =>
+  values.every((value) => allowed.has(normalizeEvidence(value)));
+
+const hasEvidenceWhenExpected = (values: string[], expected: string[]): boolean =>
+  expected.length === 0 || values.length > 0;
+
+const passesExplanationGuardrails = (
+  explanation: MatchExplanation,
+  request: MatchExplanationRequest,
+): boolean => {
+  const allowedStrengths = toEvidenceSet(request.strengths);
+  const allowedGaps = toEvidenceSet(request.gaps);
+  const allowedDealBreakers = toEvidenceSet(request.dealBreakers);
+
+  return (
+    isEvidenceSubset(explanation.strengths, allowedStrengths) &&
+    isEvidenceSubset(explanation.gaps, allowedGaps) &&
+    isEvidenceSubset(explanation.dealBreakers, allowedDealBreakers) &&
+    hasEvidenceWhenExpected(explanation.strengths, request.strengths) &&
+    hasEvidenceWhenExpected(explanation.gaps, request.gaps) &&
+    hasEvidenceWhenExpected(explanation.dealBreakers, request.dealBreakers)
+  );
+};
+
+const stableRolloutBucket = (seed: string): number => {
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return hash % 100;
+};
+
+const isInScoreExplanationRollout = (
+  userId: string,
+  canonicalJobId: string,
+  rolloutPercentage: number,
+): boolean => {
+  if (rolloutPercentage <= 0) {
+    return false;
+  }
+
+  if (rolloutPercentage >= 100) {
+    return true;
+  }
+
+  const bucket = stableRolloutBucket(`${userId}:${canonicalJobId}`);
+  return bucket < rolloutPercentage;
+};
 
 const withFallback = (extractorVersion: string, reasonCode: string): string =>
   `${extractorVersion}+fallback-${reasonCode}`.slice(0, maxExtractorVersionLength);
@@ -131,6 +219,9 @@ export interface CreateAiServiceOptions {
   fallbackProvider?: AiProvider | null;
   artifactRepository?: MatchArtifactRepository;
   scoringVersion?: string;
+  scoreExplanationMode?: ScoreExplanationMode;
+  scoreExplanationRolloutPercent?: number;
+  env?: NodeJS.ProcessEnv;
   now?: () => Date;
 }
 
@@ -139,12 +230,24 @@ export const createAiService = ({
   fallbackProvider,
   artifactRepository = createInMemoryMatchArtifactRepository(),
   scoringVersion = deterministicScoringVersion,
+  scoreExplanationMode,
+  scoreExplanationRolloutPercent,
+  env = process.env,
   now = () => new Date(),
 }: CreateAiServiceOptions = {}): AiService => {
   const resolvedFallbackProvider =
     fallbackProvider === undefined
       ? createFallbackAiProviderFromEnv(provider)
       : fallbackProvider;
+
+  const deterministicProvider = createDeterministicAiProvider();
+
+  const resolvedScoreExplanationMode =
+    scoreExplanationMode ?? parseScoreExplanationMode(env.AI_SCORE_EXPLANATION_MODE);
+
+  const resolvedScoreExplanationRolloutPercent =
+    scoreExplanationRolloutPercent ??
+    parseRolloutPercentage(env.AI_SCORE_EXPLANATION_ROLLOUT_PERCENT);
 
   const resolvedScoringVersion = metadataValue(
     scoringVersion,
@@ -214,25 +317,85 @@ export const createAiService = ({
       let explanationMetadata: ReturnType<typeof createMetadata> | null = null;
       let explanationErrorCode: string | null = null;
 
-      try {
-        const explanationResult = await executeWithFallback(
-          provider,
-          resolvedFallbackProvider,
-          async (activeProvider) => activeProvider.explainMatch(explanationRequest),
+      const buildDeterministicExplanation = async (): Promise<{
+        explanation: MatchExplanation;
+        metadata: ReturnType<typeof createMetadata>;
+      }> => {
+        const deterministicExplanationResult = await deterministicProvider.explainMatch(
+          explanationRequest,
         );
 
-        explanation = {
-          ...explanationResult.output,
-          recommendation: deterministicResult.recommendation,
+        return {
+          explanation: {
+            ...deterministicExplanationResult.output,
+            recommendation: deterministicResult.recommendation,
+          },
+          metadata: createMetadata(
+            deterministicExplanationResult.extractorVersion,
+            deterministicExplanationResult.modelVersion,
+            now,
+          ),
         };
+      };
 
-        explanationMetadata = createMetadata(
-          explanationResult.extractorVersion,
-          explanationResult.modelVersion,
-          now,
+      const canUseProviderExplanation =
+        resolvedScoreExplanationMode === 'provider' &&
+        isInScoreExplanationRollout(
+          userId,
+          payload.canonicalJobId,
+          resolvedScoreExplanationRolloutPercent,
         );
+
+      try {
+        if (resolvedScoreExplanationMode === 'off') {
+          explanation = null;
+          explanationMetadata = null;
+          explanationErrorCode = 'explanation_disabled';
+        } else if (
+          resolvedScoreExplanationMode === 'deterministic' ||
+          !canUseProviderExplanation
+        ) {
+          const deterministicExplanation = await buildDeterministicExplanation();
+
+          explanation = deterministicExplanation.explanation;
+          explanationMetadata = deterministicExplanation.metadata;
+          explanationErrorCode =
+            resolvedScoreExplanationMode === 'provider'
+              ? 'explanation_rollout_excluded'
+              : null;
+        } else {
+          const explanationResult = await executeWithFallback(
+            provider,
+            resolvedFallbackProvider,
+            async (activeProvider) => activeProvider.explainMatch(explanationRequest),
+          );
+
+          const candidateExplanation: MatchExplanation = {
+            ...explanationResult.output,
+            recommendation: deterministicResult.recommendation,
+          };
+
+          if (!passesExplanationGuardrails(candidateExplanation, explanationRequest)) {
+            const deterministicExplanation = await buildDeterministicExplanation();
+
+            explanation = deterministicExplanation.explanation;
+            explanationMetadata = deterministicExplanation.metadata;
+            explanationErrorCode = 'explanation_guardrail_fallback';
+          } else {
+            explanation = candidateExplanation;
+            explanationMetadata = createMetadata(
+              explanationResult.extractorVersion,
+              explanationResult.modelVersion,
+              now,
+            );
+          }
+        }
       } catch (error: unknown) {
         if (isAiProviderError(error)) {
+          const deterministicExplanation = await buildDeterministicExplanation();
+
+          explanation = deterministicExplanation.explanation;
+          explanationMetadata = deterministicExplanation.metadata;
           explanationErrorCode = error.code;
         } else {
           throw error;

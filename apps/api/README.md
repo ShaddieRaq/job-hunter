@@ -54,6 +54,8 @@ Structured Node.js API for the Job Hunter modular monolith.
 
 - `AI_PROVIDER`: `auto` (default), `deterministic`, or `openai`
 - `AI_PROVIDER_FALLBACK`: `deterministic` (default) or `none`
+- `AI_SCORE_EXPLANATION_MODE`: `provider` (default), `deterministic`, or `off` for score-artifact explanation generation
+- `AI_SCORE_EXPLANATION_ROLLOUT_PERCENT`: integer `0-100` rollout gate for provider-backed score explanations (default: `100`)
 - `OPENAI_API_KEY`: required when using OpenAI provider
 - `OPENAI_MODEL`: optional model override (default: `gpt-4.1-mini`)
 - `OPENAI_BASE_URL`: optional endpoint override (default: `https://api.openai.com/v1`)

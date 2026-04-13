@@ -30,15 +30,15 @@ Owner: team
 6. ✅ Search/feed UI
    - Evidence: server-rendered web feed/detail module (`apps/web/src/index.ts`) now consumes `/v1/feed` and `/v1/feed/:canonicalJobId`, includes preference-aligned filters/sorting, and exposes sync/rebuild control actions.
    - Remaining: none.
-7. 🟨 Explainable match scoring
-   - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, fixture-driven extraction/explanation eval harness is in place, and deterministic score-breakdown artifacts are now persisted/versioned and exposed via `/v1/ai/score-match` routes.
-   - Remaining: iterate explanation quality and rollout guardrails as usage expands.
+7. ✅ Explainable match scoring
+   - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, deterministic score-breakdown artifacts are persisted/versioned via `/v1/ai/score-match` routes, score explanation rollout controls (`AI_SCORE_EXPLANATION_MODE`, `AI_SCORE_EXPLANATION_ROLLOUT_PERCENT`) are implemented, and explanation evidence guardrails enforce deterministic fallback for unsupported outputs.
+   - Remaining: none.
 8. ⬜ Tracker and reminders
 9. ⬜ Resume/application support
 
 ## Current focus
-- Active step: 7 (explainable match scoring) with Step 8 tracker planning
-- Next PR target: add tracker state model + API skeleton while preserving score artifact explainability surfaces
+- Active step: 8 (tracker and reminders)
+- Next PR target: add tracker state model + API skeleton with auditable state transitions
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
@@ -49,6 +49,7 @@ Owner: team
 - 2026-04-12: Step 5 first slice landed with deterministic canonicalization/dedupe service, canonical catalog routes (`POST /v1/canonical-jobs/rebuild`, `GET /v1/canonical-jobs`, `GET /v1/canonical-jobs/:canonicalJobId`), migration scaffold `0005_canonical_jobs_dedupe_v1.sql`, PostgreSQL-backed repository adapters, and coverage for dedupe behavior plus route boundaries.
 - 2026-04-12: Step 5 completion landed with dedupe trace event persistence (`0006_canonical_dedupe_trace_events.sql`), canonical dedupe-event route, and feed/detail query routes joined with latest score artifacts.
 - 2026-04-12: Step 6 landed with authenticated web feed/detail UI, preference-aligned filtering/sorting, score and dedupe context rendering, and web integration tests for sign-in/feed/detail/action flows.
+- 2026-04-12: Step 7 completed with score explanation rollout controls, deterministic guardrail fallback for unsupported explanation evidence, expanded explanation fixtures (including review recommendations), and stricter explanation quality threshold checks.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

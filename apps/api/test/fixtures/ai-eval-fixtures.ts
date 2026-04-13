@@ -168,4 +168,28 @@ export const matchExplanationFixtures: MatchExplanationFixture[] = [
     expectedRecommendation: 'skip',
     disallowedPhrases: ['fully remote option confirmed', 'sponsorship guaranteed'],
   },
+  {
+    id: 'explanation-mid-fit-review',
+    request: {
+      userId: '8d0a6380-2de6-4e2a-8d0f-5cf42ec22cb4',
+      canonicalJobId: 'de8842ce-4b77-4771-ba9d-c251329f5b17',
+      scoreBreakdown: {
+        overallScore: 56,
+        titleScore: 64,
+        skillScore: 58,
+        seniorityScore: 62,
+        locationScore: 70,
+        compensationScore: 48,
+        domainScore: 55,
+        requirementScore: 59,
+        trajectoryScore: 61,
+        penaltyScore: 12,
+      },
+      strengths: ['Some overlap with preferred backend tooling'],
+      gaps: ['Required cloud-native deployment experience is limited'],
+      dealBreakers: [],
+    },
+    expectedRecommendation: 'review',
+    disallowedPhrases: ['guaranteed offer', 'fully matched with all requirements'],
+  },
 ];

@@ -17,7 +17,7 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 6 complete and Step 7 AI foundation work in progress:
+This repository is a TypeScript monorepo with Steps 2 through 7 complete:
 
 ```text
 apps/
@@ -103,6 +103,6 @@ Recommended order for early implementation:
 4. connector framework and first job sources (done)
 5. canonical jobs and dedupe (done)
 6. search and discovery UI (done)
-7. explainable scoring
+7. explainable scoring (done)
 8. tracker and reminders
 9. application support tooling

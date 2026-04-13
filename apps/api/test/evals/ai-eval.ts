@@ -48,6 +48,8 @@ export interface ExplanationEvalSummary {
   unsupportedClaimRate: number;
   evidenceMismatches: number;
   evidenceMismatchRate: number;
+  missingEvidenceSignals: number;
+  missingEvidenceSignalRate: number;
 }
 
 export interface AiEvalSummary {
@@ -63,6 +65,7 @@ export interface AiEvalThresholds {
   minRecommendationAccuracy: number;
   maxUnsupportedClaimRate: number;
   maxEvidenceMismatchRate: number;
+  maxMissingEvidenceSignalRate: number;
 }
 
 export const defaultAiEvalThresholds: AiEvalThresholds = {
@@ -72,6 +75,7 @@ export const defaultAiEvalThresholds: AiEvalThresholds = {
   minRecommendationAccuracy: 1,
   maxUnsupportedClaimRate: 0,
   maxEvidenceMismatchRate: 0,
+  maxMissingEvidenceSignalRate: 0,
 };
 
 const normalizeText = (value: string): string => value.trim().toLowerCase();
@@ -245,6 +249,7 @@ const evaluateExplanation = async (service: AiService): Promise<ExplanationEvalS
   let recommendationCorrect = 0;
   let unsupportedClaims = 0;
   let evidenceMismatches = 0;
+  let missingEvidenceSignals = 0;
 
   for (const fixture of matchExplanationFixtures) {
     const response = await service.explainMatch(fixture.request);
@@ -283,6 +288,17 @@ const evaluateExplanation = async (service: AiService): Promise<ExplanationEvalS
     if (invalidStrength || invalidGap || invalidDealBreaker) {
       evidenceMismatches += 1;
     }
+
+    const missingStrength =
+      fixture.request.strengths.length > 0 && explanation.strengths.length === 0;
+    const missingGap = fixture.request.gaps.length > 0 && explanation.gaps.length === 0;
+    const missingDealBreaker =
+      fixture.request.dealBreakers.length > 0 &&
+      explanation.dealBreakers.length === 0;
+
+    if (missingStrength || missingGap || missingDealBreaker) {
+      missingEvidenceSignals += 1;
+    }
   }
 
   const total = matchExplanationFixtures.length;
@@ -295,6 +311,8 @@ const evaluateExplanation = async (service: AiService): Promise<ExplanationEvalS
     unsupportedClaimRate: total === 0 ? 0 : unsupportedClaims / total,
     evidenceMismatches,
     evidenceMismatchRate: total === 0 ? 0 : evidenceMismatches / total,
+    missingEvidenceSignals,
+    missingEvidenceSignalRate: total === 0 ? 0 : missingEvidenceSignals / total,
   };
 };
 
@@ -394,6 +412,15 @@ export const evaluateAiEvalThresholds = (
   if (summary.explanation.evidenceMismatchRate > thresholds.maxEvidenceMismatchRate) {
     failures.push(
       `explanation.evidenceMismatchRate ${summary.explanation.evidenceMismatchRate.toFixed(2)} > ${thresholds.maxEvidenceMismatchRate.toFixed(2)}`,
+    );
+  }
+
+  if (
+    summary.explanation.missingEvidenceSignalRate >
+    thresholds.maxMissingEvidenceSignalRate
+  ) {
+    failures.push(
+      `explanation.missingEvidenceSignalRate ${summary.explanation.missingEvidenceSignalRate.toFixed(2)} > ${thresholds.maxMissingEvidenceSignalRate.toFixed(2)}`,
     );
   }
 

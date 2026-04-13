@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2 through 6 are implemented and Step 7 AI foundation work is active in the API and shared packages:
+As of 2026-04-12, Steps 2 through 7 are implemented in the API, shared, and web packages:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -15,6 +15,7 @@ As of 2026-04-12, Steps 2 through 6 are implemented and Step 7 AI foundation wor
 - API v1 AI routes for resume extraction, job extraction, deterministic score artifact generation, and match explanation
 - AI provider abstraction with OpenAI structured-output adapter and deterministic fallback handling
 - explicit provider failure-mode mapping (`invalid_json_schema`, `provider_timeout`, `provider_refusal`, `provider_http_error`)
+- score explanation rollout controls with deterministic guardrail fallback for unsupported explanation evidence
 - deterministic match scoring engine with named sub-scores, explicit penalties/deal-breakers, and recommendation classification
 - versioned per-user score/explanation artifact snapshots with latest/history retrieval routes
 - fixture-driven extraction/explanation eval harness baseline with threshold-enforced tests

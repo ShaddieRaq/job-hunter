@@ -39,14 +39,14 @@ This document turns the recommended AI roadmap into concrete implementation work
 
 ## Phase A progress snapshot
 
-- A1 Structured extraction pipeline: 🟨 in progress
-  - Done: provider adapter interface, OpenAI structured-output adapter, metadata propagation, deterministic fallback, and provider failure handling paths.
-  - Remaining: production provider configuration hardening and environment-level rollout guardrails.
-- A2 Explainable match narrative layer: 🟨 in progress
-  - Done: explanation generation runs over deterministic score outputs with evidence-only prompt constraints, schema-bound output validation, versioned score/explanation snapshots exposed via API, and score-artifact reads integrated into canonical feed/detail query models.
-  - Remaining: refine explanation readability and quality checks as real usage data expands.
+- A1 Structured extraction pipeline: ✅ done
+  - Done: provider adapter interface, OpenAI structured-output adapter, metadata propagation, deterministic fallback, provider failure handling paths, and rollout controls for score explanation generation.
+  - Remaining: none.
+- A2 Explainable match narrative layer: ✅ done
+  - Done: explanation generation runs over deterministic score outputs with evidence-only constraints, schema-bound output validation, versioned score/explanation snapshots exposed via API, score-artifact reads integrated into canonical feed/detail query models, and deterministic guardrail fallback for unsupported evidence.
+  - Remaining: none.
 - A3 Eval harness baseline: 🟨 in progress
-  - Done: fixture corpus + extraction/explanation eval harness + threshold test.
+  - Done: fixture corpus + extraction/explanation eval harness + threshold test with stricter explanation evidence coverage checks.
   - Remaining: wire eval command into repository CI workflow once pipeline definitions are in place.
 
 ## Phase A task breakdown
