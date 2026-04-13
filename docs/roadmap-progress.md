@@ -30,7 +30,7 @@ Owner: team
 6. ⬜ Search/feed UI
 7. 🟨 Explainable match scoring
    - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, fixture-driven extraction/explanation eval harness is in place, and deterministic score-breakdown artifacts are now persisted/versioned and exposed via `/v1/ai/score-match` routes.
-   - Remaining: wire score artifact reads into canonical job catalog/feed query paths once Steps 4-6 data surfaces are available.
+   - Remaining: expose score-backed recommendation context in the Step 6 web feed/detail UI surfaces.
 8. ⬜ Tracker and reminders
 9. ⬜ Resume/application support
 
