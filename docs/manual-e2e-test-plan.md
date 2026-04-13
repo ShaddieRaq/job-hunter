@@ -137,7 +137,9 @@ Steps:
 Expected:
 1. Score rationale section is visible
 2. Source mappings and dedupe trace events are visible
-3. Back link returns to feed with preserved context
+3. Source listing details section is visible with listing/apply links and source-level role context
+4. Next action panel is visible with a deterministic recommendation
+5. Back link returns to feed with preserved context
 
 #### E2E-FEED-005 High-fit alerts panel
 Steps:

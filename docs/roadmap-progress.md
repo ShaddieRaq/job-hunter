@@ -41,8 +41,8 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: maintain MVP-validated baseline and prioritize external-audit hardening for durability and API/UI parity
-- Next PR target: post-validation durability hardening and feed-contract parity follow-through
+- Active step: run iterative checkpoint delivery after phase 2 (next-action cues) and prioritize phase 3 daily-priority queue
+- Next PR target: iteration phase 3 daily-priority queue and action-routing UX
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist

@@ -191,6 +191,8 @@ Detailed execution runbook:
 - verify fit explanation is present
 - verify gaps and deal breakers are coherent
 - verify duplicate source view works
+- verify source listing details expose listing/apply links and source-level required/preferred skills when available
+- verify deterministic next-action cue is visible and aligns with tracker/application/reminder state
 
 ### Tracker
 - move a job from discovered to shortlisted to applied
