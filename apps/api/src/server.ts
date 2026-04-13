@@ -24,6 +24,7 @@ import {
   type CanonicalJobsService,
 } from './modules/canonical-jobs/service.js';
 import { createGreenhousePublicBoardConnector } from './modules/connectors/greenhouse-public-board-connector.js';
+import { createLeverPublicBoardConnector } from './modules/connectors/lever-public-board-connector.js';
 import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
 import { createPostgresConnectorRepository } from './modules/connectors/postgres-repository.js';
 import { handleConnectorRoutes } from './modules/connectors/routes.js';
@@ -105,6 +106,11 @@ const defaultConnectorService = createConnectorService({
       boardToken: process.env.GREENHOUSE_BOARD_TOKEN ?? 'stripe',
       sourceName: 'greenhouse_public_board',
       displayName: 'Greenhouse Public Board',
+    }),
+    createLeverPublicBoardConnector({
+      companyHandle: process.env.LEVER_COMPANY_HANDLE ?? 'netflix',
+      sourceName: 'lever_public_board',
+      displayName: 'Lever Public Board',
     }),
   ],
 });

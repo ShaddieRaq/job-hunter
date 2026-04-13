@@ -15,7 +15,7 @@ Steps 2 through 7 (auth/profile/preferences, resume pipeline, connector/canonica
 - AI integration tests for score artifact create/latest/history route behavior
 - AI service/integration tests for explanation rollout controls and unsupported-evidence guardrail fallback
 - fixture-driven AI eval harness tests for extraction precision/recall and explanation unsupported-claim checks
-- fixture-driven connector normalization tests for Greenhouse source payloads, including malformed-record handling
+- fixture-driven connector normalization tests for Greenhouse and Lever source payloads, including malformed-record handling
 - connector service idempotency tests for inserted/updated/unchanged import behavior
 - connector route integration tests for authenticated sync and ingested source-job listing
 - canonicalization/dedupe unit tests for conservative clustering, traceable mappings, and rebuild idempotency

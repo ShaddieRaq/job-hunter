@@ -94,6 +94,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 ## Connector configuration
 
 - `GREENHOUSE_BOARD_TOKEN`: Greenhouse board token used by the default public-board connector instance (default: `stripe` for local/dev bootstrap)
+- `LEVER_COMPANY_HANDLE`: Lever company handle used by the default public-board connector instance (default: `netflix` for local/dev bootstrap)
 - `CONNECTOR_REPOSITORY`: repository mode for connector source state (`in-memory` default, `postgres` optional)
 
 ## Canonical catalog repository configuration

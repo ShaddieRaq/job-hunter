@@ -87,18 +87,61 @@ const createCandidate = (sourceJobId: string): ConnectorJobCandidate => ({
   },
 });
 
-const createTestConnectorService = () => {
-  const candidates = [createCandidate('1001'), createCandidate('1002')];
+const createLeverCandidate = (sourceJobId: string): ConnectorJobCandidate => ({
+  sourceJobId,
+  sourceCompanyId: 'acme-lever',
+  sourceStatus: 'open',
+  title: 'Senior Platform Engineer',
+  companyName: 'Acme Lever',
+  fetchUrl: `https://jobs.lever.co/acme/${sourceJobId}`,
+  applicationUrl: `https://jobs.lever.co/acme/${sourceJobId}/apply`,
+  locationText: 'Remote - United States',
+  remoteType: 'remote',
+  employmentType: 'full_time',
+  postedAt: '2026-04-12T00:00:00.000Z',
+  descriptionText: 'TypeScript and platform role',
+  normalizedSkills: ['TypeScript', 'Kubernetes'],
+  requiredSkills: ['TypeScript'],
+  preferredSkills: ['Kubernetes'],
+  salaryMin: 180000,
+  salaryMax: 220000,
+  salaryCurrency: 'USD',
+  salaryPeriod: 'year',
+  rawPayload: {
+    id: sourceJobId,
+  },
+});
 
-  const connector: SourceConnectorDefinition = {
+const createTestConnectorService = () => {
+  const greenhouseCandidates = [createCandidate('1001'), createCandidate('1002')];
+  const leverCandidates = [
+    createLeverCandidate('lever-1001'),
+    createLeverCandidate('lever-1002'),
+  ];
+
+  const greenhouseConnector: SourceConnectorDefinition = {
     sourceName: 'greenhouse_public_board',
     displayName: 'Greenhouse Public Board',
     connectorVersion: 'greenhouse-public-board-v1',
     async sync(input) {
-      const maxRecords = input.maxRecords ?? candidates.length;
+      const maxRecords = input.maxRecords ?? greenhouseCandidates.length;
       return {
         fetchedAt: '2026-04-12T00:00:00.000Z',
-        jobs: candidates.slice(0, maxRecords),
+        jobs: greenhouseCandidates.slice(0, maxRecords),
+        errors: [],
+      };
+    },
+  };
+
+  const leverConnector: SourceConnectorDefinition = {
+    sourceName: 'lever_public_board',
+    displayName: 'Lever Public Board',
+    connectorVersion: 'lever-public-board-v1',
+    async sync(input) {
+      const maxRecords = input.maxRecords ?? leverCandidates.length;
+      return {
+        fetchedAt: '2026-04-12T00:00:00.000Z',
+        jobs: leverCandidates.slice(0, maxRecords),
         errors: [],
       };
     },
@@ -106,7 +149,7 @@ const createTestConnectorService = () => {
 
   return createConnectorService({
     repository: createInMemoryConnectorRepository(),
-    connectors: [connector],
+    connectors: [greenhouseConnector, leverConnector],
     now: () => new Date('2026-04-12T12:00:00.000Z'),
   });
 };
@@ -135,9 +178,21 @@ test('connector routes sync and list source jobs with authenticated access', asy
     };
 
     assert.equal(beforeBody.contractVersion, 'v1');
-    assert.equal(beforeBody.connectors.length, 1);
-    assert.equal(beforeBody.connectors[0]?.sourceName, 'greenhouse_public_board');
-    assert.equal(beforeBody.connectors[0]?.healthStatus, 'unknown');
+    assert.equal(beforeBody.connectors.length, 2);
+    assert.ok(
+      beforeBody.connectors.some(
+        (connector) =>
+          connector.sourceName === 'greenhouse_public_board' &&
+          connector.healthStatus === 'unknown',
+      ),
+    );
+    assert.ok(
+      beforeBody.connectors.some(
+        (connector) =>
+          connector.sourceName === 'lever_public_board' &&
+          connector.healthStatus === 'unknown',
+      ),
+    );
 
     const syncResponse = await fetch(
       `${app.baseUrl}/v1/connectors/greenhouse_public_board/sync`,
@@ -168,6 +223,33 @@ test('connector routes sync and list source jobs with authenticated access', asy
     assert.equal(syncBody.failedCount, 0);
     assert.equal(syncBody.healthStatus, 'healthy');
 
+    const leverSyncResponse = await fetch(
+      `${app.baseUrl}/v1/connectors/lever_public_board/sync`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          maxRecords: 1,
+        }),
+      },
+    );
+
+    assert.equal(leverSyncResponse.status, 200);
+    const leverSyncBody = (await leverSyncResponse.json()) as {
+      insertedCount: number;
+      failedCount: number;
+      healthStatus: string;
+      sourceName: string;
+    };
+
+    assert.equal(leverSyncBody.sourceName, 'lever_public_board');
+    assert.equal(leverSyncBody.insertedCount, 1);
+    assert.equal(leverSyncBody.failedCount, 0);
+    assert.equal(leverSyncBody.healthStatus, 'healthy');
+
     const sourceJobsResponse = await fetch(
       `${app.baseUrl}/v1/source-jobs?sourceName=greenhouse_public_board&limit=10`,
       {
@@ -186,6 +268,23 @@ test('connector routes sync and list source jobs with authenticated access', asy
     assert.equal(sourceJobsBody.contractVersion, 'v1');
     assert.equal(sourceJobsBody.sourceJobs.length, 1);
     assert.equal(sourceJobsBody.sourceJobs[0]?.sourceJobId, '1001');
+
+    const leverSourceJobsResponse = await fetch(
+      `${app.baseUrl}/v1/source-jobs?sourceName=lever_public_board&limit=10`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(leverSourceJobsResponse.status, 200);
+    const leverSourceJobsBody = (await leverSourceJobsResponse.json()) as {
+      sourceJobs: Array<{ sourceJobId: string }>;
+    };
+
+    assert.equal(leverSourceJobsBody.sourceJobs.length, 1);
+    assert.equal(leverSourceJobsBody.sourceJobs[0]?.sourceJobId, 'lever-1001');
   } finally {
     await app.close();
   }

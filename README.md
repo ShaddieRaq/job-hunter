@@ -93,7 +93,7 @@ docs/
 - Application record workflow migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
-- In-memory connector repository + Greenhouse public board connector adapter
+- In-memory connector repository + Greenhouse and Lever public board connector adapters
 - API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
 - Connector fixture-driven unit tests plus connector route integration tests
 - Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals

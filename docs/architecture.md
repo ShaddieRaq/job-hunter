@@ -24,7 +24,7 @@ As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices
 - SQL migration for resumes and structured profile extraction snapshots
 - shared v1 connector contracts for source health + source job ingestion payloads
 - API v1 connector routes for listing connector health, triggering source sync, and listing ingested source jobs
-- Greenhouse public board connector adapter with source-job normalization and in-memory ingestion persistence
+- Greenhouse and Lever public board connector adapters with source-job normalization and in-memory ingestion persistence
 - SQL migration for connector/source job persistence scaffolding
 - shared v1 canonical job contracts for catalog summaries, source mappings, and rebuild/list/detail payloads
 - shared v1 notification contracts for reminder-due delivery logs and high-fit dispatch responses

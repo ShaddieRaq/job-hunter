@@ -22,8 +22,8 @@ Owner: team
    - Evidence: Step 3 implementation completed on 2026-04-12 in commit df591b3 and is included in mainline history up through b593171 (shared resume v1 contracts, API resume routes/service/object-storage abstraction, migration `0002_resume_pipeline.sql`, and unit/integration tests).
    - Remaining: none.
 4. ✅ Connector framework and first connectors
-   - Evidence: shared connector contracts (`packages/shared/src/contracts/connectors/v1.ts`), API connector module (`apps/api/src/modules/connectors`), Greenhouse public board connector adapter, source sync/list routes (`/v1/connectors`, `/v1/connectors/:sourceName/sync`, `/v1/source-jobs`), migration `0004_connector_framework.sql`, and unit/integration coverage.
-   - Remaining: add additional official/public connectors after canonical job module (Step 5) is in place.
+   - Evidence: shared connector contracts (`packages/shared/src/contracts/connectors/v1.ts`), API connector module (`apps/api/src/modules/connectors`), Greenhouse + Lever public board connector adapters, source sync/list routes (`/v1/connectors`, `/v1/connectors/:sourceName/sync`, `/v1/source-jobs`), migration `0004_connector_framework.sql`, and unit/integration coverage.
+   - Remaining: none.
 5. ✅ Canonical job catalog and dedupe v1
    - Evidence: canonical job contracts (`packages/shared/src/contracts/jobs/v1.ts`), API canonical module (`apps/api/src/modules/canonical-jobs`), canonical rebuild/list/detail routes (`/v1/canonical-jobs/*`), dedupe trace events (`/v1/canonical-jobs/:canonicalJobId/dedupe-events`), feed/detail query routes (`/v1/feed`, `/v1/feed/:canonicalJobId`) with score-artifact joins, migrations `0005_canonical_jobs_dedupe_v1.sql` + `0006_canonical_dedupe_trace_events.sql`, PostgreSQL repository adapters, and unit/integration coverage.
    - Remaining: none.
@@ -42,7 +42,7 @@ Owner: team
 
 ## Current focus
 - Active step: maintain MVP-validated baseline and prioritize next-value connector and UX improvements
-- Next PR target: post-validation product iteration (additional official/public connectors and feed UX refinements)
+- Next PR target: post-validation product iteration (feed UX refinements and connector quality hardening)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -104,6 +104,7 @@ Owner: team
 - 2026-04-13: MVP remediation slice 5 landed with recommendation-threshold high-fit alert dispatch (`POST /v1/notifications/high-fit/dispatch`), score-artifact idempotency keys, tracker-state suppression for terminal workflows, and unit/integration coverage for alert eligibility plus duplicate suppression.
 - 2026-04-13: Post-validation UX polish landed with feed-integrated high-fit alert visibility (sent notification fetch, high-fit-only panel rendering, and direct jump-to-job navigation) covered by web integration regression tests.
 - 2026-04-13: Post-validation worker cadence landed with high-fit dispatch-all orchestration (`POST /v1/notifications/high-fit/dispatch-all`) triggered after successful worker rebuild cycles, plus API/worker regression coverage for aggregate and degraded dispatch paths.
+- 2026-04-13: Post-validation connector expansion landed with Lever public board ingestion (`lever_public_board`) wired into default connector service, fixture-driven normalization tests, and connector route integration coverage for multi-source sync/list behavior.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
