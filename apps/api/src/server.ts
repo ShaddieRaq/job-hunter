@@ -10,6 +10,12 @@ import {
 } from './modules/auth-profile/service.js';
 import { handleAiRoutes } from './modules/ai/routes.js';
 import { createAiService, type AiService } from './modules/ai/service.js';
+import { createInMemoryCanonicalJobRepository } from './modules/canonical-jobs/in-memory-repository.js';
+import { handleCanonicalJobRoutes } from './modules/canonical-jobs/routes.js';
+import {
+  createCanonicalJobsService,
+  type CanonicalJobsService,
+} from './modules/canonical-jobs/service.js';
 import { createGreenhousePublicBoardConnector } from './modules/connectors/greenhouse-public-board-connector.js';
 import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
 import { handleConnectorRoutes } from './modules/connectors/routes.js';
@@ -40,6 +46,11 @@ const defaultConnectorService = createConnectorService({
   ],
 });
 
+const defaultCanonicalJobsService = createCanonicalJobsService({
+  sourceJobReader: defaultConnectorService,
+  repository: createInMemoryCanonicalJobRepository(),
+});
+
 const defaultResumeService = createResumeService({
   repository: createInMemoryResumeRepository(),
   objectStorage: createInMemoryObjectStorage(),
@@ -51,6 +62,7 @@ export interface CreateApiServerOptions {
   resumeService?: ResumeService;
   aiService?: AiService;
   connectorService?: ConnectorService;
+  canonicalJobsService?: CanonicalJobsService;
 }
 
 const isHealthRequest = (req: IncomingMessage): boolean =>
@@ -63,6 +75,7 @@ const handleRequest = async (
   resumeService: ResumeService,
   aiService: AiService,
   connectorService: ConnectorService,
+  canonicalJobsService: CanonicalJobsService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
     sendJson(res, 200, { status: 'ok', service: 'api' });
@@ -104,6 +117,15 @@ const handleRequest = async (
     return;
   }
 
+  const canonicalHandled = await handleCanonicalJobRoutes(req, res, {
+    authProfileService,
+    canonicalJobsService,
+  });
+
+  if (canonicalHandled) {
+    return;
+  }
+
   sendJson(res, 404, { error: 'not_found' });
 };
 
@@ -126,6 +148,7 @@ export const createApiServer = ({
   resumeService = defaultResumeService,
   aiService = defaultAiService,
   connectorService = defaultConnectorService,
+  canonicalJobsService = defaultCanonicalJobsService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
     void handleRequest(
@@ -135,6 +158,7 @@ export const createApiServer = ({
       resumeService,
       aiService,
       connectorService,
+      canonicalJobsService,
     ).catch((error: unknown) => {
       handleUnhandledError(res, error);
     });

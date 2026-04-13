@@ -24,7 +24,9 @@ Owner: team
 4. ✅ Connector framework and first connectors
    - Evidence: shared connector contracts (`packages/shared/src/contracts/connectors/v1.ts`), API connector module (`apps/api/src/modules/connectors`), Greenhouse public board connector adapter, source sync/list routes (`/v1/connectors`, `/v1/connectors/:sourceName/sync`, `/v1/source-jobs`), migration `0004_connector_framework.sql`, and unit/integration coverage.
    - Remaining: add additional official/public connectors after canonical job module (Step 5) is in place.
-5. ⬜ Canonical job catalog and dedupe v1
+5. 🟨 Canonical job catalog and dedupe v1
+   - Evidence: canonical job contracts (`packages/shared/src/contracts/jobs/v1.ts`), API canonical module (`apps/api/src/modules/canonical-jobs`), canonical rebuild/list/detail routes (`/v1/canonical-jobs/*`), migration scaffold `0005_canonical_jobs_dedupe_v1.sql`, and unit/integration coverage.
+   - Remaining: persist canonicalization into PostgreSQL adapters, add duplicate-group trace events, and wire canonical catalog reads into feed/detail query paths.
 6. ⬜ Search/feed UI
 7. 🟨 Explainable match scoring
    - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, fixture-driven extraction/explanation eval harness is in place, and deterministic score-breakdown artifacts are now persisted/versioned and exposed via `/v1/ai/score-match` routes.
@@ -34,7 +36,7 @@ Owner: team
 
 ## Current focus
 - Active step: 5 (canonical job catalog and dedupe v1) while continuing Step 7 integration points
-- Next PR target: introduce canonical job/source mapping modules and wire persisted scoring artifacts into canonical feed/detail retrieval paths
+- Next PR target: replace in-memory canonical repository with persistence adapters and integrate canonical catalog into feed/detail retrieval plus score artifact joins
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
@@ -42,6 +44,7 @@ Owner: team
 - 2026-04-12: AI provider abstraction landed with OpenAI structured JSON schema adapter, deterministic fallback handling for provider failures, and fixture-driven extraction + explanation eval harness with threshold-enforced tests.
 - 2026-04-12: Deterministic score-breakdown generation and versioned match score/explanation artifacts added (`POST /v1/ai/score-match`, latest/history retrieval routes), with unit + integration coverage and migration `0003_match_scoring_artifacts.sql`.
 - 2026-04-12: Connector framework Step 4 completed with Greenhouse public board ingestion adapter, in-memory source job persistence, connector health/sync endpoints, fixture-driven connector normalization tests, and migration `0004_connector_framework.sql`.
+- 2026-04-12: Step 5 first slice landed with deterministic canonicalization/dedupe service, canonical catalog routes (`POST /v1/canonical-jobs/rebuild`, `GET /v1/canonical-jobs`, `GET /v1/canonical-jobs/:canonicalJobId`), migration scaffold `0005_canonical_jobs_dedupe_v1.sql`, and coverage for dedupe behavior plus route boundaries.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

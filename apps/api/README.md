@@ -19,6 +19,10 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/connectors`
 	- `POST /v1/connectors/:sourceName/sync`
 	- `GET /v1/source-jobs`
+- Canonical catalog v1 endpoints:
+	- `POST /v1/canonical-jobs/rebuild`
+	- `GET /v1/canonical-jobs`
+	- `GET /v1/canonical-jobs/:canonicalJobId`
 - AI extraction/explanation v1 endpoints:
 	- `POST /v1/ai/extract/resume`
 	- `POST /v1/ai/extract/job`
@@ -40,6 +44,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `migrations/0002_resume_pipeline.sql`
 	- `migrations/0003_match_scoring_artifacts.sql`
 	- `migrations/0004_connector_framework.sql`
+	- `migrations/0005_canonical_jobs_dedupe_v1.sql`
 
 ## AI provider configuration
 

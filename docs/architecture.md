@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2, 3, and 4 are implemented and Step 7 AI foundation work is active in the API and shared packages:
+As of 2026-04-12, Steps 2, 3, and 4 are implemented, Step 5 canonical catalog work is in progress, and Step 7 AI foundation work is active in the API and shared packages:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -25,6 +25,10 @@ As of 2026-04-12, Steps 2, 3, and 4 are implemented and Step 7 AI foundation wor
 - API v1 connector routes for listing connector health, triggering source sync, and listing ingested source jobs
 - Greenhouse public board connector adapter with source-job normalization and in-memory ingestion persistence
 - SQL migration for connector/source job persistence scaffolding
+- shared v1 canonical job contracts for catalog summaries, source mappings, and rebuild/list/detail payloads
+- API v1 canonical catalog routes for rebuilding and retrieving deduped canonical jobs
+- deterministic canonicalization/dedupe domain service with conservative matching heuristics and mapping reason codes
+- SQL migration scaffold for canonical jobs and source mapping traceability tables
 - SQL migration for versioned match score artifacts
 
 ## Guiding approach

@@ -83,6 +83,18 @@ export {
 } from './contracts/connectors/v1.js';
 
 export {
+  canonicalJobDetailsResponseSchema,
+  canonicalJobDetailSchema,
+  canonicalJobListResponseSchema,
+  canonicalJobSummarySchema,
+  canonicalMappingReasonCodeSchema,
+  canonicalRebuildRequestSchema,
+  canonicalRebuildResponseSchema,
+  canonicalSourceMappingSchema,
+  jobsContractVersion,
+} from './contracts/jobs/v1.js';
+
+export {
   profileContractVersion,
   userProfilePayloadSchema,
   userProfileSchema,
@@ -148,6 +160,18 @@ export type {
   SourceRemoteType,
   SourceSalaryPeriod,
 } from './contracts/connectors/v1.js';
+
+export type {
+  CanonicalJobDetail,
+  CanonicalJobDetailsResponse,
+  CanonicalJobId,
+  CanonicalJobListResponse,
+  CanonicalJobSummary,
+  CanonicalMappingReasonCode,
+  CanonicalRebuildRequest,
+  CanonicalRebuildResponse,
+  CanonicalSourceMapping,
+} from './contracts/jobs/v1.js';
 
 export type {
   UserProfile,

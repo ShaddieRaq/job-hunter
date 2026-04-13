@@ -17,6 +17,8 @@ Steps 2 through 4 (auth/profile/preferences, resume pipeline, and connector fram
 - fixture-driven connector normalization tests for Greenhouse source payloads, including malformed-record handling
 - connector service idempotency tests for inserted/updated/unchanged import behavior
 - connector route integration tests for authenticated sync and ingested source-job listing
+- canonicalization/dedupe unit tests for conservative clustering, traceable mappings, and rebuild idempotency
+- canonical catalog route integration tests for authenticated rebuild/list/detail boundaries
 
 ## Testing goals
 
