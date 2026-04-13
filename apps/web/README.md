@@ -9,6 +9,7 @@ Server-rendered Step 6 discovery UI for Job Hunter.
 - Preference-aligned filtering and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
 - Integration tests for sign-in, feed, detail, and action redirects
+- Step 9 application workflow UI is not yet wired; current web scope remains discovery-focused
 
 ## Runtime configuration
 - `WEB_PORT`: web server port (default `3000`)
@@ -16,5 +17,5 @@ Server-rendered Step 6 discovery UI for Job Hunter.
 
 ## Local usage
 1. Start API (`apps/api`) so auth/feed endpoints are available.
-2. Start web app (`pnpm --filter @job-hunter/web dev`).
+2. Start web app (`corepack pnpm --filter @job-hunter/web dev`).
 3. Open `http://localhost:3000` and sign in with a test email.
