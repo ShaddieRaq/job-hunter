@@ -42,22 +42,22 @@ Owner: team
 
 ## Current focus
 - Active step: close MVP validation gaps identified in `docs/mvp-validation-audit-2026-04-13.md`
-- Next PR target: MVP validation remediation slice 2 (feed action semantics + sensitive-data guardrails)
+- Next PR target: MVP validation remediation slice 3 (sensitive-data guardrails + saved-search foundations)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
 - Goal: move the gate from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
-- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 1 in `0c4f22f`).
+- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 2).
 
 1. ✅ P0 - scheduled import jobs (`High` risk)
    - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff and health reporting.
    - Delivery evidence: worker ingestion API client + scheduler implementation (`apps/worker/src/ingestion/client.ts`, `apps/worker/src/ingestion/scheduler.ts`), worker job status endpoints (`apps/worker/src/index.ts`), and worker unit coverage (`apps/worker/test/unit/ingestion.scheduler.test.ts`).
    - Completion check: worker can run scheduled sync/rebuild cycles and expose latest run health/status without manual `/actions/sync` and `/actions/rebuild` triggers.
 
-2. ⬜ P1 - explicit discovery actions save/hide/shortlist (`High` risk)
+2. ✅ P1 - explicit discovery actions save/hide/shortlist (`High` risk)
    - Scope: add first-class feed actions and API semantics for save/bookmark/hide/shortlist, mapped to tracker workflow states.
-   - Delivery evidence required: contracts + API/web route updates + integration tests that assert action behavior from feed/detail surfaces.
-   - Completion check: user can persist discovery decisions directly from feed and see deterministic state changes.
+   - Delivery evidence: shared tracker action contracts (`packages/shared/src/contracts/tracker/v1.ts`), API tracker discovery-action endpoint (`POST /v1/tracker/jobs/:canonicalJobId/actions/:action` in `apps/api/src/modules/tracker/routes.ts`), service-level action mapping (`apps/api/src/modules/tracker/service.ts`), web discovery controls + action handler (`apps/web/src/index.ts`), and API/web regression coverage (`apps/api/test/integration/tracker.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts`).
+   - Completion check: users can save, shortlist, and hide roles directly from discovery and see deterministic tracker state updates in feed/detail UI.
 
 3. ⬜ P1 - sensitive-data minimization guardrails (`High` risk)
    - Scope: add explicit redaction/minimization controls for AI-provider payload construction and sensitive logging boundaries.
@@ -98,6 +98,7 @@ Owner: team
 - 2026-04-13: Post-MVP stabilization hardening landed with web auth submit-mode fallback protection, connector sync response contract caps for large error batches, canonical rebuild payload-limit alignment in web actions, Greenhouse null-metadata compatibility handling, and expanded unit/integration/manual QA coverage.
 - 2026-04-13: External strict MVP validation audit merged (`643c2d1`) and identified five prioritized remediation gaps before final MVP gate sign-off.
 - 2026-04-13: MVP remediation slice 1 landed in commit `0c4f22f` with worker-based scheduled sync/rebuild orchestration, retry/backoff handling, worker job-health/status endpoints, and worker unit coverage for healthy/degraded cycle behavior.
+- 2026-04-13: MVP remediation slice 2 landed with explicit discovery save/shortlist/hide actions across shared contracts, API semantics, web feed/detail controls, and API/web test coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

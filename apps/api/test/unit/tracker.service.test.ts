@@ -213,3 +213,46 @@ test('transitionTrackedJobState notifies transition observers for emitted events
 
   assert.deepEqual(observedTransitions, ['discovered']);
 });
+
+test('applyDiscoveryAction maps feed actions to tracker states with default notes', async () => {
+  const canonicalJobId = '297d7ec8-361f-46ba-83dc-4dd76a0262f2';
+  const service = createTrackerService({
+    canonicalJobLookup: {
+      async getCanonicalJob(id) {
+        return id === canonicalJobId ? createCanonicalJob(canonicalJobId) : null;
+      },
+    },
+    now: () => new Date(nowIso),
+  });
+
+  const saveResult = await service.applyDiscoveryAction('user-6', {
+    canonicalJobId,
+    action: 'save',
+  });
+
+  assert.equal(saveResult.tracker.state, 'reviewing');
+  assert.equal(saveResult.tracker.lastTransitionNote, 'Saved from discovery feed');
+  assert.equal(saveResult.event?.toState, 'reviewing');
+
+  const shortlistResult = await service.applyDiscoveryAction('user-6', {
+    canonicalJobId,
+    action: 'shortlist',
+  });
+
+  assert.equal(shortlistResult.tracker.state, 'shortlisted');
+  assert.equal(
+    shortlistResult.tracker.lastTransitionNote,
+    'Shortlisted from discovery feed',
+  );
+  assert.equal(shortlistResult.event?.fromState, 'reviewing');
+  assert.equal(shortlistResult.event?.toState, 'shortlisted');
+
+  const hideResult = await service.applyDiscoveryAction('user-6', {
+    canonicalJobId,
+    action: 'hide',
+  });
+
+  assert.equal(hideResult.tracker.state, 'archived');
+  assert.equal(hideResult.tracker.lastTransitionNote, 'Hidden from discovery feed');
+  assert.equal(hideResult.event?.toState, 'archived');
+});

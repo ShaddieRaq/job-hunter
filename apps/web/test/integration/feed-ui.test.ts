@@ -179,6 +179,20 @@ const applicationStatuses = new Set([
   'archived',
 ]);
 
+const trackerActions = new Set(['save', 'shortlist', 'hide']);
+
+const trackerActionTargetState: Record<'save' | 'shortlist' | 'hide', string> = {
+  save: 'reviewing',
+  shortlist: 'shortlisted',
+  hide: 'archived',
+};
+
+const trackerActionDefaultNote: Record<'save' | 'shortlist' | 'hide', string> = {
+  save: 'Saved from discovery feed',
+  shortlist: 'Shortlisted from discovery feed',
+  hide: 'Hidden from discovery feed',
+};
+
 const parseApplicationPath = (pathname: string): string | null => {
   const prefix = '/v1/applications/';
   if (!pathname.startsWith(prefix)) {
@@ -207,6 +221,49 @@ const parseApplicationMaterialGuidancePath = (pathname: string): string | null =
   }
 
   return value;
+};
+
+const parseTrackerJobPath = (pathname: string): string | null => {
+  const prefix = '/v1/tracker/jobs/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const value = pathname.slice(prefix.length);
+  if (!value || value.includes('/')) {
+    return null;
+  }
+
+  return value;
+};
+
+const parseTrackerActionPath = (
+  pathname: string,
+): {
+  canonicalJobId: string;
+  action: string;
+} | null => {
+  const prefix = '/v1/tracker/jobs/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const remainder = pathname.slice(prefix.length);
+  const segments = remainder.split('/');
+  if (segments.length !== 3 || segments[1] !== 'actions') {
+    return null;
+  }
+
+  const canonicalJobId = segments[0];
+  const action = segments[2];
+  if (!canonicalJobId || !action) {
+    return null;
+  }
+
+  return {
+    canonicalJobId,
+    action,
+  };
 };
 
 const normalizeNullableText = (value: unknown): string | null | undefined => {
@@ -275,12 +332,31 @@ const createApiStubServer = (): Server => {
     }
   >();
 
+  const trackers = new Map<
+    string,
+    {
+      userId: string;
+      canonicalJobId: string;
+      state: string;
+      lastTransitionNote: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+  >();
+
   let applicationCounter = 1;
+  let trackerEventCounter = 1;
 
   const nextApplicationId = (): string => {
     const suffix = applicationCounter.toString(16).padStart(12, '0');
     applicationCounter += 1;
     return `11111111-1111-4111-8111-${suffix}`;
+  };
+
+  const nextTrackerEventId = (): string => {
+    const suffix = trackerEventCounter.toString(16).padStart(12, '0');
+    trackerEventCounter += 1;
+    return `22222222-2222-4222-8222-${suffix}`;
   };
 
   return createServer(async (req, res) => {
@@ -363,6 +439,105 @@ const createApiStubServer = (): Server => {
         items: [visibleFeedItem, hiddenFeedItem],
       });
       return;
+    }
+
+    if (method === 'GET' && pathname === '/v1/tracker/jobs') {
+      const stateFilter = requestUrl.searchParams.get('state');
+      const limitRaw = requestUrl.searchParams.get('limit');
+
+      const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 50;
+      const effectiveLimit = Number.isNaN(limit) ? 50 : limit;
+
+      const records = [...trackers.values()]
+        .filter((record) => {
+          if (!stateFilter) {
+            return true;
+          }
+
+          return record.state === stateFilter;
+        })
+        .slice(0, effectiveLimit);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        trackers: records,
+      });
+      return;
+    }
+
+    if (method === 'GET') {
+      const canonicalJobId = parseTrackerJobPath(pathname);
+      if (canonicalJobId) {
+        const tracker = trackers.get(canonicalJobId);
+        if (!tracker) {
+          sendJson(res, 404, { error: 'tracker_state_not_found' });
+          return;
+        }
+
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          tracker,
+        });
+        return;
+      }
+    }
+
+    if (method === 'POST') {
+      const trackerActionPath = parseTrackerActionPath(pathname);
+      if (trackerActionPath) {
+        const { canonicalJobId, action } = trackerActionPath;
+        if (
+          canonicalJobId !== visibleCanonicalJobId &&
+          canonicalJobId !== hiddenCanonicalJobId
+        ) {
+          sendJson(res, 404, { error: 'canonical_job_not_found' });
+          return;
+        }
+
+        if (!trackerActions.has(action)) {
+          sendJson(res, 400, { error: 'invalid_tracker_discovery_action' });
+          return;
+        }
+
+        const typedAction = action as 'save' | 'shortlist' | 'hide';
+        const body = await readRequestBody(req);
+        const parsed = body.length
+          ? (JSON.parse(body) as { note?: string | null })
+          : {};
+
+        const existing = trackers.get(canonicalJobId);
+        const nowIso = '2026-04-12T12:15:00.000Z';
+        const note =
+          normalizeNullableText(parsed.note) ?? trackerActionDefaultNote[typedAction];
+        const state = trackerActionTargetState[typedAction];
+
+        const tracker = {
+          userId,
+          canonicalJobId,
+          state,
+          lastTransitionNote: note,
+          createdAt: existing?.createdAt ?? nowIso,
+          updatedAt: nowIso,
+        };
+
+        trackers.set(canonicalJobId, tracker);
+
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          action: typedAction,
+          tracker,
+          event: {
+            eventId: nextTrackerEventId(),
+            userId,
+            canonicalJobId,
+            fromState: existing?.state ?? null,
+            toState: state,
+            note,
+            transitionedAt: nowIso,
+          },
+        });
+        return;
+      }
     }
 
     if (method === 'GET' && pathname === '/v1/applications') {
@@ -779,6 +954,80 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
 
     const includeHiddenHtml = await includeHiddenResponse.text();
     assert.match(includeHiddenHtml, /Hidden Corp/);
+  } finally {
+    await web.close();
+    await api.close();
+  }
+});
+
+test('feed tracker actions save, shortlist, and hide jobs from discovery', async () => {
+  const api = await startServer(createApiStubServer());
+  const web = await startServer(createWebServer({ apiBaseUrl: api.baseUrl }));
+
+  try {
+    const cookie = await signInAndGetCookie(web.baseUrl);
+
+    const saveResponse = await fetch(`${web.baseUrl}/actions/tracker`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: `canonicalJobId=${encodeURIComponent(visibleCanonicalJobId)}&action=save&returnTo=%2F`,
+      redirect: 'manual',
+    });
+
+    assert.equal(saveResponse.status, 303);
+    assert.equal(saveResponse.headers.get('location'), '/?notice=tracker_saved');
+
+    const shortlistResponse = await fetch(`${web.baseUrl}/actions/tracker`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: `canonicalJobId=${encodeURIComponent(visibleCanonicalJobId)}&action=shortlist&returnTo=%2F`,
+      redirect: 'manual',
+    });
+
+    assert.equal(shortlistResponse.status, 303);
+    assert.equal(shortlistResponse.headers.get('location'), '/?notice=tracker_shortlisted');
+
+    const hideResponse = await fetch(`${web.baseUrl}/actions/tracker`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: `canonicalJobId=${encodeURIComponent(visibleCanonicalJobId)}&action=hide&returnTo=%2F`,
+      redirect: 'manual',
+    });
+
+    assert.equal(hideResponse.status, 303);
+    assert.equal(hideResponse.headers.get('location'), '/?notice=tracker_hidden');
+
+    const defaultFeedResponse = await fetch(`${web.baseUrl}/`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    const defaultFeedHtml = await defaultFeedResponse.text();
+    assert.match(defaultFeedHtml, /No jobs match this filter set/);
+
+    const includeHiddenResponse = await fetch(
+      `${web.baseUrl}/?includeHidden=1&remote=any`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    assert.equal(includeHiddenResponse.status, 200);
+    const includeHiddenHtml = await includeHiddenResponse.text();
+    assert.match(includeHiddenHtml, /Visible Systems/);
+    assert.match(includeHiddenHtml, /Archived/);
   } finally {
     await web.close();
     await api.close();

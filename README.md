@@ -22,7 +22,7 @@ This repository is a TypeScript monorepo with Steps 2 through 9 complete:
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
-  web/      # Server-rendered feed/detail + application tracker UI with auth, filters, sync/rebuild controls, and material guidance checklists
+  web/      # Server-rendered feed/detail + application tracker UI with auth, filters, sync/rebuild controls, discovery actions (save/shortlist/hide), and material guidance checklists
   worker/   # Background worker with scheduled sync+rebuild orchestration and job-status endpoints
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
@@ -58,6 +58,7 @@ docs/
 - GET /v1/tracker/jobs
 - GET /v1/tracker/jobs/:canonicalJobId
 - PUT /v1/tracker/jobs/:canonicalJobId/state
+- POST /v1/tracker/jobs/:canonicalJobId/actions/:action
 - GET /v1/tracker/jobs/:canonicalJobId/history
 - GET /v1/reminders
 - POST /v1/reminders
@@ -90,10 +91,11 @@ docs/
 - Connector fixture-driven unit tests plus connector route integration tests
 - Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals
 - Tracker/reminder unit and integration tests for transition history, reminder lifecycle, and tracker-linked reminder side effects
+- Tracker discovery-action unit/integration tests for save/shortlist/hide semantics
 - Notification unit and integration tests for reminder-due dispatch and notification log listing
 - Application unit and integration tests for create/list/detail/update workflows and validation paths
 - Application material-guidance unit/integration coverage and web integration coverage for assistant rendering
-- Web integration tests for sign-in/feed/detail plus application create/list/detail/update workflows
+- Web integration tests for sign-in/feed/detail, tracker discovery action flows, plus application create/list/detail/update workflows
 - Worker unit tests for scheduled ingestion health outcomes, retry/backoff behavior, and scheduler status tracking
 
 ## Suggested local commands

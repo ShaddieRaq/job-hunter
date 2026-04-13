@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import {
   canonicalJobIdSchema,
+  trackerDiscoveryActionRequestSchema,
+  trackerDiscoveryActionSchema,
   trackerContractVersion,
   trackerStateSchema,
   trackerTransitionRequestSchema,
@@ -144,6 +146,36 @@ const parseTrackerActionPath = (
   return pathParam;
 };
 
+const parseTrackerDiscoveryActionPath = (
+  pathname: string,
+): {
+  canonicalJobId: string;
+  action: string;
+} | null => {
+  const prefix = '/v1/tracker/jobs/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const remainder = pathname.slice(prefix.length);
+  const segments = remainder.split('/');
+  if (segments.length !== 3 || segments[1] !== 'actions') {
+    return null;
+  }
+
+  const canonicalJobId = segments[0];
+  const action = segments[2];
+
+  if (!canonicalJobId || !action) {
+    return null;
+  }
+
+  return {
+    canonicalJobId,
+    action,
+  };
+};
+
 export const handleTrackerRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -224,6 +256,45 @@ export const handleTrackerRoutes = async (
 
       sendJson(res, 200, {
         contractVersion: trackerContractVersion,
+        tracker: result.tracker,
+        event: result.event,
+      });
+      return true;
+    }
+  }
+
+  if (method === 'POST') {
+    const actionPath = parseTrackerDiscoveryActionPath(pathname);
+    if (actionPath) {
+      const parsedCanonicalJobId = canonicalJobIdSchema.safeParse(
+        actionPath.canonicalJobId,
+      );
+      if (!parsedCanonicalJobId.success) {
+        throw new HttpError(400, 'invalid_canonical_job_id', {
+          canonicalJobId: actionPath.canonicalJobId,
+        });
+      }
+
+      const parsedAction = trackerDiscoveryActionSchema.safeParse(actionPath.action);
+      if (!parsedAction.success) {
+        throw new HttpError(400, 'invalid_tracker_discovery_action', {
+          action: actionPath.action,
+        });
+      }
+
+      const accessToken = requireAccessToken(req);
+      const user = await authProfileService.authenticate(accessToken);
+      const payload = await parseBody(req, trackerDiscoveryActionRequestSchema);
+
+      const result = await trackerService.applyDiscoveryAction(user.userId, {
+        canonicalJobId: parsedCanonicalJobId.data,
+        action: parsedAction.data,
+        note: payload.note,
+      });
+
+      sendJson(res, 200, {
+        contractVersion: trackerContractVersion,
+        action: result.action,
         tracker: result.tracker,
         event: result.event,
       });

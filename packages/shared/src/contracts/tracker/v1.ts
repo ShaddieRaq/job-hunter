@@ -29,6 +29,18 @@ export const trackerTransitionRequestSchema = z
   })
   .strict();
 
+export const trackerDiscoveryActionSchema = z.enum([
+  'save',
+  'shortlist',
+  'hide',
+]);
+
+export const trackerDiscoveryActionRequestSchema = z
+  .object({
+    note: nullableTrimmedText(500).optional(),
+  })
+  .strict();
+
 export const trackedJobStateSchema = z
   .object({
     userId: userIdSchema,
@@ -74,6 +86,15 @@ export const trackerTransitionResponseSchema = z
   })
   .strict();
 
+export const trackerDiscoveryActionResponseSchema = z
+  .object({
+    contractVersion: z.literal(trackerContractVersion),
+    action: trackerDiscoveryActionSchema,
+    tracker: trackedJobStateSchema,
+    event: trackerTransitionEventSchema.nullable(),
+  })
+  .strict();
+
 export const trackerHistoryResponseSchema = z
   .object({
     contractVersion: z.literal(trackerContractVersion),
@@ -84,9 +105,16 @@ export const trackerHistoryResponseSchema = z
 
 export type TrackerState = z.infer<typeof trackerStateSchema>;
 export type TrackerTransitionRequest = z.infer<typeof trackerTransitionRequestSchema>;
+export type TrackerDiscoveryAction = z.infer<typeof trackerDiscoveryActionSchema>;
+export type TrackerDiscoveryActionRequest = z.infer<
+  typeof trackerDiscoveryActionRequestSchema
+>;
 export type TrackedJobState = z.infer<typeof trackedJobStateSchema>;
 export type TrackerTransitionEvent = z.infer<typeof trackerTransitionEventSchema>;
 export type TrackerJobListResponse = z.infer<typeof trackerJobListResponseSchema>;
 export type TrackerJobStateResponse = z.infer<typeof trackerJobStateResponseSchema>;
 export type TrackerTransitionResponse = z.infer<typeof trackerTransitionResponseSchema>;
+export type TrackerDiscoveryActionResponse = z.infer<
+  typeof trackerDiscoveryActionResponseSchema
+>;
 export type TrackerHistoryResponse = z.infer<typeof trackerHistoryResponseSchema>;

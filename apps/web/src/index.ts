@@ -19,6 +19,10 @@ import {
   connectorSyncResponseSchema,
   feedDetailResponseSchema,
   feedResponseSchema,
+  trackerDiscoveryActionResponseSchema,
+  trackerDiscoveryActionSchema,
+  trackerJobListResponseSchema,
+  trackerJobStateResponseSchema,
   userPreferencesSchema,
   userProfileSchema,
   type ApplicationRecord,
@@ -28,6 +32,8 @@ import {
   type FeedJobCard,
   type MatchScoreArtifact,
   type RemotePreference,
+  type TrackerDiscoveryAction,
+  type TrackedJobState,
   type UserPreferences,
   type UserProfile,
 } from '@job-hunter/shared';
@@ -139,12 +145,27 @@ const recommendationLabel: Record<'apply' | 'review' | 'skip' | 'unscored', stri
   unscored: 'unscored',
 };
 
+const trackerActionTargetLabel: Record<TrackerDiscoveryAction, string> = {
+  save: 'reviewing',
+  shortlist: 'shortlisted',
+  hide: 'archived',
+};
+
+const trackerActionNoticeCodeByAction: Record<TrackerDiscoveryAction, string> = {
+  save: 'tracker_saved',
+  shortlist: 'tracker_shortlisted',
+  hide: 'tracker_hidden',
+};
+
 const noticeMessages: Record<string, string> = {
   signed_in: 'Signed in successfully.',
   account_created: 'Account created. You are now signed in.',
   sync_complete: 'Source sync completed.',
   sync_partial: 'Source sync completed with one or more source errors.',
   rebuild_complete: 'Canonical catalog rebuild completed.',
+  tracker_saved: 'Job saved to your tracker.',
+  tracker_shortlisted: 'Job moved to shortlisted.',
+  tracker_hidden: 'Job hidden from your discovery feed.',
   application_created: 'Application record created.',
   application_updated: 'Application status updated.',
   application_exists: 'An application already exists for this job.',
@@ -176,6 +197,8 @@ const feedErrorMessages: Record<string, string> = {
   application_already_exists_for_job: 'An application already exists for this job.',
   invalid_application_limit: 'Application limit filter is invalid.',
   invalid_application_status_filter: 'Application status filter is invalid.',
+  invalid_tracker_discovery_action: 'Tracker action is invalid.',
+  invalid_tracker_transition: 'Tracker action is not allowed from the current state.',
   resume_not_found: 'The selected resume could not be found for this account.',
   upstream_timeout: 'The API timed out while loading data.',
   upstream_unreachable: 'API is unreachable. Confirm the API server is running.',
@@ -1341,6 +1364,62 @@ const fetchApplicationMaterialGuidance = async (
   };
 };
 
+const fetchTrackers = async (
+  apiBaseUrl: string,
+  accessToken: string,
+): Promise<ApiResult<TrackedJobState[]>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    '/v1/tracker/jobs?limit=250',
+    {
+      method: 'GET',
+    },
+    trackerJobListResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.trackers,
+  };
+};
+
+const fetchTrackerState = async (
+  apiBaseUrl: string,
+  accessToken: string,
+  canonicalJobId: string,
+): Promise<ApiResult<TrackedJobState | null>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    `/v1/tracker/jobs/${canonicalJobId}`,
+    {
+      method: 'GET',
+    },
+    trackerJobStateResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    if (response.error.code === 'tracker_state_not_found') {
+      return {
+        ok: true,
+        data: null,
+      };
+    }
+
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.tracker,
+  };
+};
+
 const compareApplications = (
   left: ApplicationRecord,
   right: ApplicationRecord,
@@ -1359,6 +1438,17 @@ const mapApplicationsByCanonicalJobId = (
   const entries = applications.map((application) => [
     application.canonicalJobId,
     application,
+  ] as const);
+
+  return new Map(entries);
+};
+
+const mapTrackersByCanonicalJobId = (
+  trackers: TrackedJobState[],
+): Map<string, TrackedJobState> => {
+  const entries = trackers.map((tracker) => [
+    tracker.canonicalJobId,
+    tracker,
   ] as const);
 
   return new Map(entries);
@@ -1418,6 +1508,9 @@ const isHiddenByPreferences = (
 
   return preferences.hiddenTitles.some((value) => title.includes(value.toLowerCase()));
 };
+
+const isHiddenByTracker = (tracker: TrackedJobState | null | undefined): boolean =>
+  tracker?.state === 'archived';
 
 const getRecommendation = (
   artifact: MatchScoreArtifact | null,
@@ -1500,9 +1593,17 @@ const applyFeedFilters = (
   items: FeedJobCard[],
   query: FeedQueryState,
   preferences: UserPreferences,
+  trackersByCanonicalJobId: Map<string, TrackedJobState>,
 ): FeedJobCard[] => {
   const filtered = items.filter((item) => {
     if (!query.includeHidden && isHiddenByPreferences(item, preferences)) {
+      return false;
+    }
+
+    if (
+      !query.includeHidden &&
+      isHiddenByTracker(trackersByCanonicalJobId.get(item.job.canonicalJobId))
+    ) {
       return false;
     }
 
@@ -1528,8 +1629,18 @@ const applyFeedFilters = (
   return filtered.sort(compareFeedByFit);
 };
 
-const countHiddenItems = (items: FeedJobCard[], preferences: UserPreferences): number =>
-  items.filter((item) => isHiddenByPreferences(item, preferences)).length;
+const countHiddenItemsWithTracker = (
+  items: FeedJobCard[],
+  preferences: UserPreferences,
+  trackersByCanonicalJobId: Map<string, TrackedJobState>,
+): number =>
+  items.filter((item) => {
+    if (isHiddenByPreferences(item, preferences)) {
+      return true;
+    }
+
+    return isHiddenByTracker(trackersByCanonicalJobId.get(item.job.canonicalJobId));
+  }).length;
 
 const buildFeedJobMap = (
   items: FeedJobCard[],
@@ -1630,9 +1741,52 @@ const renderApplicationStatusOptions = (
   return options.join('');
 };
 
+const renderTrackerDiscoveryPanel = (
+  canonicalJobId: string,
+  tracker: TrackedJobState | null,
+  returnTo: string,
+): string => {
+  const trackerState = tracker ? humanizeToken(tracker.state) : 'Not tracked yet';
+  const trackerUpdated = tracker
+    ? `Updated ${escapeHtml(formatDateTime(tracker.updatedAt))}`
+    : 'Use actions below to track this role from discovery.';
+
+  const renderActionButton = (
+    action: TrackerDiscoveryAction,
+    label: string,
+    buttonClass: string,
+  ): string => {
+    const targetState = trackerActionTargetLabel[action];
+    const disabled = tracker?.state === targetState;
+
+    return `<form method="POST" action="/actions/tracker" class="inline-form" data-pending-label>
+      <input type="hidden" name="canonicalJobId" value="${escapeHtml(canonicalJobId)}" />
+      <input type="hidden" name="action" value="${escapeHtml(action)}" />
+      <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
+      <button class="inline-action ${buttonClass}" type="submit"${disabled ? ' disabled' : ''} data-pending-label="Updating tracker...">${escapeHtml(
+        label,
+      )}</button>
+    </form>`;
+  };
+
+  return `<div class="score-box">
+    <p>
+      <span class="recommendation unscored">tracker</span>
+      <span class="mono">${escapeHtml(trackerState)}</span>
+    </p>
+    <p class="muted">${trackerUpdated}</p>
+    <div class="sticky-tools">
+      ${renderActionButton('save', 'Save', 'secondary')}
+      ${renderActionButton('shortlist', 'Shortlist', '')}
+      ${renderActionButton('hide', 'Hide', 'ghost')}
+    </div>
+  </div>`;
+};
+
 const renderJobCard = (
   item: FeedJobCard,
   returnTo: string,
+  tracker: TrackedJobState | null,
   application: ApplicationRecord | null,
 ): string => {
   const recommendation = getRecommendation(item.latestScoreArtifact);
@@ -1719,6 +1873,7 @@ const renderJobCard = (
       <ul class="skill-list">
         ${topSkills.map((skill) => `<li>${escapeHtml(skill)}</li>`).join('')}
       </ul>
+      ${renderTrackerDiscoveryPanel(item.job.canonicalJobId, tracker, returnTo)}
       ${applicationPanel}
       <a class="link-button" href="${escapeHtml(detailsHref)}">Open detail</a>
     </article>
@@ -1730,6 +1885,7 @@ const renderFeedPage = (
   preferences: UserPreferences,
   allItems: FeedJobCard[],
   filteredItems: FeedJobCard[],
+  trackersByCanonicalJobId: Map<string, TrackedJobState>,
   applicationsByCanonicalJobId: Map<string, ApplicationRecord>,
   query: FeedQueryState,
   noticeCode: string | null,
@@ -1738,7 +1894,11 @@ const renderFeedPage = (
 ): string => {
   const notice = noticeCode ? noticeMessages[noticeCode] ?? humanizeToken(noticeCode) : null;
   const error = errorCode ? feedErrorMessages[errorCode] ?? humanizeToken(errorCode) : null;
-  const hiddenCount = countHiddenItems(allItems, preferences);
+  const hiddenCount = countHiddenItemsWithTracker(
+    allItems,
+    preferences,
+    trackersByCanonicalJobId,
+  );
 
   const flash = [
     notice ? renderFlash(notice, 'notice') : '',
@@ -1752,6 +1912,7 @@ const renderFeedPage = (
             renderJobCard(
               item,
               returnTo,
+              trackersByCanonicalJobId.get(item.job.canonicalJobId) ?? null,
               applicationsByCanonicalJobId.get(item.job.canonicalJobId) ?? null,
             ),
           )
@@ -2047,6 +2208,7 @@ const renderJobApplicationPanel = (
 const renderDetailPage = (
   profile: UserProfile,
   detail: FeedDetailResponse | null,
+  tracker: TrackedJobState | null,
   application: ApplicationRecord | null,
   materialGuidance: ApplicationMaterialGuidance | null,
   returnTo: string,
@@ -2103,6 +2265,11 @@ const renderDetailPage = (
         </article>
       </section>
       <section class="detail-layout">
+        ${renderTrackerDiscoveryPanel(
+          detail.canonical.job.canonicalJobId,
+          tracker,
+          `/jobs/${detail.canonical.job.canonicalJobId}?returnTo=${encodeURIComponent(returnTo)}`,
+        )}
         ${renderJobApplicationPanel(detail.canonical.job.canonicalJobId, application, returnTo)}
         ${materialGuidance
           ? renderStructuredMaterialGuidance(materialGuidance)
@@ -2578,6 +2745,68 @@ const handleRebuildRoute = async (
   redirect(res, withQueryParam(returnTo, 'notice', 'rebuild_complete'));
 };
 
+const handleTrackerActionRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const form = await readFormBody(req);
+  const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/');
+
+  if (!accessToken) {
+    redirect(res, withQueryParam('/', 'auth_error', 'missing_access_token'));
+    return;
+  }
+
+  const canonicalJobIdInput = (form.get('canonicalJobId') ?? '').toString().trim();
+  const parsedCanonicalJobId = canonicalJobIdSchema.safeParse(canonicalJobIdInput);
+  if (!parsedCanonicalJobId.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_canonical_job_id'));
+    return;
+  }
+
+  const actionInput = (form.get('action') ?? '').toString().trim();
+  const parsedAction = trackerDiscoveryActionSchema.safeParse(actionInput);
+  if (!parsedAction.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_tracker_discovery_action'));
+    return;
+  }
+
+  const note = readNullableFormField(form, 'note');
+  const payload = note === undefined ? {} : { note };
+
+  const actionResult = await requestApi(
+    apiBaseUrl,
+    `/v1/tracker/jobs/${parsedCanonicalJobId.data}/actions/${parsedAction.data}`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+    trackerDiscoveryActionResponseSchema,
+    accessToken,
+  );
+
+  if (!actionResult.ok) {
+    if (actionResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', actionResult.error.code));
+    return;
+  }
+
+  const noticeCode = trackerActionNoticeCodeByAction[actionResult.data.action];
+  redirect(res, withQueryParam(returnTo, 'notice', noticeCode));
+};
+
 const handleApplicationsRoute = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -2974,11 +3203,18 @@ const handleFeedRoute = async (
     return;
   }
 
-  const [profileResult, preferencesResult, feedResult, applicationsResult] = await Promise.all([
+  const [
+    profileResult,
+    preferencesResult,
+    feedResult,
+    applicationsResult,
+    trackersResult,
+  ] = await Promise.all([
     fetchProfile(apiBaseUrl, accessToken),
     fetchPreferences(apiBaseUrl, accessToken),
     requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
     fetchApplications(apiBaseUrl, accessToken, { limit: 250 }),
+    fetchTrackers(apiBaseUrl, accessToken),
   ]);
 
   if (!profileResult.ok) {
@@ -3005,7 +3241,15 @@ const handleFeedRoute = async (
   const returnTo = buildFeedReturnPath(query);
 
   const allItems = feedResult.ok ? feedResult.data.items : [];
-  const filteredItems = applyFeedFilters(allItems, query, preferences);
+  const trackersByCanonicalJobId = mapTrackersByCanonicalJobId(
+    trackersResult.ok ? trackersResult.data : [],
+  );
+  const filteredItems = applyFeedFilters(
+    allItems,
+    query,
+    preferences,
+    trackersByCanonicalJobId,
+  );
   const applicationsByCanonicalJobId = mapApplicationsByCanonicalJobId(
     applicationsResult.ok ? applicationsResult.data : [],
   );
@@ -3016,6 +3260,8 @@ const handleFeedRoute = async (
     ? feedResult.error.code
     : !applicationsResult.ok
       ? applicationsResult.error.code
+    : !trackersResult.ok
+      ? trackersResult.error.code
     : !preferencesResult.ok
       ? preferencesResult.error.code
       : routeErrorCode;
@@ -3028,6 +3274,7 @@ const handleFeedRoute = async (
       preferences,
       allItems,
       filteredItems,
+      trackersByCanonicalJobId,
       applicationsByCanonicalJobId,
       query,
       feedNoticeCode,
@@ -3083,7 +3330,7 @@ const handleJobDetailRoute = async (
     return;
   }
 
-  const [detailResult, applicationResult] = await Promise.all([
+  const [detailResult, applicationResult, trackerResult] = await Promise.all([
     requestApi(
       apiBaseUrl,
       `/v1/feed/${parsedJobId.data}`,
@@ -3097,13 +3344,22 @@ const handleJobDetailRoute = async (
       canonicalJobId: parsedJobId.data,
       limit: 1,
     }),
+    fetchTrackerState(apiBaseUrl, accessToken, parsedJobId.data),
   ]);
 
   if (!detailResult.ok) {
     sendHtml(
       res,
       detailResult.error.status === 404 ? 404 : 200,
-      renderDetailPage(profileResult.data, null, null, null, returnTo, detailResult.error.code),
+      renderDetailPage(
+        profileResult.data,
+        null,
+        null,
+        null,
+        null,
+        returnTo,
+        detailResult.error.code,
+      ),
     );
     return;
   }
@@ -3111,6 +3367,7 @@ const handleJobDetailRoute = async (
   const application = applicationResult.ok
     ? findApplicationForCanonicalJob(applicationResult.data, parsedJobId.data)
     : null;
+  const tracker = trackerResult.ok ? trackerResult.data : null;
   const materialGuidanceResult = application
     ? await fetchApplicationMaterialGuidance(
         apiBaseUrl,
@@ -3126,6 +3383,8 @@ const handleJobDetailRoute = async (
     ? routeErrorCode
     : !applicationResult.ok
       ? applicationResult.error.code
+    : !trackerResult.ok
+      ? trackerResult.error.code
       : materialGuidanceResult && !materialGuidanceResult.ok
         ? materialGuidanceResult.error.code
       : null;
@@ -3136,6 +3395,7 @@ const handleJobDetailRoute = async (
     renderDetailPage(
       profileResult.data,
       detailResult.data,
+      tracker,
       application,
       materialGuidance,
       returnTo,
@@ -3195,6 +3455,11 @@ const handleRequest = async (
 
   if (method === 'POST' && pathname === '/actions/rebuild') {
     await handleRebuildRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/actions/tracker') {
+    await handleTrackerActionRoute(req, res, apiBaseUrl);
     return;
   }
 

@@ -301,3 +301,105 @@ test('tracker routes enforce auth and transition validation', async () => {
     await app.close();
   }
 });
+
+test('tracker discovery action route maps save/shortlist/hide semantics', async () => {
+  const canonicalJobId = '14839c97-e93f-4774-a6d0-d95f4d030885';
+  const trackerService = createTrackerService({
+    canonicalJobLookup: {
+      async getCanonicalJob(id) {
+        return id === canonicalJobId ? createCanonicalJob(canonicalJobId) : null;
+      },
+    },
+  });
+
+  const app = await startServer({
+    trackerService,
+  });
+
+  try {
+    const accessToken = await registerAndGetAccessToken(app.baseUrl);
+
+    const saveResponse = await fetch(
+      `${app.baseUrl}/v1/tracker/jobs/${canonicalJobId}/actions/save`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(saveResponse.status, 200);
+    const saveBody = (await saveResponse.json()) as {
+      action: string;
+      tracker: { state: string };
+      event: { toState: string } | null;
+    };
+
+    assert.equal(saveBody.action, 'save');
+    assert.equal(saveBody.tracker.state, 'reviewing');
+    assert.equal(saveBody.event?.toState, 'reviewing');
+
+    const shortlistResponse = await fetch(
+      `${app.baseUrl}/v1/tracker/jobs/${canonicalJobId}/actions/shortlist`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(shortlistResponse.status, 200);
+    const shortlistBody = (await shortlistResponse.json()) as {
+      action: string;
+      tracker: { state: string };
+    };
+    assert.equal(shortlistBody.action, 'shortlist');
+    assert.equal(shortlistBody.tracker.state, 'shortlisted');
+
+    const hideResponse = await fetch(
+      `${app.baseUrl}/v1/tracker/jobs/${canonicalJobId}/actions/hide`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ note: 'Hide this role from discovery feed' }),
+      },
+    );
+
+    assert.equal(hideResponse.status, 200);
+    const hideBody = (await hideResponse.json()) as {
+      action: string;
+      tracker: { state: string; lastTransitionNote: string | null };
+      event: { toState: string } | null;
+    };
+
+    assert.equal(hideBody.action, 'hide');
+    assert.equal(hideBody.tracker.state, 'archived');
+    assert.equal(hideBody.tracker.lastTransitionNote, 'Hide this role from discovery feed');
+    assert.equal(hideBody.event?.toState, 'archived');
+
+    const invalidActionResponse = await fetch(
+      `${app.baseUrl}/v1/tracker/jobs/${canonicalJobId}/actions/not-real`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      },
+    );
+
+    assert.equal(invalidActionResponse.status, 400);
+  } finally {
+    await app.close();
+  }
+});

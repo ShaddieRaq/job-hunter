@@ -3,11 +3,11 @@
 _Date:_ 2026-04-13  
 _Auditor mode:_ strict (docs treated as claims; code+tests/runtime required)
 
-_Revision:_ updated after MVP remediation slice 1 (`0c4f22f`) for scheduled ingestion delivery evidence.
+_Revision:_ updated after MVP remediation slice 2 (scheduled ingestion + explicit discovery actions delivery evidence).
 
 ## Executive Verdict
 
-The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferences, resume ingestion, connector ingestion, canonicalization/dedupe, explainable scoring artifacts, tracker/reminders/notifications, scheduled ingestion orchestration, and application workflows), but it does **not** fully satisfy every documented MVP promise. Remaining commitments in `docs/mvp-scope.md` and `docs/architecture.md` are still missing or weakly evidenced (notably saved searches, explicit hide/save/shortlist feed actions, high-fit alerts/digests UX, and sensitive-data minimization proof). **Overall confidence: 87%.**
+The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferences, resume ingestion, connector ingestion, canonicalization/dedupe, explainable scoring artifacts, tracker/reminders/notifications, scheduled ingestion orchestration, explicit discovery actions, and application workflows), but it does **not** fully satisfy every documented MVP promise. Remaining commitments in `docs/mvp-scope.md` and `docs/architecture.md` are still missing or weakly evidenced (notably saved searches, high-fit alerts/digests UX, and sensitive-data minimization proof). **Overall confidence: 90%.**
 
 ## Promise Coverage Table
 
@@ -24,7 +24,7 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 | 9 | Deterministic explainable scoring with decomposition + deal breakers | `docs/mvp-scope.md`; `docs/architecture.md`; AGENTS rules | Score artifact has named sub-scores, penalties, strengths/gaps/deal-breakers, recommendation class. `apps/api/src/modules/ai/scoring.ts`, `packages/shared/src/contracts/ai/v1.ts`, `apps/api/src/modules/ai/service.ts` | Unit/integration/eval tests for edge cases + guardrails. `apps/api/test/unit/ai.scoring.test.ts`, `apps/api/test/unit/ai.service.test.ts`, `apps/api/test/integration/ai.routes.test.ts`, `apps/api/test/evals/ai-eval.test.ts` | Delivered | Critical |
 | 10 | Explainability shown in discovery/detail decisions | `docs/mvp-scope.md` | Feed/detail API joins latest score artifact and dedupe context. `apps/api/src/modules/canonical-jobs/routes.ts`; web renders score context. `apps/web/src/index.ts` | Web integration test asserts detail rendering of score + dedupe context. `apps/web/test/integration/feed-ui.test.ts` | Delivered | High |
 | 11 | Aggregated feed with filtering/sorting | `docs/mvp-scope.md` | Feed route + web query filtering/sorting state exists. `apps/api/src/modules/canonical-jobs/routes.ts`, `apps/web/src/index.ts` | Feed UI integration tests cover filtering and authenticated feed behavior. `apps/web/test/integration/feed-ui.test.ts` | Delivered | Medium |
-| 12 | Save/bookmark/hide/shortlist actions in discovery | `docs/mvp-scope.md` | Tracker states and transitions exist (`discovered`, `shortlisted`, etc.), but explicit feed save/hide/bookmark route/action surface is not clearly implemented in API/web endpoints. `packages/shared/src/contracts/tracker/v1.ts`, `apps/api/src/modules/tracker/routes.ts`, `apps/web/src/index.ts` | Tracker tests validate transitions, but no explicit feed “hide/save/bookmark action” tests found. `apps/api/test/integration/tracker.routes.test.ts` | Partially Delivered | High |
+| 12 | Save/bookmark/hide/shortlist actions in discovery | `docs/mvp-scope.md` | Explicit tracker discovery action contracts and API/web route surfaces exist for save/shortlist/hide flows. `packages/shared/src/contracts/tracker/v1.ts`, `apps/api/src/modules/tracker/routes.ts`, `apps/api/src/modules/tracker/service.ts`, `apps/web/src/index.ts` | API integration coverage verifies action endpoint semantics and web integration coverage verifies feed action flows + hidden-by-tracker behavior. `apps/api/test/integration/tracker.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts` | Delivered | High |
 | 13 | Saved searches | `docs/mvp-scope.md` | No saved-search module/contract/routes found in workspace. | No tests found for saved searches. | Not Delivered | Medium |
 | 14 | New high-fit alerts or digests | `docs/mvp-scope.md` | Reminder-based notifications exist, but no explicit high-fit job alert/digest generator tied to score thresholds. `apps/api/src/modules/notifications/service.ts`, `apps/api/src/modules/reminders/service.ts` | Notification tests cover due-reminder dispatch only. `apps/api/test/unit/notifications.service.test.ts`, `apps/api/test/integration/notifications.routes.test.ts` | Partially Delivered | Medium |
 | 15 | Lightweight application tracking with timestamps/history | `docs/mvp-scope.md`; `docs/domain-model.md` | Tracker transition rules + event audit history and application lifecycle endpoints implemented. `apps/api/src/modules/tracker/service.ts`, `apps/api/src/modules/applications/service.ts`, `apps/api/migrations/0007_tracker_state_history.sql`, `apps/api/migrations/0010_application_records.sql` | Unit + integration tests validate transitions/history and application CRUD/update flows. `apps/api/test/unit/tracker.service.test.ts`, `apps/api/test/integration/tracker.routes.test.ts`, `apps/api/test/unit/applications.service.test.ts`, `apps/api/test/integration/applications.routes.test.ts` | Delivered | High |
@@ -37,17 +37,16 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 ## Direct Validation of Core MVP Outcomes
 
 1. **Faster discovery of high-fit jobs** — **Delivered**: Aggregated feed + scoring/recommendations are now paired with scheduled ingestion automation for fresher discovery state.  
-2. **Reduced irrelevant job review burden** — **Partially Delivered**: Dedupe and explainable skip/review/apply signals exist; explicit save/hide/bookmark UX semantics are incomplete evidence.  
+2. **Reduced irrelevant job review burden** — **Delivered**: Dedupe and explainable skip/review/apply signals are supported by explicit save/shortlist/hide discovery controls.  
 3. **Application workflow organization** — **Delivered**: tracker states, reminders, notifications, and application CRUD/history pathways are implemented and tested.  
 4. **Explainable decision support for where to apply** — **Delivered**: decomposed scoring, strengths/gaps/deal-breakers, recommendation class, and feed/detail exposure are implemented and tested.  
 5. **Reduced repeated manual work for application prep** — **Delivered**: material guidance/checklists/keyword and bullet prompts are implemented and tested.
 
 ## Undelivered or Weakly Delivered Promises (Prioritized)
 
-1. **Explicit save/hide/bookmark discovery actions weakly evidenced** (High) — tracker transitions exist, but discovery action semantics are not first-class in tested feed behavior.  
-2. **Sensitive-data minimization controls unproven** (High) — no explicit testable redaction/minimization policy layer for AI/log outputs.  
-3. **Saved searches missing** (Medium) — explicit discovery workflow commitment lacks API/DB/UI implementation.  
-4. **High-fit alerts/digests only partially represented** (Medium) — reminder notification dispatch exists, but score-triggered high-fit digest workflows are not clearly present.
+1. **Sensitive-data minimization controls unproven** (High) — no explicit testable redaction/minimization policy layer for AI/log outputs.  
+2. **Saved searches missing** (Medium) — explicit discovery workflow commitment lacks API/DB/UI implementation.  
+3. **High-fit alerts/digests only partially represented** (Medium) — reminder notification dispatch exists, but score-triggered high-fit digest workflows are not clearly present.
 
 ## Scope Violations
 
@@ -56,15 +55,13 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 
 ## Minimal Remediation Plan
 
-1. **Introduce explicit feed actions (save/hide/shortlist) backed by tracker endpoints** (1–2 days, High reduction).
-   - Add dedicated UI affordances and route/integration tests.
-2. **Add sensitive-data minimization guardrails and tests** (1–2 days, High reduction).
+1. **Add sensitive-data minimization guardrails and tests** (1–2 days, High reduction).
    - Redact notes/resume text in logs and constrain provider payload fields.
-3. **Add saved-search model + API + web controls** (2–3 days, Medium reduction).
+2. **Add saved-search model + API + web controls** (2–3 days, Medium reduction).
    - Persist user query presets and wire to feed filters.
-4. **Add high-fit digest/alert workflow keyed to recommendation thresholds** (2–3 days, Medium reduction).
+3. **Add high-fit digest/alert workflow keyed to recommendation thresholds** (2–3 days, Medium reduction).
    - Reuse notification module with scored-job eligibility checks.
-5. **Publish a refreshed strict audit revision after remediation slices 2+** (0.5 day, Medium reduction).
+4. **Publish a refreshed strict audit revision after remediation slices 3+** (0.5 day, Medium reduction).
    - Re-score confidence and verify each remaining promise has code + test/runtime proof.
 
 ## Final Gate Decision

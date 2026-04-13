@@ -26,9 +26,11 @@ Steps 2 through 7 (auth/profile/preferences, resume pipeline, connector/canonica
 
 Step 8 tracker/reminder/notification slices currently include:
 - tracker service unit tests for transition-rule enforcement, canonical existence checks, transition observer hooks, and transition audit history behavior
+- tracker service unit tests for discovery action mapping (`save`, `shortlist`, `hide`) to deterministic tracker states
 - reminder service unit tests for creation, completion lifecycle, dedupe-by-tracker-event behavior, and unsupported-state handling
 - notification service unit tests for due-reminder queue/send dispatch semantics and idempotency
 - tracker route integration tests for authenticated list/detail/transition/history boundaries and invalid-transition handling
+- tracker route integration tests for explicit discovery action endpoint semantics (`POST /v1/tracker/jobs/:canonicalJobId/actions/:action`)
 - reminder route integration tests for authenticated create/list/detail/complete boundaries, validation/auth errors, and tracker-transition side-effect coverage
 - notification route integration tests for authenticated dispatch/log-list boundaries and validation/auth errors
 
@@ -40,6 +42,7 @@ Post-MVP hardening coverage currently includes:
 - connector service contract-hardening tests that cap sync response error arrays while preserving true `failedCount`
 - Greenhouse connector parsing regression tests for null metadata payload compatibility
 - web integration regression tests for auth submit-mode fallback behavior and canonical rebuild payload-limit compatibility
+- web integration regression tests for explicit feed discovery actions (save/shortlist/hide) and tracker-driven hiding behavior
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, retry/backoff behavior, and run-status tracking
 - manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
 

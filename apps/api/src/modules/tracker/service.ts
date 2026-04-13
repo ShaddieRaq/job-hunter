@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   CanonicalJobDetail,
+  TrackerDiscoveryAction,
   CanonicalJobId,
   TrackerState,
   TrackerTransitionEvent,
@@ -54,6 +55,18 @@ const trackerTransitionRules: Record<TrackerState, Set<TrackerState>> = {
   archived: new Set(['discovered']),
 };
 
+const trackerDiscoveryActionTargets: Record<TrackerDiscoveryAction, TrackerState> = {
+  save: 'reviewing',
+  shortlist: 'shortlisted',
+  hide: 'archived',
+};
+
+const trackerDiscoveryActionDefaultNotes: Record<TrackerDiscoveryAction, string> = {
+  save: 'Saved from discovery feed',
+  shortlist: 'Shortlisted from discovery feed',
+  hide: 'Hidden from discovery feed',
+};
+
 const canTransition = (fromState: TrackerState, toState: TrackerState): boolean =>
   trackerTransitionRules[fromState].has(toState);
 
@@ -70,6 +83,16 @@ export interface TransitionTrackerStateInput {
 export interface TransitionTrackerStateResult {
   tracker: TrackedJobState;
   event: TrackerTransitionEvent | null;
+}
+
+export interface ApplyTrackerDiscoveryActionInput {
+  canonicalJobId: CanonicalJobId;
+  action: TrackerDiscoveryAction;
+  note?: string | null;
+}
+
+export interface ApplyTrackerDiscoveryActionResult extends TransitionTrackerStateResult {
+  action: TrackerDiscoveryAction;
 }
 
 export interface TrackerTransitionObserver {
@@ -90,6 +113,10 @@ export interface TrackerService {
     userId: string,
     input: TransitionTrackerStateInput,
   ): Promise<TransitionTrackerStateResult>;
+  applyDiscoveryAction(
+    userId: string,
+    input: ApplyTrackerDiscoveryActionInput,
+  ): Promise<ApplyTrackerDiscoveryActionResult>;
   listTransitionEvents(options: {
     userId: string;
     canonicalJobId: CanonicalJobId;
@@ -109,22 +136,11 @@ export const createTrackerService = ({
   repository = createInMemoryTrackerRepository(),
   transitionObservers = [],
   now = () => new Date(),
-}: CreateTrackerServiceOptions): TrackerService => ({
-  async listTrackedJobs({ userId, state, limit }) {
-    const resolvedLimit = normalizeLimit(limit, defaultListLimit, maxListLimit);
-
-    return repository.listTrackedJobs({
-      userId,
-      state,
-      limit: resolvedLimit,
-    });
-  },
-
-  async getTrackedJob(userId, canonicalJobId) {
-    return repository.findTrackedJob(userId, canonicalJobId);
-  },
-
-  async transitionTrackedJobState(userId, input) {
+}: CreateTrackerServiceOptions): TrackerService => {
+  const transitionTrackedJobState = async (
+    userId: string,
+    input: TransitionTrackerStateInput,
+  ): Promise<TransitionTrackerStateResult> => {
     const canonical = await canonicalJobLookup.getCanonicalJob(input.canonicalJobId);
     if (!canonical) {
       throw new HttpError(404, 'canonical_job_not_found', {
@@ -186,9 +202,54 @@ export const createTrackerService = ({
       tracker: savedTracker,
       event,
     };
-  },
+  };
 
-  async listTransitionEvents({ userId, canonicalJobId, limit }) {
+  const applyDiscoveryAction = async (
+    userId: string,
+    input: ApplyTrackerDiscoveryActionInput,
+  ): Promise<ApplyTrackerDiscoveryActionResult> => {
+    const mappedState = trackerDiscoveryActionTargets[input.action];
+    const result = await transitionTrackedJobState(userId, {
+      canonicalJobId: input.canonicalJobId,
+      targetState: mappedState,
+      note: input.note ?? trackerDiscoveryActionDefaultNotes[input.action],
+    });
+
+    return {
+      action: input.action,
+      tracker: result.tracker,
+      event: result.event,
+    };
+  };
+
+  const listTrackedJobs = async ({
+    userId,
+    state,
+    limit,
+  }: {
+    userId: string;
+    state?: TrackerState;
+    limit?: number;
+  }): Promise<TrackedJobState[]> => {
+    const resolvedLimit = normalizeLimit(limit, defaultListLimit, maxListLimit);
+
+    return repository.listTrackedJobs({
+      userId,
+      state,
+      limit: resolvedLimit,
+    });
+  };
+
+  const getTrackedJob = async (
+    userId: string,
+    canonicalJobId: CanonicalJobId,
+  ): Promise<TrackedJobState | null> => repository.findTrackedJob(userId, canonicalJobId);
+
+  const listTransitionEvents = async ({ userId, canonicalJobId, limit }: {
+    userId: string;
+    canonicalJobId: CanonicalJobId;
+    limit?: number;
+  }): Promise<TrackerTransitionEvent[]> => {
     const resolvedLimit = normalizeLimit(limit, defaultHistoryLimit, maxHistoryLimit);
 
     return repository.listTransitionEvents({
@@ -196,5 +257,13 @@ export const createTrackerService = ({
       canonicalJobId,
       limit: resolvedLimit,
     });
-  },
-});
+  };
+
+  return {
+    listTrackedJobs,
+    getTrackedJob,
+    transitionTrackedJobState,
+    applyDiscoveryAction,
+    listTransitionEvents,
+  };
+};

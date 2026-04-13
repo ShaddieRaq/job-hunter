@@ -37,6 +37,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/tracker/jobs`
 	- `GET /v1/tracker/jobs/:canonicalJobId`
 	- `PUT /v1/tracker/jobs/:canonicalJobId/state`
+	- `POST /v1/tracker/jobs/:canonicalJobId/actions/:action` (`save`, `shortlist`, `hide`)
 	- `GET /v1/tracker/jobs/:canonicalJobId/history`
 - Reminder v1 endpoints:
 	- `GET /v1/reminders`

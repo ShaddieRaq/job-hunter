@@ -147,6 +147,9 @@ export {
 } from './contracts/profile/v1.js';
 
 export {
+  trackerDiscoveryActionRequestSchema,
+  trackerDiscoveryActionResponseSchema,
+  trackerDiscoveryActionSchema,
   trackedJobStateSchema,
   trackerContractVersion,
   trackerHistoryResponseSchema,
@@ -278,6 +281,9 @@ export type {
 } from './contracts/profile/v1.js';
 
 export type {
+  TrackerDiscoveryAction,
+  TrackerDiscoveryActionRequest,
+  TrackerDiscoveryActionResponse,
   TrackedJobState,
   TrackerHistoryResponse,
   TrackerJobListResponse,
