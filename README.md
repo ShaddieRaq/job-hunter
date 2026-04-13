@@ -18,12 +18,12 @@ The product is designed to help a user:
 ## Current repository status
 
 This repository is a TypeScript monorepo with Steps 2 through 9 complete,
-plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches + high-fit alerts):
+plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches + high-fit alerts), followed by post-validation UX polish for feed-side high-fit alert visibility:
 
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
-  web/      # Server-rendered feed/detail + application tracker UI with auth, high-fit-first filters, sync/rebuild controls, discovery actions (save/shortlist/hide), saved-search controls, and material guidance checklists
+  web/      # Server-rendered feed/detail + application tracker UI with auth, high-fit-first filters, sync/rebuild controls, discovery actions (save/shortlist/hide), saved-search controls, feed-integrated high-fit alert panel links, and material guidance checklists
   worker/   # Background worker with scheduled sync+rebuild orchestration and job-status endpoints
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
@@ -106,6 +106,7 @@ docs/
 - Saved-search API and web integration tests for create/list/get/delete and feed apply/delete flows
 - AI provider-boundary minimization regression tests for redacted payload handling and provider error-detail minimization
 - Notification service and route coverage for recommendation-threshold high-fit alert dispatch and idempotency
+- Web integration regression tests for feed-side high-fit alert panel rendering and jump-to-job navigation links
 
 ## Suggested local commands
 

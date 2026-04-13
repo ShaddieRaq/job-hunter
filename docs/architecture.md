@@ -36,6 +36,7 @@ As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices
 - canonical dedupe trace-event persistence and retrieval for reversible audit trails
 - feed/detail query paths backed by canonical catalog with latest score artifact joins
 - server-rendered web feed/detail experience with auth session handling, preference-aligned filtering/sorting, and explicit sync/rebuild controls
+- server-rendered web feed now includes sent high-fit alert visibility with direct job-detail deep links
 - tracker state transition API slice with explicit transition rules and auditable transition-event history
 - reminder task API slice with authenticated create/list/detail/complete routes and completion lifecycle
 - notification API slice with authenticated log listing and due-reminder dispatch workflows
@@ -156,7 +157,7 @@ Stores like/dislike/hide signals and later tuning inputs.
 1. frontend requests job feed using direct filters or a saved-search preset
 2. API queries canonical jobs plus user-specific score/state
 3. results are filtered and sorted, with high-fit-first recommendation filtering applied by default when no explicit recommendation filter is provided
-4. explanation snippets are returned with the job card
+4. explanation snippets are returned with the job card and sent high-fit alerts are surfaced as jump-to-job notifications
 
 ### 4. Application workflow flow
 1. user saves, shortlists, or hides a job from discovery
