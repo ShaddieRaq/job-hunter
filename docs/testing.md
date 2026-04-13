@@ -36,6 +36,12 @@ Step 9 resume/application support baseline currently includes:
 - application service unit tests for create/update lifecycle, duplicate prevention, resume validation, and list filtering
 - application route integration tests for authenticated create/list/detail/update boundaries plus validation/auth error paths
 
+Post-MVP hardening coverage currently includes:
+- connector service contract-hardening tests that cap sync response error arrays while preserving true `failedCount`
+- Greenhouse connector parsing regression tests for null metadata payload compatibility
+- web integration regression tests for auth submit-mode fallback behavior and canonical rebuild payload-limit compatibility
+- manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
+
 ## Testing goals
 
 The product handles messy source data, user-sensitive career data, and decision-support logic.
@@ -148,6 +154,9 @@ fixtures/dedupe
 - Include resume/profile fixtures for safe-fit and career-transition users.
 
 ## Manual QA checklist for MVP
+
+Detailed execution runbook:
+- `docs/manual-e2e-test-plan.md`
 
 ### Onboarding
 - upload a resume

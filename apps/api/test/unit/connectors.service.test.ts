@@ -151,3 +151,31 @@ test('connector service returns not found for unknown source', async () => {
       error.code === 'source_connector_not_found',
   );
 });
+
+test('connector service caps response errors to contract-safe length while preserving failed count', async () => {
+  const repository = createInMemoryConnectorRepository();
+  const mutable = createMutableConnector();
+
+  const oversizedErrors = Array.from({ length: 250 }, (_, index) =>
+    `job[${index}] invalid shape: Expected array, received null`,
+  );
+  mutable.setErrors(oversizedErrors);
+
+  const service = createConnectorService({
+    repository,
+    connectors: [mutable.connector],
+    now: () => new Date('2026-04-12T12:00:00.000Z'),
+  });
+
+  const result = await service.syncConnector('greenhouse_public_board', {
+    maxRecords: 10,
+  });
+
+  assert.equal(result.failedCount, 250);
+  assert.equal(result.errors.length, 200);
+  assert.match(
+    result.errors[199] ?? '',
+    /Additional sync errors omitted: 51/,
+  );
+  assert.equal(result.errors.every((message) => message.length <= 240), true);
+});

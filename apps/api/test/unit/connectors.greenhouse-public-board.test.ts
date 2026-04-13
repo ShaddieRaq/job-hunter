@@ -77,3 +77,32 @@ test('greenhouse connector applies maxRecords limit and surfaces fetch failures'
       error.code === 'greenhouse_fetch_failed',
   );
 });
+
+test('greenhouse connector accepts null metadata payloads', async () => {
+  const payload = {
+    jobs: [
+      {
+        id: 3001,
+        title: 'Backend Platform Engineer',
+        absolute_url: 'https://boards.greenhouse.io/acmelabs/jobs/3001',
+        updated_at: '2026-04-12T12:00:00.000Z',
+        content: '<p>TypeScript and Node.js services</p>',
+        location: {
+          name: 'Remote',
+        },
+        metadata: null,
+      },
+    ],
+  };
+
+  const connector = createGreenhousePublicBoardConnector({
+    boardToken: 'acme-labs',
+    fetchImpl: createFetchFromPayload(payload),
+  });
+
+  const result = await connector.sync({ maxRecords: 10 });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.jobs.length, 1);
+  assert.equal(result.jobs[0]?.sourceJobId, '3001');
+});

@@ -1,6 +1,6 @@
 # MVP Roadmap Progress
 
-Last updated: 2026-04-12  
+Last updated: 2026-04-13  
 Owner: team
 
 ## Status legend
@@ -60,6 +60,7 @@ Owner: team
 - 2026-04-12: Step 9 first slice landed with application contracts/routes (`GET/POST /v1/applications`, `GET/PUT /v1/applications/:applicationId`), canonical/resume validation, migration `0010_application_records.sql`, and application unit/integration coverage (`7dbdfae`).
 - 2026-04-12: Step 9 second slice landed with web application workflow support (feed card track/update actions, `/applications` list/detail pages, job/application material guidance checklists) and web integration coverage for create/list/detail/update flows.
 - 2026-04-12: Step 9 final slice landed with deterministic structured material assistant flows (`GET /v1/applications/:applicationId/material-guidance`), shared guidance contracts, API unit/integration coverage, and web rendering of keyword suggestions, bullet prompts, and cover-letter talking points.
+- 2026-04-13: Post-MVP stabilization hardening landed with web auth submit-mode fallback protection, connector sync response contract caps for large error batches, canonical rebuild payload-limit alignment in web actions, Greenhouse null-metadata compatibility handling, and expanded unit/integration/manual QA coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

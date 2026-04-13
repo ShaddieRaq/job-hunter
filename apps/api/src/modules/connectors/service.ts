@@ -16,6 +16,45 @@ import { connectorJobCandidateSchema, type SourceConnectorDefinition } from './t
 
 const defaultSourceJobLimit = 50;
 const maxSourceJobLimit = 500;
+const maxSyncErrorsInResponse = 200;
+const maxSyncErrorLength = 240;
+
+const sanitizeSyncError = (value: string): string => {
+  const normalized = value.trim();
+  if (normalized.length === 0) {
+    return 'connector sync error';
+  }
+
+  if (normalized.length <= maxSyncErrorLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxSyncErrorLength - 3)}...`;
+};
+
+const capSyncErrorsForResponse = (
+  errors: string[],
+): {
+  failedCount: number;
+  responseErrors: string[];
+} => {
+  const failedCount = errors.length;
+  if (failedCount <= maxSyncErrorsInResponse) {
+    return {
+      failedCount,
+      responseErrors: errors,
+    };
+  }
+
+  const omittedCount = failedCount - (maxSyncErrorsInResponse - 1);
+  return {
+    failedCount,
+    responseErrors: [
+      ...errors.slice(0, maxSyncErrorsInResponse - 1),
+      sanitizeSyncError(`Additional sync errors omitted: ${omittedCount}`),
+    ],
+  };
+};
 
 const toChecksumSha256 = (value: unknown): string => {
   const serialized = JSON.stringify(value) ?? 'null';
@@ -174,7 +213,7 @@ export const createConnectorService = ({
 
     try {
       const result = await connector.sync(request);
-      const errors = [...result.errors];
+      const errors = result.errors.map(sanitizeSyncError);
       let insertedCount = 0;
       let updatedCount = 0;
       let unchangedCount = 0;
@@ -184,9 +223,9 @@ export const createConnectorService = ({
         if (!parsedCandidate.success) {
           const firstIssue = parsedCandidate.error.issues[0];
           if (firstIssue) {
-            errors.push(summarizeValidationIssue(sourceName, firstIssue));
+            errors.push(sanitizeSyncError(summarizeValidationIssue(sourceName, firstIssue)));
           } else {
-            errors.push(`${sourceName} invalid candidate payload`);
+            errors.push(sanitizeSyncError(`${sourceName} invalid candidate payload`));
           }
 
           continue;
@@ -207,15 +246,16 @@ export const createConnectorService = ({
       }
 
       const completedAt = now().toISOString();
+      const { failedCount, responseErrors } = capSyncErrorsForResponse(errors);
       const healthStatus: SourceConnectorHealthStatus =
-        errors.length === 0 ? 'healthy' : 'degraded';
+        failedCount === 0 ? 'healthy' : 'degraded';
 
       await upsertConnectorState(sourceName, {
         healthStatus,
         lastSyncAt: completedAt,
         lastSuccessAt: completedAt,
-        lastFailureAt: errors.length > 0 ? completedAt : existingState?.lastFailureAt ?? null,
-        lastErrorCode: errors.length > 0 ? 'partial_sync_failures' : null,
+        lastFailureAt: failedCount > 0 ? completedAt : existingState?.lastFailureAt ?? null,
+        lastErrorCode: failedCount > 0 ? 'partial_sync_failures' : null,
       });
 
       return {
@@ -226,9 +266,9 @@ export const createConnectorService = ({
         insertedCount,
         updatedCount,
         unchangedCount,
-        failedCount: errors.length,
+        failedCount,
         healthStatus,
-        errors,
+        errors: responseErrors,
       };
     } catch (error: unknown) {
       const completedAt = now().toISOString();

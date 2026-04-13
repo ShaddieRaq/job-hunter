@@ -65,6 +65,7 @@ const greenhouseJobSchema = z
           })
           .passthrough(),
       )
+      .nullable()
       .optional(),
   })
   .passthrough();
@@ -259,7 +260,10 @@ const parseIsoDateOrNull = (value: string | undefined): string | null => {
 };
 
 const collectMetadataText = (
-  metadata: Array<{ name: string; value?: string | number | boolean | null }> | undefined,
+  metadata:
+    | Array<{ name: string; value?: string | number | boolean | null }>
+    | null
+    | undefined,
 ): string => {
   if (!metadata || metadata.length === 0) {
     return '';

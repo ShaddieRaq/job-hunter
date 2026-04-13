@@ -629,6 +629,19 @@ const createApiStubServer = (): Server => {
     }
 
     if (method === 'POST' && pathname === '/v1/canonical-jobs/rebuild') {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body) as { maxSourceJobs?: number };
+
+      if (
+        typeof parsed.maxSourceJobs !== 'number' ||
+        !Number.isInteger(parsed.maxSourceJobs) ||
+        parsed.maxSourceJobs < 1 ||
+        parsed.maxSourceJobs > 500
+      ) {
+        sendJson(res, 400, { error: 'invalid_source_job_limit' });
+        return;
+      }
+
       sendJson(res, 200, {
         contractVersion: 'v1',
         startedAt: '2026-04-12T12:00:00.000Z',
@@ -704,6 +717,32 @@ test('feed root renders sign-in when session is missing', async () => {
     const html = await response.text();
     assert.match(html, /Sign in to your feed/);
     assert.match(html, /Create account/);
+  } finally {
+    await web.close();
+    await api.close();
+  }
+});
+
+test('session route defaults to register when mode is omitted', async () => {
+  const api = await startServer(createApiStubServer());
+  const web = await startServer(createWebServer({ apiBaseUrl: api.baseUrl }));
+
+  try {
+    const response = await fetch(`${web.baseUrl}/session`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: 'email=mode.default%40test.dev&returnTo=%2F',
+      redirect: 'manual',
+    });
+
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get('location'), '/?notice=account_created');
+
+    const setCookie = response.headers.get('set-cookie');
+    assert.ok(setCookie);
+    assert.match(setCookie, /jh_access_token=/);
   } finally {
     await web.close();
     await api.close();

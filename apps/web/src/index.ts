@@ -152,6 +152,8 @@ const noticeMessages: Record<string, string> = {
 
 const authErrorMessages: Record<string, string> = {
   missing_access_token: 'Sign in to continue.',
+  session_cookie_not_persisted:
+    'Sign-in succeeded but the session cookie was not saved. Use one host consistently (localhost or 127.0.0.1) and allow cookies for this site.',
   invalid_access_token: 'Session expired. Sign in again.',
   invalid_authorization_header: 'Session expired. Sign in again.',
   user_not_found: 'No account found for this email. Create one first.',
@@ -655,6 +657,20 @@ const enhancementScript = `
       const submitter = event.submitter;
       if (!(submitter instanceof HTMLButtonElement)) {
         return;
+      }
+
+      if (submitter.name && submitter.value) {
+        const staleProxies = form.querySelectorAll('input[data-submitter-proxy="true"]');
+        for (const staleProxy of staleProxies) {
+          staleProxy.remove();
+        }
+
+        const proxy = document.createElement('input');
+        proxy.type = 'hidden';
+        proxy.name = submitter.name;
+        proxy.value = submitter.value;
+        proxy.dataset.submitterProxy = 'true';
+        form.appendChild(proxy);
       }
 
       const pendingLabel = submitter.dataset.pendingLabel || 'Working...';
@@ -2434,7 +2450,9 @@ const handleSessionRoute = async (
 ): Promise<void> => {
   const form = await readFormBody(req);
   const email = (form.get('email') ?? '').toString().trim().toLowerCase();
-  const requestedMode = form.get('mode') === 'register' ? 'register' : 'login';
+  const rawMode = form.get('mode');
+  const requestedMode =
+    rawMode === 'login' || rawMode === 'register' ? rawMode : 'register';
   const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/');
 
   if (email.length === 0) {
@@ -2539,7 +2557,7 @@ const handleRebuildRoute = async (
       headers: {
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ maxSourceJobs: 1_000 }),
+      body: JSON.stringify({ maxSourceJobs: 500 }),
     },
     canonicalRebuildResponseSchema,
     accessToken,
@@ -2941,13 +2959,18 @@ const handleFeedRoute = async (
   const accessToken = cookies[accessTokenCookieName];
 
   const authError = requestUrl.searchParams.get('auth_error');
+  const noticeCode = requestUrl.searchParams.get('notice');
+  const computedAuthError =
+    !authError && (noticeCode === 'account_created' || noticeCode === 'signed_in')
+      ? 'session_cookie_not_persisted'
+      : authError;
   const emailHint = (requestUrl.searchParams.get('email') ?? '').trim().slice(0, 320);
   const requestedReturnTo = normalizeReturnPath(
     requestUrl.searchParams.get('returnTo') ?? '/',
   );
 
   if (!accessToken) {
-    sendHtml(res, 200, renderAuthPage(authError, emailHint, requestedReturnTo));
+    sendHtml(res, 200, renderAuthPage(computedAuthError, emailHint, requestedReturnTo));
     return;
   }
 
@@ -2987,7 +3010,7 @@ const handleFeedRoute = async (
     applicationsResult.ok ? applicationsResult.data : [],
   );
 
-  const noticeCode = requestUrl.searchParams.get('notice');
+  const feedNoticeCode = noticeCode;
   const routeErrorCode = requestUrl.searchParams.get('error');
   const computedErrorCode = !feedResult.ok
     ? feedResult.error.code
@@ -3007,7 +3030,7 @@ const handleFeedRoute = async (
       filteredItems,
       applicationsByCanonicalJobId,
       query,
-      noticeCode,
+      feedNoticeCode,
       computedErrorCode,
       returnTo,
     ),
