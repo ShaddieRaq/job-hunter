@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { userIdSchema } from '../auth/v1.js';
+import { sourceNameSchema } from '../connectors/v1.js';
 
 export const savedSearchesContractVersion = 'v1' as const;
 
@@ -28,11 +29,17 @@ export const savedSearchRemoteFilterSchema = z.enum([
 
 export const savedSearchSortSchema = z.enum(['fit', 'recent', 'salary']);
 
+export const savedSearchSourceFilterSchema = z.union([
+  z.literal('any'),
+  sourceNameSchema,
+]);
+
 export const savedSearchQuerySchema = z
   .object({
     q: z.string().trim().max(120),
     recommendation: savedSearchRecommendationFilterSchema,
     remote: savedSearchRemoteFilterSchema,
+    source: savedSearchSourceFilterSchema.default('any'),
     sort: savedSearchSortSchema,
     includeHidden: z.boolean(),
   })
@@ -84,6 +91,7 @@ export type SavedSearchRecommendationFilter = z.infer<
 >;
 export type SavedSearchRemoteFilter = z.infer<typeof savedSearchRemoteFilterSchema>;
 export type SavedSearchSort = z.infer<typeof savedSearchSortSchema>;
+export type SavedSearchSourceFilter = z.infer<typeof savedSearchSourceFilterSchema>;
 export type SavedSearchQuery = z.infer<typeof savedSearchQuerySchema>;
 export type SavedSearch = z.infer<typeof savedSearchSchema>;
 export type SavedSearchCreateRequest = z.infer<typeof savedSearchCreateRequestSchema>;

@@ -16,4 +16,5 @@ Shared contracts and utilities for Job Hunter apps.
 	- tracker state transitions and transition-history payloads
 	- reminder task creation/list/completion payloads
 	- notification log listing, reminder dispatch, high-fit dispatch, and high-fit dispatch-all payloads
+	- saved-search create/list/detail/delete payloads with source-aware feed query snapshots
 	- application record creation/list/detail/update payloads

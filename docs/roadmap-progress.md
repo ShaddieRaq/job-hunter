@@ -41,8 +41,8 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: maintain MVP-validated baseline and prioritize next-value connector and UX improvements
-- Next PR target: post-validation product iteration (feed UX refinements and connector quality hardening)
+- Active step: maintain MVP-validated baseline and prioritize connector quality hardening with incremental UX polish
+- Next PR target: post-validation connector quality hardening and ingestion resilience improvements
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -105,6 +105,7 @@ Owner: team
 - 2026-04-13: Post-validation UX polish landed with feed-integrated high-fit alert visibility (sent notification fetch, high-fit-only panel rendering, and direct jump-to-job navigation) covered by web integration regression tests.
 - 2026-04-13: Post-validation worker cadence landed with high-fit dispatch-all orchestration (`POST /v1/notifications/high-fit/dispatch-all`) triggered after successful worker rebuild cycles, plus API/worker regression coverage for aggregate and degraded dispatch paths.
 - 2026-04-13: Post-validation connector expansion landed with Lever public board ingestion (`lever_public_board`) wired into default connector service, fixture-driven normalization tests, and connector route integration coverage for multi-source sync/list behavior.
+- 2026-04-13: Post-validation feed UX refinement landed with source-aware discovery controls (feed `source` filter, per-card source provenance chips, source-aware saved-search snapshots), plus shared/API/web regression coverage updates.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

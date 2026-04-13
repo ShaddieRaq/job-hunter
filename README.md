@@ -23,7 +23,7 @@ plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explici
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
-  web/      # Server-rendered feed/detail + application tracker UI with auth, high-fit-first filters, sync/rebuild controls, discovery actions (save/shortlist/hide), saved-search controls, feed-integrated high-fit alert panel links, and material guidance checklists
+  web/      # Server-rendered feed/detail + application tracker UI with auth, high-fit-first filters (including source filter), source provenance chips, sync/rebuild controls, discovery actions (save/shortlist/hide), source-aware saved-search controls, feed-integrated high-fit alert panel links, and material guidance checklists
   worker/   # Background worker with scheduled sync+rebuild orchestration, post-rebuild high-fit dispatch cadence, and job-status endpoints
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
@@ -105,6 +105,7 @@ docs/
 - Web integration tests for sign-in/feed/detail, tracker discovery action flows, plus application create/list/detail/update workflows
 - Worker unit tests for scheduled ingestion health outcomes, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and scheduler status tracking
 - Saved-search API and web integration tests for create/list/get/delete and feed apply/delete flows
+- Source-aware feed filter and saved-search snapshot coverage in web/API regression tests
 - AI provider-boundary minimization regression tests for redacted payload handling and provider error-detail minimization
 - Notification service and route coverage for recommendation-threshold high-fit alert dispatch and idempotency
 - Notification dispatch-all unit/integration coverage for cross-user high-fit aggregation and partial failure reporting

@@ -74,6 +74,7 @@ test('saved-search routes create/list/get/delete for authenticated users', async
           q: 'backend distributed systems',
           recommendation: 'high_fit',
           remote: 'aligned',
+          source: 'any',
           sort: 'fit',
           includeHidden: false,
         },
@@ -83,11 +84,16 @@ test('saved-search routes create/list/get/delete for authenticated users', async
     assert.equal(createResponse.status, 200);
     const createBody = (await createResponse.json()) as {
       contractVersion: string;
-      savedSearch: { savedSearchId: string; name: string };
+      savedSearch: {
+        savedSearchId: string;
+        name: string;
+        query: { source: string };
+      };
     };
 
     assert.equal(createBody.contractVersion, 'v1');
     assert.equal(createBody.savedSearch.name, 'Backend remote apply set');
+    assert.equal(createBody.savedSearch.query.source, 'any');
 
     const listResponse = await fetch(`${app.baseUrl}/v1/saved-searches?limit=10`, {
       headers: {
@@ -177,6 +183,7 @@ test('saved-search routes enforce auth and validation constraints', async () => 
           q: '',
           recommendation: 'high_fit',
           remote: 'aligned',
+          source: 'any',
           sort: 'fit',
           includeHidden: false,
         },
@@ -197,6 +204,7 @@ test('saved-search routes enforce auth and validation constraints', async () => 
           q: 'backend',
           recommendation: 'all',
           remote: 'any',
+          source: 'greenhouse_public_board',
           sort: 'recent',
           includeHidden: false,
         },
@@ -217,6 +225,7 @@ test('saved-search routes enforce auth and validation constraints', async () => 
           q: 'backend',
           recommendation: 'apply',
           remote: 'remote',
+          source: 'lever_public_board',
           sort: 'fit',
           includeHidden: true,
         },

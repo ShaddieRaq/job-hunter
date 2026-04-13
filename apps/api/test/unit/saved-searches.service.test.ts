@@ -21,6 +21,7 @@ test('createSavedSearch stores normalized query and list returns newest first', 
       q: '  platform distributed systems  ',
       recommendation: 'high_fit',
       remote: 'aligned',
+      source: 'any',
       sort: 'fit',
       includeHidden: false,
     },
@@ -32,6 +33,7 @@ test('createSavedSearch stores normalized query and list returns newest first', 
       q: 'staff backend',
       recommendation: 'apply',
       remote: 'remote',
+      source: 'greenhouse_public_board',
       sort: 'recent',
       includeHidden: true,
     },
@@ -39,6 +41,8 @@ test('createSavedSearch stores normalized query and list returns newest first', 
 
   assert.equal(first.name, 'Platform lead pipeline');
   assert.equal(first.query.q, 'platform distributed systems');
+  assert.equal(first.query.source, 'any');
+  assert.equal(second.query.source, 'greenhouse_public_board');
 
   const listed = await service.listSavedSearches({ userId, limit: 10 });
 
@@ -57,6 +61,7 @@ test('createSavedSearch rejects duplicate names per user', async () => {
       q: 'remote',
       recommendation: 'high_fit',
       remote: 'remote',
+      source: 'any',
       sort: 'fit',
       includeHidden: false,
     },
@@ -70,6 +75,7 @@ test('createSavedSearch rejects duplicate names per user', async () => {
           q: 'remote',
           recommendation: 'all',
           remote: 'any',
+          source: 'lever_public_board',
           sort: 'recent',
           includeHidden: false,
         },
@@ -91,6 +97,7 @@ test('deleteSavedSearch removes record and throws not found on repeated delete',
       q: '',
       recommendation: 'apply',
       remote: 'any',
+      source: 'any',
       sort: 'fit',
       includeHidden: false,
     },

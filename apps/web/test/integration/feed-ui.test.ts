@@ -104,7 +104,7 @@ const visibleFeedItem = {
     salaryCurrency: 'USD',
     salaryPeriod: 'year',
     sourceCount: 2,
-    sourceNames: ['greenhouse_public_board'],
+    sourceNames: ['greenhouse_public_board', 'lever_public_board'],
     jobStatus: 'open',
     topSkills: ['TypeScript', 'Node.js', 'PostgreSQL'],
     firstSeenAt: '2026-04-11T12:00:00.000Z',
@@ -368,6 +368,7 @@ const createApiStubServer = (): Server => {
         q: string;
         recommendation: string;
         remote: string;
+        source: string;
         sort: string;
         includeHidden: boolean;
       };
@@ -574,6 +575,7 @@ const createApiStubServer = (): Server => {
           q?: string;
           recommendation?: string;
           remote?: string;
+          source?: string;
           sort?: string;
           includeHidden?: boolean;
         };
@@ -603,6 +605,7 @@ const createApiStubServer = (): Server => {
           q: (parsed.query.q ?? '').trim(),
           recommendation: parsed.query.recommendation ?? 'high_fit',
           remote: parsed.query.remote ?? 'aligned',
+          source: parsed.query.source ?? 'any',
           sort: parsed.query.sort ?? 'fit',
           includeHidden: parsed.query.includeHidden ?? false,
         },
@@ -1158,6 +1161,8 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
     assert.match(html, /High-fit alerts/);
     assert.match(html, /High-fit alert: Senior Platform Engineer at Visible Systems scored 88\.0\./);
     assert.match(html, /Jump to job/);
+    assert.match(html, /<select name="source">/);
+    assert.match(html, /Lever Public Board/);
 
     const includeHiddenResponse = await fetch(
       `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all`,
@@ -1170,6 +1175,20 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
 
     const includeHiddenHtml = await includeHiddenResponse.text();
     assert.match(includeHiddenHtml, /Hidden Corp/);
+
+    const sourceFilteredResponse = await fetch(
+      `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all&source=lever_public_board`,
+      {
+      headers: {
+        cookie,
+      },
+      },
+    );
+
+    const sourceFilteredHtml = await sourceFilteredResponse.text();
+    assert.match(sourceFilteredHtml, /Visible Systems/);
+    assert.doesNotMatch(sourceFilteredHtml, /Hidden Corp/);
+    assert.match(sourceFilteredHtml, /Source: Lever Public Board/);
   } finally {
     await web.close();
     await api.close();
@@ -1194,6 +1213,7 @@ test('feed saved-search actions create and delete reusable lead presets', async 
         'q=backend',
         'recommendation=apply',
         'remote=remote',
+        'source=lever_public_board',
         'sort=recent',
         'includeHidden=0',
         'returnTo=%2F',
@@ -1214,7 +1234,10 @@ test('feed saved-search actions create and delete reusable lead presets', async 
     const createdFeedHtml = await createdFeedResponse.text();
     assert.match(createdFeedHtml, /Saved searches/);
     assert.match(createdFeedHtml, /Remote Backend Push/);
-    assert.match(createdFeedHtml, /\/\?q=backend&amp;recommendation=apply&amp;remote=remote&amp;sort=recent/);
+    assert.match(
+      createdFeedHtml,
+      /\/\?q=backend&amp;recommendation=apply&amp;remote=remote&amp;source=lever_public_board&amp;sort=recent/,
+    );
 
     const deleteResponse = await fetch(`${web.baseUrl}/actions/saved-searches/delete`, {
       method: 'POST',

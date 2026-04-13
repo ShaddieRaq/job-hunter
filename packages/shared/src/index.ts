@@ -138,6 +138,7 @@ export {
   savedSearchRemoteFilterSchema,
   savedSearchResponseSchema,
   savedSearchSchema,
+  savedSearchSourceFilterSchema,
   savedSearchSortSchema,
 } from './contracts/saved-searches/v1.js';
 
@@ -288,6 +289,7 @@ export type {
   SavedSearchRecommendationFilter,
   SavedSearchRemoteFilter,
   SavedSearchResponse,
+  SavedSearchSourceFilter,
   SavedSearchSort,
 } from './contracts/saved-searches/v1.js';
 

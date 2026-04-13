@@ -27,7 +27,7 @@ A per-user evaluation of how well a canonical job matches the user's goals, pref
 A per-user workflow state for a job, such as discovered, shortlisted, reviewing, ready_to_apply, applied, interview, offer, rejected, or archived.
 
 ### Saved search
-A per-user persisted feed query preset that stores recommendation, remote, sort, and text-query controls for fast discovery reuse.
+A per-user persisted feed query preset that stores recommendation, remote, source, sort, and text-query controls for fast discovery reuse.
 
 ### Application
 A user-managed record of an actual application workflow for a canonical job.
@@ -88,6 +88,7 @@ Suggested fields:
 - query_text
 - recommendation_filter          # high_fit | all | apply | review | skip | unscored
 - remote_filter                  # aligned | any | remote | hybrid | onsite
+- source_filter                  # any | connector source_name
 - sort_mode                      # fit | recent | salary
 - include_hidden
 - created_at
@@ -352,7 +353,7 @@ A user can move job workflow state without changing the underlying score.
 Discovery actions should remain deterministic and auditable (for example, hide maps to archived in tracker state history).
 
 ### Rule: saved searches are explicit query snapshots
-Persist the exact filter shape used by discovery (query text, recommendation filter, remote filter, sort mode, include-hidden) so reruns are reproducible.
+Persist the exact filter shape used by discovery (query text, recommendation filter, remote filter, source filter, sort mode, include-hidden) so reruns are reproducible.
 
 ### Rule: high-fit alerts are threshold and state gated
 Alert generation should be tied to explicit score thresholds and recommendation class, and should suppress terminal tracker states to avoid noisy follow-up notifications.

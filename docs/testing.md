@@ -45,7 +45,8 @@ Post-MVP hardening coverage currently includes:
 - web integration regression tests for explicit feed discovery actions (save/shortlist/hide) and tracker-driven hiding behavior
 - web integration regression tests for feed-side high-fit alert panel rendering from sent notifications and jump-to-job links
 - saved-search unit/integration tests for create/list/get/delete API behavior and web feed save/apply/delete flows
-- web feed regression tests for high-fit-first recommendation defaults and explicit recommendation filter parsing behavior
+- saved-search unit/integration tests for create/list/get/delete API behavior and web feed save/apply/delete flows, including source-aware query snapshots
+- web feed regression tests for high-fit-first recommendation defaults and explicit recommendation/source filter parsing behavior
 - AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
 - notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating + duplicate suppression and `/v1/notifications/high-fit/dispatch-all` aggregate partial-failure reporting
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and run-status tracking

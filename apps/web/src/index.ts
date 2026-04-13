@@ -25,6 +25,7 @@ import {
   savedSearchIdSchema,
   savedSearchListResponseSchema,
   savedSearchResponseSchema,
+  sourceNameSchema,
   trackerDiscoveryActionResponseSchema,
   trackerDiscoveryActionSchema,
   trackerJobListResponseSchema,
@@ -40,6 +41,7 @@ import {
   type NotificationLog,
   type RemotePreference,
   type SavedSearch,
+  type SourceName,
   type TrackerDiscoveryAction,
   type TrackedJobState,
   type UserPreferences,
@@ -54,6 +56,7 @@ const formBodyLimitBytes = 32_000;
 const upstreamTimeoutMs = 10_000;
 
 type RemoteFilter = 'aligned' | 'any' | 'remote' | 'hybrid' | 'onsite';
+type SourceFilter = 'any' | SourceName;
 type RecommendationFilter =
   | 'high_fit'
   | 'all'
@@ -68,6 +71,7 @@ interface FeedQueryState {
   q: string;
   recommendation: RecommendationFilter;
   remote: RemoteFilter;
+  source: SourceFilter;
   sort: FeedSort;
   includeHidden: boolean;
 }
@@ -119,6 +123,7 @@ const defaultFeedQueryState: FeedQueryState = {
   q: '',
   recommendation: 'high_fit',
   remote: 'aligned',
+  source: 'any',
   sort: 'fit',
   includeHidden: false,
 };
@@ -953,9 +958,23 @@ const withQueryParam = (path: string, key: string, value: string): string => {
   return `${url.pathname}${url.search}`;
 };
 
+const parseSourceFilter = (value: string | null): SourceFilter => {
+  if (value === 'any') {
+    return 'any';
+  }
+
+  const parsed = sourceNameSchema.safeParse(value);
+  if (!parsed.success) {
+    return defaultFeedQueryState.source;
+  }
+
+  return parsed.data;
+};
+
 const parseFeedQuery = (requestUrl: URL): FeedQueryState => {
   const recommendation = requestUrl.searchParams.get('recommendation');
   const remote = requestUrl.searchParams.get('remote');
+  const source = requestUrl.searchParams.get('source');
   const sort = requestUrl.searchParams.get('sort');
 
   return {
@@ -977,6 +996,7 @@ const parseFeedQuery = (requestUrl: URL): FeedQueryState => {
       remote === 'onsite'
         ? remote
         : defaultFeedQueryState.remote,
+    source: parseSourceFilter(source),
     sort:
       sort === 'recent' || sort === 'salary' ? sort : defaultFeedQueryState.sort,
     includeHidden: requestUrl.searchParams.get('includeHidden') === '1',
@@ -986,6 +1006,7 @@ const parseFeedQuery = (requestUrl: URL): FeedQueryState => {
 const parseFeedQueryFromForm = (form: URLSearchParams): FeedQueryState => {
   const recommendation = form.get('recommendation');
   const remote = form.get('remote');
+  const source = form.get('source');
   const sort = form.get('sort');
 
   return {
@@ -1007,6 +1028,7 @@ const parseFeedQueryFromForm = (form: URLSearchParams): FeedQueryState => {
       remote === 'onsite'
         ? remote
         : defaultFeedQueryState.remote,
+    source: parseSourceFilter(source),
     sort:
       sort === 'recent' || sort === 'salary' ? sort : defaultFeedQueryState.sort,
     includeHidden: form.get('includeHidden') === '1',
@@ -1043,6 +1065,10 @@ const buildFeedReturnPath = (query: FeedQueryState): string => {
 
   if (query.remote !== defaultFeedQueryState.remote) {
     params.set('remote', query.remote);
+  }
+
+  if (query.source !== defaultFeedQueryState.source) {
+    params.set('source', query.source);
   }
 
   if (query.sort !== defaultFeedQueryState.sort) {
@@ -1594,6 +1620,17 @@ const matchesRemoteFilter = (
   return remoteType === filter;
 };
 
+const matchesSourceFilter = (
+  sourceNames: FeedJobCard['job']['sourceNames'],
+  filter: SourceFilter,
+): boolean => {
+  if (filter === 'any') {
+    return true;
+  }
+
+  return sourceNames.includes(filter);
+};
+
 const isHiddenByPreferences = (
   item: FeedJobCard,
   preferences: UserPreferences,
@@ -1734,6 +1771,10 @@ const applyFeedFilters = (
       return false;
     }
 
+    if (!matchesSourceFilter(item.job.sourceNames, query.source)) {
+      return false;
+    }
+
     return matchesSearch(item, query.q);
   });
 
@@ -1763,6 +1804,18 @@ const countHiddenItemsWithTracker = (
 
 const isHighFitAlertNotification = (notification: NotificationLog): boolean =>
   notification.notificationType === 'high_fit_alert';
+
+const listAvailableSourceFilters = (items: FeedJobCard[]): SourceName[] => {
+  const sourceNames = new Set<SourceName>();
+
+  for (const item of items) {
+    for (const sourceName of item.job.sourceNames) {
+      sourceNames.add(sourceName);
+    }
+  }
+
+  return [...sourceNames].sort((left, right) => left.localeCompare(right));
+};
 
 const buildFeedJobMap = (
   items: FeedJobCard[],
@@ -1928,6 +1981,8 @@ const renderJobCard = (
     : `<div class="score-box"><p class="muted">No score artifact yet. Use API score routes to enrich recommendation context.</p></div>`;
 
   const topSkills = item.job.topSkills.slice(0, 6);
+  const visibleSourceNames = item.job.sourceNames.slice(0, 3);
+  const hiddenSourceCount = Math.max(0, item.job.sourceNames.length - visibleSourceNames.length);
 
   const detailsHref = `/jobs/${item.job.canonicalJobId}?returnTo=${encodeURIComponent(returnTo)}`;
 
@@ -1991,6 +2046,18 @@ const renderJobCard = (
         <span class="chip">${escapeHtml(humanizeToken(item.job.employmentType))}</span>
         <span class="chip warn">Salary: ${escapeHtml(formatSalaryBand(item.job))}</span>
       </div>
+      <div class="chip-row">
+        ${visibleSourceNames
+          .map((sourceName) => `<span class="chip">${escapeHtml(humanizeToken(sourceName))}</span>`)
+          .join('')}
+        ${
+          hiddenSourceCount > 0
+            ? `<span class="chip">+${hiddenSourceCount.toString()} more source${
+                hiddenSourceCount === 1 ? '' : 's'
+              }</span>`
+            : ''
+        }
+      </div>
       ${scoreBox}
       <ul class="skill-list">
         ${topSkills.map((skill) => `<li>${escapeHtml(skill)}</li>`).join('')}
@@ -2015,6 +2082,7 @@ const renderSavedSearchPanel = (
               q: savedSearch.query.q,
               recommendation: savedSearch.query.recommendation,
               remote: savedSearch.query.remote,
+              source: savedSearch.query.source,
               sort: savedSearch.query.sort,
               includeHidden: savedSearch.query.includeHidden,
             };
@@ -2023,6 +2091,7 @@ const renderSavedSearchPanel = (
             const querySummary = [
               savedSearch.query.recommendation,
               savedSearch.query.remote,
+              savedSearch.query.source,
               savedSearch.query.sort,
             ].join(' | ');
 
@@ -2052,6 +2121,7 @@ const renderSavedSearchPanel = (
         <input type="hidden" name="q" value="${escapeHtml(query.q)}" />
         <input type="hidden" name="recommendation" value="${escapeHtml(query.recommendation)}" />
         <input type="hidden" name="remote" value="${escapeHtml(query.remote)}" />
+        <input type="hidden" name="source" value="${escapeHtml(query.source)}" />
         <input type="hidden" name="sort" value="${escapeHtml(query.sort)}" />
         <input type="hidden" name="includeHidden" value="${query.includeHidden ? '1' : '0'}" />
         <div class="inline-row">
@@ -2116,6 +2186,7 @@ const renderFeedPage = (
   trackersByCanonicalJobId: Map<string, TrackedJobState>,
   applicationsByCanonicalJobId: Map<string, ApplicationRecord>,
   query: FeedQueryState,
+  availableSourceFilters: SourceName[],
   savedSearches: SavedSearch[],
   notifications: NotificationLog[],
   noticeCode: string | null,
@@ -2130,6 +2201,12 @@ const renderFeedPage = (
     trackersByCanonicalJobId,
   );
   const highFitAlertCount = notifications.filter(isHighFitAlertNotification).length;
+  const sourceOptions: SourceFilter[] = ['any', ...availableSourceFilters];
+  if (query.source !== 'any' && !sourceOptions.includes(query.source)) {
+    sourceOptions.push(query.source);
+  }
+  const sourceFilterLabel =
+    query.source === 'any' ? 'all sources' : humanizeToken(query.source);
 
   const flash = [
     notice ? renderFlash(notice, 'notice') : '',
@@ -2204,6 +2281,19 @@ const renderFeedPage = (
             </select>
           </label>
           <label>
+            Source
+            <select name="source">
+              ${sourceOptions
+                .map(
+                  (source) =>
+                    `<option value="${escapeHtml(source)}"${
+                      query.source === source ? ' selected' : ''
+                    }>${escapeHtml(source === 'any' ? 'any' : humanizeToken(source))}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <label>
             Sort
             <select name="sort">
               <option value="fit"${query.sort === 'fit' ? ' selected' : ''}>fit</option>
@@ -2226,6 +2316,7 @@ const renderFeedPage = (
         <p>
           Showing <strong>${filteredItems.length}</strong> of <strong>${allItems.length}</strong> feed jobs
           ${query.includeHidden ? '' : ` | Hidden by preferences: ${hiddenCount}`}
+          | Source: ${escapeHtml(sourceFilterLabel)}
           | Application records: ${applicationsByCanonicalJobId.size}
           | Saved searches: ${savedSearches.length}
           | High-fit alerts: ${highFitAlertCount}
@@ -3592,6 +3683,7 @@ const handleFeedRoute = async (
     preferences,
     trackersByCanonicalJobId,
   );
+  const availableSourceFilters = listAvailableSourceFilters(allItems);
   const applicationsByCanonicalJobId = mapApplicationsByCanonicalJobId(
     applicationsResult.ok ? applicationsResult.data : [],
   );
@@ -3625,6 +3717,7 @@ const handleFeedRoute = async (
       trackersByCanonicalJobId,
       applicationsByCanonicalJobId,
       query,
+      availableSourceFilters,
       savedSearches,
       notifications,
       feedNoticeCode,

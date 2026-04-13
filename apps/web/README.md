@@ -6,13 +6,14 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 - Email sign-in/create-account flow backed by API auth routes
 - Feed view backed by `GET /v1/feed`
 - Job detail view backed by `GET /v1/feed/:canonicalJobId`
+- Source-aware feed filtering and source provenance chips on job cards
 - Discovery tracker actions (save/shortlist/hide) backed by `POST /v1/tracker/jobs/:canonicalJobId/actions/:action`
-- Saved-search create/apply/delete workflows backed by `GET/POST/DELETE /v1/saved-searches*`
+- Saved-search create/apply/delete workflows backed by `GET/POST/DELETE /v1/saved-searches*`, including source-filter snapshots
 - Feed high-fit alerts panel backed by sent notification reads via `GET /v1/notifications?status=sent`
 - Application tracker list/detail views backed by `GET /v1/applications*`
 - Application create/update actions backed by `POST /v1/applications` and `PUT /v1/applications/:applicationId`
 - Structured material assistant rendering backed by `GET /v1/applications/:applicationId/material-guidance`
-- Preference-aligned filtering and deterministic sorting controls
+- Preference-aligned filtering (recommendation/remote/source) and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
 - Resume/application material guidance checklists in job and application detail views
 - Integration tests for sign-in, feed/detail tracker actions, saved-search and high-fit alert panel workflows, sync/rebuild actions, and application workflow routes
