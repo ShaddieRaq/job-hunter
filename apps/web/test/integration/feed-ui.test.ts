@@ -377,6 +377,59 @@ const createApiStubServer = (): Server => {
     }
   >();
 
+  const notifications: Array<{
+    notificationId: string;
+    userId: string;
+    reminderId: string | null;
+    canonicalJobId: string;
+    matchArtifactVersion: number | null;
+    notificationType: 'reminder_due' | 'high_fit_alert';
+    channel: 'in_app';
+    status: 'queued' | 'sent' | 'failed';
+    message: string;
+    scheduledFor: string;
+    sentAt: string | null;
+    failedAt: string | null;
+    errorCode: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }> = [
+    {
+      notificationId: '44444444-4444-4444-8444-000000000001',
+      userId,
+      reminderId: null,
+      canonicalJobId: visibleCanonicalJobId,
+      matchArtifactVersion: 1,
+      notificationType: 'high_fit_alert',
+      channel: 'in_app',
+      status: 'sent',
+      message: 'High-fit alert: Senior Platform Engineer at Visible Systems scored 88.0.',
+      scheduledFor: '2026-04-12T11:00:00.000Z',
+      sentAt: '2026-04-12T11:01:00.000Z',
+      failedAt: null,
+      errorCode: null,
+      createdAt: '2026-04-12T11:00:00.000Z',
+      updatedAt: '2026-04-12T11:01:00.000Z',
+    },
+    {
+      notificationId: '44444444-4444-4444-8444-000000000002',
+      userId,
+      reminderId: '55555555-5555-4555-8555-000000000001',
+      canonicalJobId: hiddenCanonicalJobId,
+      matchArtifactVersion: null,
+      notificationType: 'reminder_due',
+      channel: 'in_app',
+      status: 'sent',
+      message: 'Reminder due: Follow up on hidden role.',
+      scheduledFor: '2026-04-12T10:00:00.000Z',
+      sentAt: '2026-04-12T10:01:00.000Z',
+      failedAt: null,
+      errorCode: null,
+      createdAt: '2026-04-12T10:00:00.000Z',
+      updatedAt: '2026-04-12T10:01:00.000Z',
+    },
+  ];
+
   let applicationCounter = 1;
   let trackerEventCounter = 1;
   let savedSearchCounter = 1;
@@ -485,6 +538,30 @@ const createApiStubServer = (): Server => {
       sendJson(res, 200, {
         contractVersion: 'v1',
         savedSearches: records,
+      });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/v1/notifications') {
+      const statusFilter = requestUrl.searchParams.get('status');
+      const limitRaw = requestUrl.searchParams.get('limit');
+
+      const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 50;
+      const effectiveLimit = Number.isNaN(limit) ? 50 : limit;
+
+      const records = notifications
+        .filter((notification) => {
+          if (!statusFilter) {
+            return true;
+          }
+
+          return notification.status === statusFilter;
+        })
+        .slice(0, effectiveLimit);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        notifications: records,
       });
       return;
     }
@@ -1078,6 +1155,9 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
     assert.match(html, /Visible Systems/);
     assert.doesNotMatch(html, /Hidden Corp/);
     assert.match(html, /Showing <strong>1<\/strong> of <strong>2<\/strong>/);
+    assert.match(html, /High-fit alerts/);
+    assert.match(html, /High-fit alert: Senior Platform Engineer at Visible Systems scored 88\.0\./);
+    assert.match(html, /Jump to job/);
 
     const includeHiddenResponse = await fetch(
       `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all`,

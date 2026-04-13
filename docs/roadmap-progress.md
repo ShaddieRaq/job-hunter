@@ -42,7 +42,7 @@ Owner: team
 
 ## Current focus
 - Active step: maintain MVP-validated baseline and prioritize next-value connector and UX improvements
-- Next PR target: post-validation product iteration (additional official/public connectors and notification UX polish)
+- Next PR target: post-validation product iteration (worker-scheduled high-fit dispatch cadence and additional official/public connectors)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -102,6 +102,7 @@ Owner: team
 - 2026-04-13: MVP remediation slice 3 landed with explicit AI provider-boundary payload minimization (resume/job/explanation sanitization + user-identity anonymization), upstream provider error-detail minimization, and AI regression coverage proving sensitive text is redacted before provider invocation.
 - 2026-04-13: MVP remediation slice 4 landed with saved-search contracts, authenticated API create/list/get/delete routes, and web feed save/apply/delete flows backed by API/web regression coverage.
 - 2026-04-13: MVP remediation slice 5 landed with recommendation-threshold high-fit alert dispatch (`POST /v1/notifications/high-fit/dispatch`), score-artifact idempotency keys, tracker-state suppression for terminal workflows, and unit/integration coverage for alert eligibility plus duplicate suppression.
+- 2026-04-13: Post-validation UX polish landed with feed-integrated high-fit alert visibility (sent notification fetch, high-fit-only panel rendering, and direct jump-to-job navigation) covered by web integration regression tests.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

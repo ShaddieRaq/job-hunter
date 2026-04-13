@@ -139,6 +139,17 @@ Expected:
 2. Source mappings and dedupe trace events are visible
 3. Back link returns to feed with preserved context
 
+#### E2E-FEED-005 High-fit alerts panel
+Steps:
+1. Open feed after a high-fit dispatch run has completed
+2. Locate High-fit alerts panel
+3. Click Jump to job on one alert row
+
+Expected:
+1. Panel shows one or more high-fit alert messages when sent alerts exist
+2. Alert rows include score metadata and sent date context
+3. Jump to job opens the matching job detail page
+
 ### Discovery Actions and Saved Searches
 
 #### E2E-DISC-001 Save, shortlist, and hide from feed

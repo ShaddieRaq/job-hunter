@@ -19,6 +19,7 @@ import {
   connectorSyncResponseSchema,
   feedDetailResponseSchema,
   feedResponseSchema,
+  notificationListResponseSchema,
   savedSearchCreateRequestSchema,
   savedSearchDeleteResponseSchema,
   savedSearchIdSchema,
@@ -36,6 +37,7 @@ import {
   type FeedDetailResponse,
   type FeedJobCard,
   type MatchScoreArtifact,
+  type NotificationLog,
   type RemotePreference,
   type SavedSearch,
   type TrackerDiscoveryAction,
@@ -213,6 +215,8 @@ const feedErrorMessages: Record<string, string> = {
   invalid_application_status_filter: 'Application status filter is invalid.',
   invalid_saved_search_id: 'Saved search id is invalid.',
   invalid_saved_search_limit: 'Saved search limit is invalid.',
+  invalid_notification_limit: 'Notification limit is invalid.',
+  invalid_notification_status_filter: 'Notification status filter is invalid.',
   invalid_tracker_discovery_action: 'Tracker action is invalid.',
   invalid_tracker_transition: 'Tracker action is not allowed from the current state.',
   saved_search_name_exists: 'A saved search with this name already exists.',
@@ -1462,6 +1466,30 @@ const fetchSavedSearches = async (
   };
 };
 
+const fetchNotifications = async (
+  apiBaseUrl: string,
+  accessToken: string,
+): Promise<ApiResult<NotificationLog[]>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    '/v1/notifications?status=sent&limit=100',
+    {
+      method: 'GET',
+    },
+    notificationListResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.notifications,
+  };
+};
+
 const fetchTrackerState = async (
   apiBaseUrl: string,
   accessToken: string,
@@ -1732,6 +1760,9 @@ const countHiddenItemsWithTracker = (
 
     return isHiddenByTracker(trackersByCanonicalJobId.get(item.job.canonicalJobId));
   }).length;
+
+const isHighFitAlertNotification = (notification: NotificationLog): boolean =>
+  notification.notificationType === 'high_fit_alert';
 
 const buildFeedJobMap = (
   items: FeedJobCard[],
@@ -2035,6 +2066,48 @@ const renderSavedSearchPanel = (
     </section>`;
 };
 
+const renderHighFitAlertsPanel = (
+  notifications: NotificationLog[],
+  returnTo: string,
+): string => {
+  const highFitAlerts = notifications
+    .filter(isHighFitAlertNotification)
+    .slice(0, 8);
+
+  const rows =
+    highFitAlerts.length > 0
+      ? `<ul class="stack-list">${highFitAlerts
+          .map((notification) => {
+            const detailHref = `/jobs/${notification.canonicalJobId}?returnTo=${encodeURIComponent(
+              returnTo,
+            )}`;
+            const scoreVersion =
+              notification.matchArtifactVersion === null
+                ? 'score update'
+                : `score v${notification.matchArtifactVersion}`;
+
+            return `<li>
+              <p><strong>${escapeHtml(notification.message)}</strong></p>
+              <p class="muted">${escapeHtml(
+                scoreVersion,
+              )} | sent ${escapeHtml(
+                formatDateTime(notification.sentAt ?? notification.scheduledFor),
+              )}</p>
+              <a class="link-button secondary" href="${escapeHtml(
+                detailHref,
+              )}">Jump to job</a>
+            </li>`;
+          })
+          .join('')}</ul>`
+      : '<p class="muted">No high-fit alerts yet. Run a sync/rebuild cycle to refresh score-triggered notifications.</p>';
+
+  return `<section class="panel">
+      <h3>High-fit alerts</h3>
+      <p class="muted">Recent score-triggered alerts from your sent notification stream.</p>
+      ${rows}
+    </section>`;
+};
+
 const renderFeedPage = (
   profile: UserProfile,
   preferences: UserPreferences,
@@ -2044,6 +2117,7 @@ const renderFeedPage = (
   applicationsByCanonicalJobId: Map<string, ApplicationRecord>,
   query: FeedQueryState,
   savedSearches: SavedSearch[],
+  notifications: NotificationLog[],
   noticeCode: string | null,
   errorCode: string | null,
   returnTo: string,
@@ -2055,6 +2129,7 @@ const renderFeedPage = (
     preferences,
     trackersByCanonicalJobId,
   );
+  const highFitAlertCount = notifications.filter(isHighFitAlertNotification).length;
 
   const flash = [
     notice ? renderFlash(notice, 'notice') : '',
@@ -2146,12 +2221,14 @@ const renderFeedPage = (
         </form>
       </section>
       ${renderSavedSearchPanel(savedSearches, query, returnTo)}
+      ${renderHighFitAlertsPanel(notifications, returnTo)}
       <section class="panel summary-strip">
         <p>
           Showing <strong>${filteredItems.length}</strong> of <strong>${allItems.length}</strong> feed jobs
           ${query.includeHidden ? '' : ` | Hidden by preferences: ${hiddenCount}`}
           | Application records: ${applicationsByCanonicalJobId.size}
           | Saved searches: ${savedSearches.length}
+          | High-fit alerts: ${highFitAlertCount}
         </p>
         <p class="muted">Last refresh: ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
       </section>
@@ -3471,6 +3548,7 @@ const handleFeedRoute = async (
     applicationsResult,
     trackersResult,
     savedSearchesResult,
+    notificationsResult,
   ] = await Promise.all([
     fetchProfile(apiBaseUrl, accessToken),
     fetchPreferences(apiBaseUrl, accessToken),
@@ -3478,6 +3556,7 @@ const handleFeedRoute = async (
     fetchApplications(apiBaseUrl, accessToken, { limit: 250 }),
     fetchTrackers(apiBaseUrl, accessToken),
     fetchSavedSearches(apiBaseUrl, accessToken),
+    fetchNotifications(apiBaseUrl, accessToken),
   ]);
 
   if (!profileResult.ok) {
@@ -3517,6 +3596,7 @@ const handleFeedRoute = async (
     applicationsResult.ok ? applicationsResult.data : [],
   );
   const savedSearches = savedSearchesResult.ok ? savedSearchesResult.data : [];
+  const notifications = notificationsResult.ok ? notificationsResult.data : [];
 
   const feedNoticeCode = noticeCode;
   const routeErrorCode = requestUrl.searchParams.get('error');
@@ -3528,6 +3608,8 @@ const handleFeedRoute = async (
       ? trackersResult.error.code
     : !savedSearchesResult.ok
       ? savedSearchesResult.error.code
+    : !notificationsResult.ok
+      ? notificationsResult.error.code
     : !preferencesResult.ok
       ? preferencesResult.error.code
       : routeErrorCode;
@@ -3544,6 +3626,7 @@ const handleFeedRoute = async (
       applicationsByCanonicalJobId,
       query,
       savedSearches,
+      notifications,
       feedNoticeCode,
       computedErrorCode,
       returnTo,
