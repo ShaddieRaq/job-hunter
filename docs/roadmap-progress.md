@@ -41,9 +41,44 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: roadmap completion follow-through and MVP polish
-- Next PR target: post-roadmap hardening tasks (quality gates, docs refinement, and operational readiness checks)
+- Active step: close MVP validation gaps identified in `docs/mvp-validation-audit-2026-04-13.md`
+- Next PR target: MVP validation remediation slice 1 (scheduled imports + feed action semantics)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
+
+## MVP validation remediation checklist
+- Goal: move the gate from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
+- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (HEAD commit `643c2d1`).
+
+1. ⬜ P0 - scheduled import jobs (`High` risk)
+   - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff and health reporting.
+   - Delivery evidence required: worker module implementation + route/ops surface for job health + integration test coverage for scheduled execution paths.
+   - Completion check: discovery pipeline updates without manual `/actions/sync` and `/actions/rebuild` triggers.
+
+2. ⬜ P1 - explicit discovery actions save/hide/shortlist (`High` risk)
+   - Scope: add first-class feed actions and API semantics for save/bookmark/hide/shortlist, mapped to tracker workflow states.
+   - Delivery evidence required: contracts + API/web route updates + integration tests that assert action behavior from feed/detail surfaces.
+   - Completion check: user can persist discovery decisions directly from feed and see deterministic state changes.
+
+3. ⬜ P1 - sensitive-data minimization guardrails (`High` risk)
+   - Scope: add explicit redaction/minimization controls for AI-provider payload construction and sensitive logging boundaries.
+   - Delivery evidence required: service-level guardrail implementation + regression tests proving notes/resume text are not over-shared or logged.
+   - Completion check: privacy handling promises are proven rather than inferred.
+
+4. ⬜ P2 - saved searches (`Medium` risk)
+   - Scope: add saved-search persistence plus API/web flows for creating and reusing feed filter presets.
+   - Delivery evidence required: schema/contracts/routes/UI and integration tests for create/list/apply saved-search behavior.
+   - Completion check: users can store and re-run search presets in discovery workflows.
+
+5. ⬜ P2 - high-fit alerts/digests (`Medium` risk)
+   - Scope: extend notifications with recommendation-threshold-based high-fit alert/digest generation.
+   - Delivery evidence required: scoring-threshold eligibility logic + reminder/notification wiring + unit/integration coverage.
+   - Completion check: users receive explainable high-fit alerts without manual polling.
+
+## Validation gate criteria
+1. All `High` risk audit gaps are `✅ done` with linked code and tests.
+2. Remaining `Medium` gaps are either `✅ done` or intentionally de-scoped with documented rationale in `docs/mvp-scope.md`.
+3. `pnpm -r typecheck` and relevant API/web tests pass for each remediation slice.
+4. `docs/mvp-validation-audit-2026-04-13.md` is updated (or superseded) with an explicit re-audit verdict.
 
 ## Recent evidence
 - 2026-04-12: AI bootstrap contract and API route scaffolding added (`/v1/ai/extract/resume`, `/v1/ai/extract/job`, `/v1/ai/explain-match`) with deterministic placeholder service and tests.
@@ -61,6 +96,7 @@ Owner: team
 - 2026-04-12: Step 9 second slice landed with web application workflow support (feed card track/update actions, `/applications` list/detail pages, job/application material guidance checklists) and web integration coverage for create/list/detail/update flows.
 - 2026-04-12: Step 9 final slice landed with deterministic structured material assistant flows (`GET /v1/applications/:applicationId/material-guidance`), shared guidance contracts, API unit/integration coverage, and web rendering of keyword suggestions, bullet prompts, and cover-letter talking points.
 - 2026-04-13: Post-MVP stabilization hardening landed with web auth submit-mode fallback protection, connector sync response contract caps for large error batches, canonical rebuild payload-limit alignment in web actions, Greenhouse null-metadata compatibility handling, and expanded unit/integration/manual QA coverage.
+- 2026-04-13: External strict MVP validation audit merged (`643c2d1`) and identified five prioritized remediation gaps before final MVP gate sign-off.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
