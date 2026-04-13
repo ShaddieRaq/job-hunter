@@ -10,15 +10,18 @@ As of 2026-04-12, Steps 2 and 3 are implemented and Step 7 AI foundation work is
 - domain service validation for preference constraints
 - initial SQL migration for auth/profile/preferences persistence tables
 - shared v1 contracts for resume upload, metadata, and structured profile output
-- shared v1 contracts for AI extraction and explainable match reasoning payloads
+- shared v1 contracts for AI extraction, deterministic match scoring artifacts, and explainable match reasoning payloads
 - API v1 routes for resume upload/list/detail
-- API v1 AI routes for resume extraction, job extraction, and match explanation
+- API v1 AI routes for resume extraction, job extraction, deterministic score artifact generation, and match explanation
 - AI provider abstraction with OpenAI structured-output adapter and deterministic fallback handling
 - explicit provider failure-mode mapping (`invalid_json_schema`, `provider_timeout`, `provider_refusal`, `provider_http_error`)
+- deterministic match scoring engine with named sub-scores, explicit penalties/deal-breakers, and recommendation classification
+- versioned per-user score/explanation artifact snapshots with latest/history retrieval routes
 - fixture-driven extraction/explanation eval harness baseline with threshold-enforced tests
 - object-storage abstraction with in-memory adapter for uploaded resume files
 - deterministic text resume parser wired into the resume upload pipeline
 - SQL migration for resumes and structured profile extraction snapshots
+- SQL migration for versioned match score artifacts
 
 ## Guiding approach
 

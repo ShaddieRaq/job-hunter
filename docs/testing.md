@@ -10,7 +10,9 @@ Steps 2 and 3 (auth/profile/preferences and resume pipeline) include:
 - unit tests for resume upload service parse behavior and error paths
 - integration tests for resume upload/list/detail route boundaries and unsupported-format handling
 - AI unit tests for deterministic provider behavior, OpenAI adapter schema parsing, and provider fallback/error handling
+- AI deterministic scoring unit tests for sub-score generation and deal-breaker edge cases
 - AI integration tests for `/v1/ai/*` route boundaries plus explicit provider failure mode responses
+- AI integration tests for score artifact create/latest/history route behavior
 - fixture-driven AI eval harness tests for extraction precision/recall and explanation unsupported-claim checks
 
 ## Testing goals

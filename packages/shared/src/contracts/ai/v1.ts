@@ -5,6 +5,8 @@ import { remotePreferenceSchema, senioritySchema } from '../preferences/v1.js';
 
 export const aiContractVersion = 'v1' as const;
 
+export const canonicalJobIdSchema = z.string().uuid();
+
 const trimmedText = (max: number): z.ZodString =>
   z.string().trim().min(1).max(max);
 
@@ -109,7 +111,7 @@ export const scoreBreakdownSchema = z
 export const matchExplanationRequestSchema = z
   .object({
     userId: userIdSchema,
-    canonicalJobId: z.string().uuid(),
+    canonicalJobId: canonicalJobIdSchema,
     scoreBreakdown: scoreBreakdownSchema,
     strengths: z.array(trimmedText(240)).max(20),
     gaps: z.array(trimmedText(240)).max(20),
@@ -130,9 +132,49 @@ export const matchExplanationSchema = z
 export const matchExplanationResponseSchema = z
   .object({
     contractVersion: z.literal(aiContractVersion),
-    canonicalJobId: z.string().uuid(),
+    canonicalJobId: canonicalJobIdSchema,
     explanation: matchExplanationSchema,
     metadata: extractionMetadataSchema,
+  })
+  .strict();
+
+export const matchScoreRequestSchema = z
+  .object({
+    canonicalJobId: canonicalJobIdSchema,
+    resumeExtraction: extractedResumeSchema,
+    jobExtraction: extractedJobSchema,
+  })
+  .strict();
+
+export const matchScoreArtifactSchema = z
+  .object({
+    userId: userIdSchema,
+    canonicalJobId: canonicalJobIdSchema,
+    artifactVersion: z.number().int().min(1).max(1_000_000),
+    scoringVersion: z.string().trim().min(1).max(64),
+    scoreBreakdown: scoreBreakdownSchema,
+    strengths: z.array(trimmedText(240)).max(20),
+    gaps: z.array(trimmedText(240)).max(20),
+    dealBreakers: z.array(trimmedText(240)).max(20),
+    recommendation: z.enum(['apply', 'review', 'skip']),
+    explanation: matchExplanationSchema.nullable(),
+    explanationMetadata: extractionMetadataSchema.nullable(),
+    explanationErrorCode: nullableTrimmedText(64),
+    scoredAt: z.string().datetime(),
+  })
+  .strict();
+
+export const matchScoreResponseSchema = z
+  .object({
+    contractVersion: z.literal(aiContractVersion),
+    artifact: matchScoreArtifactSchema,
+  })
+  .strict();
+
+export const matchScoreVersionsResponseSchema = z
+  .object({
+    contractVersion: z.literal(aiContractVersion),
+    artifacts: z.array(matchScoreArtifactSchema).max(500),
   })
   .strict();
 
@@ -146,3 +188,7 @@ export type ScoreBreakdown = z.infer<typeof scoreBreakdownSchema>;
 export type MatchExplanationRequest = z.infer<typeof matchExplanationRequestSchema>;
 export type MatchExplanation = z.infer<typeof matchExplanationSchema>;
 export type MatchExplanationResponse = z.infer<typeof matchExplanationResponseSchema>;
+export type MatchScoreRequest = z.infer<typeof matchScoreRequestSchema>;
+export type MatchScoreArtifact = z.infer<typeof matchScoreArtifactSchema>;
+export type MatchScoreResponse = z.infer<typeof matchScoreResponseSchema>;
+export type MatchScoreVersionsResponse = z.infer<typeof matchScoreVersionsResponseSchema>;

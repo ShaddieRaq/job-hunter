@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 
+import type { MatchScoreRequest, UserPreferences } from '@job-hunter/shared';
+
 import { createDeterministicAiProvider } from '../../src/modules/ai/deterministic-provider.js';
 import { AiProviderError } from '../../src/modules/ai/errors.js';
 import { createAiService } from '../../src/modules/ai/service.js';
@@ -26,6 +28,71 @@ const createFailingProvider = (errorCode: 'invalid_json_schema' | 'provider_refu
       providerId: 'failing-provider',
       message: 'forced failure for test',
     });
+  },
+});
+
+const createPreferences = (userId: string): UserPreferences => {
+  const nowIso = new Date().toISOString();
+
+  return {
+    userId,
+    preferredTitles: ['Backend Engineer'],
+    preferredIndustries: ['fintech'],
+    preferredSkills: ['TypeScript', 'Node.js'],
+    preferredLocations: ['United States'],
+    remotePreference: 'remote',
+    targetSeniorityMin: 'mid',
+    targetSeniorityMax: 'senior',
+    salaryMin: 140000,
+    salaryTarget: 180000,
+    dealBreakers: ['onsite'],
+    hiddenCompanies: [],
+    hiddenTitles: [],
+    stretchPreferenceLevel: 3,
+    notificationPreferences: {
+      dailyDigest: true,
+      weeklyDigest: true,
+      instantHighFit: true,
+    },
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+};
+
+const createMatchScorePayload = (canonicalJobId: string): MatchScoreRequest => ({
+  canonicalJobId,
+  resumeExtraction: {
+    normalizedSkills: ['TypeScript', 'Node.js', 'AWS'],
+    domains: ['fintech'],
+    experienceRoles: ['Backend Engineer'],
+    yearsExperience: {
+      minimum: 6,
+      maximum: null,
+    },
+    inferredSeniority: 'senior',
+    preferredLocations: ['United States'],
+    remotePreference: 'remote',
+    sponsorshipRequired: false,
+    workAuthorization: 'United States',
+  },
+  jobExtraction: {
+    normalizedTitle: 'Senior Backend Engineer',
+    normalizedSkills: ['TypeScript', 'Node.js', 'AWS', 'Docker'],
+    requiredSkills: ['TypeScript', 'Node.js', 'AWS'],
+    preferredSkills: ['Docker'],
+    requiredYearsExperience: {
+      minimum: 5,
+      maximum: null,
+    },
+    domainTags: ['fintech'],
+    seniority: 'senior',
+    locationConstraint: 'United States',
+    remoteType: 'remote',
+    sponsorshipAvailable: true,
+    salaryMin: 150000,
+    salaryMax: 190000,
+    salaryCurrency: 'USD',
+    salaryPeriod: 'year',
   },
 });
 
@@ -107,5 +174,58 @@ test('extractResume propagates provider errors when fallback is disabled', async
       }),
     (error: unknown) =>
       error instanceof AiProviderError && error.code === 'provider_refusal',
+  );
+});
+
+test('scoreMatch persists versioned artifacts and latest retrieval works', async () => {
+  const service = createAiService({
+    provider: createDeterministicAiProvider(),
+    fallbackProvider: null,
+  });
+
+  const userId = randomUUID();
+  const canonicalJobId = randomUUID();
+  const preferences = createPreferences(userId);
+  const payload = createMatchScorePayload(canonicalJobId);
+
+  const first = await service.scoreMatch(userId, payload, preferences);
+  const second = await service.scoreMatch(userId, payload, preferences);
+
+  assert.equal(first.artifact.artifactVersion, 1);
+  assert.equal(second.artifact.artifactVersion, 2);
+  assert.equal(first.artifact.scoringVersion, 'deterministic-score-v1');
+
+  const latest = await service.getLatestMatchArtifact(userId, canonicalJobId);
+  assert.ok(latest);
+  assert.equal(latest?.artifactVersion, 2);
+
+  const versions = await service.listMatchArtifacts(userId, canonicalJobId);
+  assert.equal(versions.length, 2);
+  assert.equal(versions[0]?.artifactVersion, 2);
+  assert.equal(versions[1]?.artifactVersion, 1);
+});
+
+test('scoreMatch surfaces salary floor conflict as deterministic deal breaker', async () => {
+  const service = createAiService({
+    provider: createDeterministicAiProvider(),
+    fallbackProvider: null,
+  });
+
+  const userId = randomUUID();
+  const canonicalJobId = randomUUID();
+  const preferences = {
+    ...createPreferences(userId),
+    salaryMin: 220000,
+    salaryTarget: 240000,
+  };
+
+  const payload = createMatchScorePayload(canonicalJobId);
+
+  const result = await service.scoreMatch(userId, payload, preferences);
+  assert.equal(result.artifact.recommendation, 'skip');
+  assert.ok(
+    result.artifact.dealBreakers.some((reason) =>
+      reason.toLowerCase().includes('compensation range is below'),
+    ),
   );
 });

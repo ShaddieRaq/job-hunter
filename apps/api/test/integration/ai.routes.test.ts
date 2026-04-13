@@ -185,3 +185,117 @@ test('ai routes return explicit provider error code when fallback is disabled', 
     await app.close();
   }
 });
+
+test('score-match route persists and returns versioned artifacts', async () => {
+  const app = await startServer();
+
+  try {
+    const accessToken = await registerAndGetAccessToken(app.baseUrl);
+    const canonicalJobId = 'cb87f812-f7ca-47cf-83d2-f259f7656f57';
+
+    const requestBody = {
+      canonicalJobId,
+      resumeExtraction: {
+        normalizedSkills: ['TypeScript', 'Node.js', 'AWS'],
+        domains: ['fintech'],
+        experienceRoles: ['Backend Engineer'],
+        yearsExperience: {
+          minimum: 6,
+          maximum: null,
+        },
+        inferredSeniority: 'senior',
+        preferredLocations: ['United States'],
+        remotePreference: 'remote',
+        sponsorshipRequired: false,
+        workAuthorization: 'United States',
+      },
+      jobExtraction: {
+        normalizedTitle: 'Senior Backend Engineer',
+        normalizedSkills: ['TypeScript', 'Node.js', 'AWS', 'Docker'],
+        requiredSkills: ['TypeScript', 'Node.js', 'AWS'],
+        preferredSkills: ['Docker'],
+        requiredYearsExperience: {
+          minimum: 5,
+          maximum: null,
+        },
+        domainTags: ['fintech'],
+        seniority: 'senior',
+        locationConstraint: 'United States',
+        remoteType: 'remote',
+        sponsorshipAvailable: true,
+        salaryMin: 160000,
+        salaryMax: 210000,
+        salaryCurrency: 'USD',
+        salaryPeriod: 'year',
+      },
+    };
+
+    const firstScoreResponse = await fetch(`${app.baseUrl}/v1/ai/score-match`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    assert.equal(firstScoreResponse.status, 200);
+    const firstScoreBody = (await firstScoreResponse.json()) as {
+      artifact: { artifactVersion: number; recommendation: string };
+    };
+    assert.equal(firstScoreBody.artifact.artifactVersion, 1);
+    assert.equal(firstScoreBody.artifact.recommendation, 'apply');
+
+    const secondScoreResponse = await fetch(`${app.baseUrl}/v1/ai/score-match`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    assert.equal(secondScoreResponse.status, 200);
+    const secondScoreBody = (await secondScoreResponse.json()) as {
+      artifact: { artifactVersion: number };
+    };
+    assert.equal(secondScoreBody.artifact.artifactVersion, 2);
+
+    const latestResponse = await fetch(
+      `${app.baseUrl}/v1/ai/score-match/${canonicalJobId}`,
+      {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(latestResponse.status, 200);
+    const latestBody = (await latestResponse.json()) as {
+      artifact: { artifactVersion: number; scoringVersion: string };
+    };
+    assert.equal(latestBody.artifact.artifactVersion, 2);
+    assert.equal(latestBody.artifact.scoringVersion, 'deterministic-score-v1');
+
+    const versionsResponse = await fetch(
+      `${app.baseUrl}/v1/ai/score-match/${canonicalJobId}/versions`,
+      {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(versionsResponse.status, 200);
+    const versionsBody = (await versionsResponse.json()) as {
+      artifacts: Array<{ artifactVersion: number }>;
+    };
+    assert.equal(versionsBody.artifacts.length, 2);
+    assert.equal(versionsBody.artifacts[0]?.artifactVersion, 2);
+    assert.equal(versionsBody.artifacts[1]?.artifactVersion, 1);
+  } finally {
+    await app.close();
+  }
+});

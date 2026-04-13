@@ -199,6 +199,7 @@ Stores per-user scoring and explanation.
 Suggested fields:
 - user_id
 - canonical_job_id
+- artifact_version
 - overall_score
 - title_score
 - skill_score
@@ -214,7 +215,10 @@ Suggested fields:
 - gaps_json
 - deal_breakers_json
 - explanation_json
+- explanation_metadata_json
+- explanation_error_code
 - scoring_version
+- recommendation
 - last_scored_at
 
 ## UserJobState

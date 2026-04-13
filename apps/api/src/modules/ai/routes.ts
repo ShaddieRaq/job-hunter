@@ -2,8 +2,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import {
   aiContractVersion,
+  canonicalJobIdSchema,
   jobExtractionRequestSchema,
   matchExplanationRequestSchema,
+  matchScoreRequestSchema,
   resumeExtractionRequestSchema,
 } from '@job-hunter/shared';
 
@@ -79,6 +81,41 @@ const getPathname = (req: IncomingMessage): string => {
   return new URL(requestUrl, 'http://localhost').pathname;
 };
 
+const parseScoreMatchPath = (
+  pathname: string,
+): { canonicalJobId: string; listVersions: boolean } | null => {
+  const prefix = '/v1/ai/score-match/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const pathParam = pathname.slice(prefix.length);
+  if (!pathParam) {
+    return null;
+  }
+
+  if (pathParam.endsWith('/versions')) {
+    const canonicalJobId = pathParam.slice(0, -'/versions'.length);
+    if (!canonicalJobId || canonicalJobId.includes('/')) {
+      return null;
+    }
+
+    return {
+      canonicalJobId,
+      listVersions: true,
+    };
+  }
+
+  if (pathParam.includes('/')) {
+    return null;
+  }
+
+  return {
+    canonicalJobId: pathParam,
+    listVersions: false,
+  };
+};
+
 const executeAiOperation = async <T>(operation: () => Promise<T>): Promise<T> => {
   try {
     return await operation();
@@ -148,6 +185,72 @@ export const handleAiRoutes = async (
       canonicalJobId: response.canonicalJobId,
       explanation: response.explanation,
       metadata: response.metadata,
+    });
+    return true;
+  }
+
+  if (method === 'POST' && pathname === '/v1/ai/score-match') {
+    const accessToken = requireAccessToken(req);
+    const user = await authProfileService.authenticate(accessToken);
+    const preferences = await authProfileService.getPreferences(user.userId);
+    const payload = await parseBody(req, matchScoreRequestSchema);
+
+    const response = await executeAiOperation(async () =>
+      aiService.scoreMatch(user.userId, payload, preferences),
+    );
+
+    sendJson(res, 200, {
+      contractVersion: aiContractVersion,
+      artifact: response.artifact,
+    });
+    return true;
+  }
+
+  if (method === 'GET') {
+    const parsedScorePath = parseScoreMatchPath(pathname);
+    if (!parsedScorePath) {
+      return false;
+    }
+
+    const parsedCanonicalJobId = canonicalJobIdSchema.safeParse(
+      parsedScorePath.canonicalJobId,
+    );
+    if (!parsedCanonicalJobId.success) {
+      throw new HttpError(400, 'invalid_canonical_job_id', {
+        canonicalJobId: parsedScorePath.canonicalJobId,
+      });
+    }
+
+    const accessToken = requireAccessToken(req);
+    const user = await authProfileService.authenticate(accessToken);
+
+    if (parsedScorePath.listVersions) {
+      const artifacts = await aiService.listMatchArtifacts(
+        user.userId,
+        parsedCanonicalJobId.data,
+      );
+
+      sendJson(res, 200, {
+        contractVersion: aiContractVersion,
+        artifacts,
+      });
+      return true;
+    }
+
+    const artifact = await aiService.getLatestMatchArtifact(
+      user.userId,
+      parsedCanonicalJobId.data,
+    );
+
+    if (!artifact) {
+      throw new HttpError(404, 'match_score_not_found', {
+        canonicalJobId: parsedCanonicalJobId.data,
+      });
+    }
+
+    sendJson(res, 200, {
+      contractVersion: aiContractVersion,
+      artifact,
     });
     return true;
   }

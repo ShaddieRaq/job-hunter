@@ -19,10 +19,14 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `POST /v1/ai/extract/resume`
 	- `POST /v1/ai/extract/job`
 	- `POST /v1/ai/explain-match`
+	- `POST /v1/ai/score-match`
+	- `GET /v1/ai/score-match/:canonicalJobId`
+	- `GET /v1/ai/score-match/:canonicalJobId/versions`
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)
 	- deterministic fallback provider for resilient local/dev behavior
 	- explicit provider error codes surfaced at HTTP boundaries (`invalid_json_schema`, `provider_timeout`, `provider_refusal`, `provider_http_error`)
+	- deterministic score-breakdown generation persisted as per-user, per-job versioned artifacts
 - Domain service validation for preference constraints (salary and seniority ranges)
 - Resume parsing service with deterministic text extraction heuristics
 - Object-storage abstraction with in-memory adapter for uploaded resume files
@@ -30,6 +34,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 - PostgreSQL migrations:
 	- `migrations/0001_auth_profile_preferences.sql`
 	- `migrations/0002_resume_pipeline.sql`
+	- `migrations/0003_match_scoring_artifacts.sql`
 
 ## AI provider configuration
 

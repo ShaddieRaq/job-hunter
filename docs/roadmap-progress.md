@@ -25,19 +25,20 @@ Owner: team
 5. ⬜ Canonical job catalog and dedupe v1
 6. ⬜ Search/feed UI
 7. 🟨 Explainable match scoring
-   - Evidence: provider-backed structured AI outputs are now wired through the API AI module with OpenAI adapter + deterministic fallback, and fixture-driven extraction/explanation eval harness coverage is in place (`apps/api/src/modules/ai/*`, `apps/api/test/evals/*`, `apps/api/test/fixtures/ai-eval-fixtures.ts`).
-   - Remaining: connect score breakdown generation to canonical-job ranking workflows and persist/expose versioned scoring artifacts.
+   - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, fixture-driven extraction/explanation eval harness is in place, and deterministic score-breakdown artifacts are now persisted/versioned and exposed via `/v1/ai/score-match` routes.
+   - Remaining: wire score artifact reads into canonical job catalog/feed query paths once Steps 4-6 data surfaces are available.
 8. ⬜ Tracker and reminders
 9. ⬜ Resume/application support
 
 ## Current focus
 - Active step: 7 (explainable match scoring) and AI Phase A foundation
-- Next PR target: wire deterministic score breakdown generation into canonical job ranking flow and expose versioned explanation artifacts for feed/detail surfaces
+- Next PR target: integrate persisted scoring artifacts into feed/detail retrieval paths backed by canonical job data modules
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
 - 2026-04-12: AI bootstrap contract and API route scaffolding added (`/v1/ai/extract/resume`, `/v1/ai/extract/job`, `/v1/ai/explain-match`) with deterministic placeholder service and tests.
 - 2026-04-12: AI provider abstraction landed with OpenAI structured JSON schema adapter, deterministic fallback handling for provider failures, and fixture-driven extraction + explanation eval harness with threshold-enforced tests.
+- 2026-04-12: Deterministic score-breakdown generation and versioned match score/explanation artifacts added (`POST /v1/ai/score-match`, latest/history retrieval routes), with unit + integration coverage and migration `0003_match_scoring_artifacts.sql`.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

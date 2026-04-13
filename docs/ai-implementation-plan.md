@@ -16,15 +16,21 @@ This document turns the recommended AI roadmap into concrete implementation work
 - Shared v1 AI contracts in `packages/shared` for:
   - resume extraction
   - job extraction
+  - deterministic match scoring artifact creation/history
   - score-breakdown-driven match explanations
 - API v1 route skeletons:
   - `POST /v1/ai/extract/resume`
   - `POST /v1/ai/extract/job`
   - `POST /v1/ai/explain-match`
+- API v1 deterministic score artifact routes:
+  - `POST /v1/ai/score-match`
+  - `GET /v1/ai/score-match/:canonicalJobId`
+  - `GET /v1/ai/score-match/:canonicalJobId/versions`
 - Provider-backed AI orchestration in `apps/api/src/modules/ai`:
   - provider abstraction + deterministic fallback path
   - OpenAI adapter using strict `json_schema` structured output mode
   - explicit failure mode mapping for `invalid_json_schema`, `provider_timeout`, and `provider_refusal`
+- Deterministic scoring engine for named sub-scores, penalties, and recommendation output with versioned artifact persistence.
 - Fixture-driven AI eval harness baseline in `apps/api/test/evals` and `apps/api/test/fixtures`:
   - extraction precision/recall counters
   - explanation recommendation/factuality checks
@@ -37,8 +43,8 @@ This document turns the recommended AI roadmap into concrete implementation work
   - Done: provider adapter interface, OpenAI structured-output adapter, metadata propagation, deterministic fallback, and provider failure handling paths.
   - Remaining: production provider configuration hardening and environment-level rollout guardrails.
 - A2 Explainable match narrative layer: 🟨 in progress
-  - Done: explanation generation can run via provider with evidence-only prompt constraints and schema-bound output validation.
-  - Remaining: tighten unsupported-claim guardrails with broader fixture coverage and scoring-module integration.
+  - Done: explanation generation runs over deterministic score outputs with evidence-only prompt constraints, schema-bound output validation, and versioned score/explanation snapshots exposed via API.
+  - Remaining: connect score artifact reads directly into canonical feed/detail query models once canonical job catalog modules land.
 - A3 Eval harness baseline: 🟨 in progress
   - Done: fixture corpus + extraction/explanation eval harness + threshold test.
   - Remaining: wire eval command into repository CI workflow once pipeline definitions are in place.

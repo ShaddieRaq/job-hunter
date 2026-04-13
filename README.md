@@ -21,7 +21,7 @@ This repository is a TypeScript monorepo with Steps 2 and 3 complete and Step 7 
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences/resume + AI extraction/explanation v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume + AI extraction/scoring/explanation v1 endpoints
   web/      # Placeholder web homepage server
   worker/   # Background worker entrypoint stub
 packages/
@@ -43,11 +43,15 @@ docs/
 - POST /v1/ai/extract/resume
 - POST /v1/ai/extract/job
 - POST /v1/ai/explain-match
+- POST /v1/ai/score-match
+- GET /v1/ai/score-match/:canonicalJobId
+- GET /v1/ai/score-match/:canonicalJobId/versions
 
 ### Persistence and tests currently included
 
 - Initial migration for users/sessions/profiles/preferences schema under apps/api/migrations
 - Resume metadata + structured profile migration under apps/api/migrations
+- Match scoring artifact migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
 - API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
