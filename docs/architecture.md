@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices 1 through 4:
+As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices 1 through 5:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -27,7 +27,7 @@ As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices
 - Greenhouse public board connector adapter with source-job normalization and in-memory ingestion persistence
 - SQL migration for connector/source job persistence scaffolding
 - shared v1 canonical job contracts for catalog summaries, source mappings, and rebuild/list/detail payloads
-- shared v1 notification contracts for reminder-due delivery logs and dispatch responses
+- shared v1 notification contracts for reminder-due delivery logs and high-fit dispatch responses
 - shared v1 application contracts for create/list/detail/update payloads
 - API v1 canonical catalog routes for rebuilding and retrieving deduped canonical jobs
 - deterministic canonicalization/dedupe domain service with conservative matching heuristics and mapping reason codes

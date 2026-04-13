@@ -46,7 +46,7 @@ Owner: team
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
-- Goal: move the gate from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
+- Outcome: gate moved from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
 - Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 5).
 
 1. ✅ P0 - scheduled import jobs (`High` risk)

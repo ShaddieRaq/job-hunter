@@ -193,6 +193,7 @@ Detailed execution runbook:
 ### Notifications
 - verify daily/weekly digest preferences
 - verify high-fit alert suppression rules
+- verify high-fit alert dispatch produces `high_fit_alert` notification logs for eligible scored jobs
 - verify follow-up reminder creation and completion
 
 ## Definition of done from a testing perspective
