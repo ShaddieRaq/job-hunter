@@ -8,7 +8,9 @@ import {
   createApplicationService,
   type ApplicationService,
 } from './modules/applications/service.js';
+import { createPostgresApplicationRepository } from './modules/applications/postgres-repository.js';
 import { createInMemoryAuthProfileRepository } from './modules/auth-profile/in-memory-repository.js';
+import { createPostgresAuthProfileRepository } from './modules/auth-profile/postgres-repository.js';
 import { handleAuthProfileRoutes } from './modules/auth-profile/routes.js';
 import {
   createAuthProfileService,
@@ -37,9 +39,13 @@ import {
   createNotificationService,
   type NotificationService,
 } from './modules/notifications/service.js';
+import { createPostgresNotificationRepository } from './modules/notifications/postgres-repository.js';
+import { createPostgresReminderRepository } from './modules/reminders/postgres-repository.js';
 import { createInMemoryObjectStorage } from './modules/resume/in-memory-object-storage.js';
 import { createInMemoryResumeRepository } from './modules/resume/in-memory-repository.js';
+import { createFilesystemObjectStorage } from './modules/resume/filesystem-object-storage.js';
 import { createHeuristicResumeParser } from './modules/resume/parser.js';
+import { createPostgresResumeRepository } from './modules/resume/postgres-repository.js';
 import { handleResumeRoutes } from './modules/resume/routes.js';
 import { createResumeService, type ResumeService } from './modules/resume/service.js';
 import { handleSavedSearchRoutes } from './modules/saved-searches/routes.js';
@@ -47,6 +53,7 @@ import {
   createSavedSearchService,
   type SavedSearchService,
 } from './modules/saved-searches/service.js';
+import { createPostgresSavedSearchRepository } from './modules/saved-searches/postgres-repository.js';
 import { handleReminderRoutes } from './modules/reminders/routes.js';
 import {
   createReminderService,
@@ -54,14 +61,19 @@ import {
 } from './modules/reminders/service.js';
 import { handleTrackerRoutes } from './modules/tracker/routes.js';
 import { createTrackerService, type TrackerService } from './modules/tracker/service.js';
+import { createPostgresTrackerRepository } from './modules/tracker/postgres-repository.js';
 
-const defaultAuthProfileService = createAuthProfileService({
-  repository: createInMemoryAuthProfileRepository(),
-});
+const postgresPool = getSharedPostgresPool();
 
 const defaultAiService = createAiService();
 
-const postgresPool = getSharedPostgresPool();
+const apiRuntimeMode = (
+  process.env.API_RUNTIME_MODE ?? 'development'
+).toLowerCase();
+
+const workflowRepositoryMode = (
+  process.env.WORKFLOW_REPOSITORY ?? 'in-memory'
+).toLowerCase();
 
 const connectorRepositoryMode = (
   process.env.CONNECTOR_REPOSITORY ?? 'in-memory'
@@ -71,15 +83,131 @@ const canonicalRepositoryMode = (
   process.env.CANONICAL_JOBS_REPOSITORY ?? 'in-memory'
 ).toLowerCase();
 
+const resolvePostgresPool = (requiredBy: string) => {
+  if (!postgresPool) {
+    throw new Error(`${requiredBy} requires DATABASE_URL to be set`);
+  }
+
+  return postgresPool;
+};
+
+const resolveAuthProfileRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresAuthProfileRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return createInMemoryAuthProfileRepository();
+};
+
+const resolveResumeRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresResumeRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return createInMemoryResumeRepository();
+};
+
+const resolveApplicationRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresApplicationRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return undefined;
+};
+
+const resolveTrackerRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresTrackerRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return undefined;
+};
+
+const resolveReminderRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresReminderRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return undefined;
+};
+
+const resolveNotificationRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresNotificationRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return undefined;
+};
+
+const resolveSavedSearchRepository = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createPostgresSavedSearchRepository(
+      resolvePostgresPool('WORKFLOW_REPOSITORY=postgres'),
+    );
+  }
+
+  return undefined;
+};
+
+const resolveObjectStorage = () => {
+  if (workflowRepositoryMode === 'postgres') {
+    return createFilesystemObjectStorage({
+      rootDirectory: process.env.RESUME_OBJECT_STORAGE_DIR ?? '.data/resumes',
+    });
+  }
+
+  return createInMemoryObjectStorage();
+};
+
+const ensureDurableRuntimeConfiguration = (): void => {
+  if (apiRuntimeMode !== 'validation' && apiRuntimeMode !== 'production') {
+    return;
+  }
+
+  if (workflowRepositoryMode !== 'postgres') {
+    throw new Error(
+      'API_RUNTIME_MODE requires WORKFLOW_REPOSITORY=postgres for durable workflow data',
+    );
+  }
+
+  if (connectorRepositoryMode !== 'postgres') {
+    throw new Error(
+      'API_RUNTIME_MODE requires CONNECTOR_REPOSITORY=postgres for durable source ingestion data',
+    );
+  }
+
+  if (canonicalRepositoryMode !== 'postgres') {
+    throw new Error(
+      'API_RUNTIME_MODE requires CANONICAL_JOBS_REPOSITORY=postgres for durable canonical catalog data',
+    );
+  }
+
+  resolvePostgresPool('API_RUNTIME_MODE=validation|production');
+};
+
+ensureDurableRuntimeConfiguration();
+
+const defaultAuthProfileService = createAuthProfileService({
+  repository: resolveAuthProfileRepository(),
+});
+
 const resolveConnectorRepository = () => {
   if (connectorRepositoryMode === 'postgres') {
-    if (!postgresPool) {
-      throw new Error(
-        'CONNECTOR_REPOSITORY=postgres requires DATABASE_URL to be set',
-      );
-    }
-
-    return createPostgresConnectorRepository(postgresPool);
+    return createPostgresConnectorRepository(
+      resolvePostgresPool('CONNECTOR_REPOSITORY=postgres'),
+    );
   }
 
   return createInMemoryConnectorRepository();
@@ -87,13 +215,9 @@ const resolveConnectorRepository = () => {
 
 const resolveCanonicalRepository = () => {
   if (canonicalRepositoryMode === 'postgres') {
-    if (!postgresPool) {
-      throw new Error(
-        'CANONICAL_JOBS_REPOSITORY=postgres requires DATABASE_URL to be set',
-      );
-    }
-
-    return createPostgresCanonicalJobRepository(postgresPool);
+    return createPostgresCanonicalJobRepository(
+      resolvePostgresPool('CANONICAL_JOBS_REPOSITORY=postgres'),
+    );
   }
 
   return createInMemoryCanonicalJobRepository();
@@ -121,22 +245,25 @@ const defaultCanonicalJobsService = createCanonicalJobsService({
 });
 
 const defaultResumeService = createResumeService({
-  repository: createInMemoryResumeRepository(),
-  objectStorage: createInMemoryObjectStorage(),
+  repository: resolveResumeRepository(),
+  objectStorage: resolveObjectStorage(),
   parser: createHeuristicResumeParser(),
 });
 
 const defaultApplicationService = createApplicationService({
   canonicalJobLookup: defaultCanonicalJobsService,
   resumeLookup: defaultResumeService,
+  repository: resolveApplicationRepository(),
 });
 
 const defaultReminderService = createReminderService({
   canonicalJobLookup: defaultCanonicalJobsService,
+  repository: resolveReminderRepository(),
 });
 
 const defaultTrackerService = createTrackerService({
   canonicalJobLookup: defaultCanonicalJobsService,
+  repository: resolveTrackerRepository(),
   transitionObservers: [defaultReminderService],
 });
 
@@ -169,9 +296,12 @@ const defaultNotificationService = createNotificationService({
       return defaultAuthProfileService.listUserIds(limit);
     },
   },
+  repository: resolveNotificationRepository(),
 });
 
-const defaultSavedSearchService = createSavedSearchService();
+const defaultSavedSearchService = createSavedSearchService({
+  repository: resolveSavedSearchRepository(),
+});
 
 export interface CreateApiServerOptions {
   authProfileService?: AuthProfileService;
@@ -247,6 +377,7 @@ const handleRequest = async (
     authProfileService,
     canonicalJobsService,
     aiService,
+    trackerService,
   });
 
   if (canonicalHandled) {

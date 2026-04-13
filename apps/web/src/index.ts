@@ -1083,6 +1083,23 @@ const buildFeedReturnPath = (query: FeedQueryState): string => {
   return queryString.length > 0 ? `/?${queryString}` : '/';
 };
 
+const buildFeedApiPath = (query: FeedQueryState, limit: number): string => {
+  const params = new URLSearchParams();
+
+  params.set('limit', limit.toString());
+  params.set('recommendation', query.recommendation);
+  params.set('remote', query.remote);
+  params.set('source', query.source);
+  params.set('sort', query.sort);
+  params.set('includeHidden', query.includeHidden ? '1' : '0');
+
+  if (query.q.length > 0) {
+    params.set('q', query.q);
+  }
+
+  return `/v1/feed?${params.toString()}`;
+};
+
 const buildApplicationReturnPath = (query: ApplicationQueryState): string => {
   const params = new URLSearchParams();
 
@@ -3613,6 +3630,7 @@ const handleFeedRoute = async (
   apiBaseUrl: string,
 ): Promise<void> => {
   const requestUrl = new URL(req.url ?? '/', 'http://localhost');
+  const query = parseFeedQuery(requestUrl);
   const cookies = parseCookies(req);
   const accessToken = cookies[accessTokenCookieName];
 
@@ -3627,6 +3645,19 @@ const handleFeedRoute = async (
     requestUrl.searchParams.get('returnTo') ?? '/',
   );
 
+  const unfilteredFeedApiPath = buildFeedApiPath(
+    {
+      ...query,
+      q: '',
+      recommendation: 'all',
+      remote: 'any',
+      source: 'any',
+      sort: 'fit',
+      includeHidden: true,
+    },
+    250,
+  );
+
   if (!accessToken) {
     sendHtml(res, 200, renderAuthPage(computedAuthError, emailHint, requestedReturnTo));
     return;
@@ -3635,7 +3666,8 @@ const handleFeedRoute = async (
   const [
     profileResult,
     preferencesResult,
-    feedResult,
+    feedAllResult,
+    feedFilteredResult,
     applicationsResult,
     trackersResult,
     savedSearchesResult,
@@ -3643,7 +3675,14 @@ const handleFeedRoute = async (
   ] = await Promise.all([
     fetchProfile(apiBaseUrl, accessToken),
     fetchPreferences(apiBaseUrl, accessToken),
-    requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
+    requestApi(apiBaseUrl, unfilteredFeedApiPath, { method: 'GET' }, feedResponseSchema, accessToken),
+    requestApi(
+      apiBaseUrl,
+      buildFeedApiPath(query, 250),
+      { method: 'GET' },
+      feedResponseSchema,
+      accessToken,
+    ),
     fetchApplications(apiBaseUrl, accessToken, { limit: 250 }),
     fetchTrackers(apiBaseUrl, accessToken),
     fetchSavedSearches(apiBaseUrl, accessToken),
@@ -3670,15 +3709,17 @@ const handleFeedRoute = async (
     ? preferencesResult.data
     : buildFallbackPreferences(profileResult.data);
 
-  const query = parseFeedQuery(requestUrl);
   const returnTo = buildFeedReturnPath(query);
 
-  const allItems = feedResult.ok ? feedResult.data.items : [];
+  const allItems = feedAllResult.ok ? feedAllResult.data.items : [];
+  const serverFilteredItems = feedFilteredResult.ok
+    ? feedFilteredResult.data.items
+    : allItems;
   const trackersByCanonicalJobId = mapTrackersByCanonicalJobId(
     trackersResult.ok ? trackersResult.data : [],
   );
   const filteredItems = applyFeedFilters(
-    allItems,
+    serverFilteredItems,
     query,
     preferences,
     trackersByCanonicalJobId,
@@ -3692,8 +3733,10 @@ const handleFeedRoute = async (
 
   const feedNoticeCode = noticeCode;
   const routeErrorCode = requestUrl.searchParams.get('error');
-  const computedErrorCode = !feedResult.ok
-    ? feedResult.error.code
+  const computedErrorCode = !feedAllResult.ok
+    ? feedAllResult.error.code
+    : !feedFilteredResult.ok
+      ? feedFilteredResult.error.code
     : !applicationsResult.ok
       ? applicationsResult.error.code
     : !trackersResult.ok

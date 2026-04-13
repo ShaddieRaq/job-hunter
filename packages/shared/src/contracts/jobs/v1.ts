@@ -127,6 +127,42 @@ export const canonicalDedupeTraceEventsResponseSchema = z
   })
   .strict();
 
+export const feedRecommendationFilterSchema = z.enum([
+  'high_fit',
+  'all',
+  'apply',
+  'review',
+  'skip',
+  'unscored',
+]);
+
+export const feedRemoteFilterSchema = z.enum([
+  'aligned',
+  'any',
+  'remote',
+  'hybrid',
+  'onsite',
+]);
+
+export const feedSortSchema = z.enum(['fit', 'recent', 'salary']);
+
+export const feedSourceFilterSchema = z.union([
+  z.literal('any'),
+  sourceNameSchema,
+]);
+
+export const feedQuerySchema = z
+  .object({
+    q: z.string().trim().max(120),
+    recommendation: feedRecommendationFilterSchema,
+    remote: feedRemoteFilterSchema,
+    source: feedSourceFilterSchema,
+    sort: feedSortSchema,
+    includeHidden: z.boolean(),
+    limit: z.number().int().min(1).max(500),
+  })
+  .strict();
+
 export const feedJobCardSchema = z
   .object({
     job: canonicalJobSummarySchema,
@@ -169,6 +205,13 @@ export type CanonicalJobDetailsResponse = z.infer<
 export type CanonicalDedupeTraceEventsResponse = z.infer<
   typeof canonicalDedupeTraceEventsResponseSchema
 >;
+export type FeedRecommendationFilter = z.infer<
+  typeof feedRecommendationFilterSchema
+>;
+export type FeedRemoteFilter = z.infer<typeof feedRemoteFilterSchema>;
+export type FeedSort = z.infer<typeof feedSortSchema>;
+export type FeedSourceFilter = z.infer<typeof feedSourceFilterSchema>;
+export type FeedQuery = z.infer<typeof feedQuerySchema>;
 export type FeedJobCard = z.infer<typeof feedJobCardSchema>;
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 export type FeedDetailResponse = z.infer<typeof feedDetailResponseSchema>;

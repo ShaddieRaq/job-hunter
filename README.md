@@ -18,7 +18,7 @@ The product is designed to help a user:
 ## Current repository status
 
 This repository is a TypeScript monorepo with Steps 2 through 9 complete,
-plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches + high-fit alerts), followed by post-validation high-fit delivery iterations (feed-side high-fit alert visibility + worker-scheduled high-fit dispatch cadence):
+plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches + high-fit alerts), followed by post-validation hardening iterations (feed-side high-fit alert visibility + worker-scheduled high-fit dispatch cadence + source-aware feed controls + durable workflow persistence/runtime enforcement + server-side feed query filtering):
 
 ```text
 apps/
@@ -91,8 +91,9 @@ docs/
 - Reminder task lifecycle migration under apps/api/migrations
 - Notification log workflow migration under apps/api/migrations
 - Application record workflow migration under apps/api/migrations
-- In-memory repository adapter for local runtime behavior
-- In-memory object storage abstraction for resume files
+- Workflow persistence durability migration for saved searches and high-fit notification constraints under apps/api/migrations
+- In-memory repository adapters for local runtime behavior, with PostgreSQL adapters for connectors/canonical/workflow modules in durable deployments
+- In-memory and filesystem object storage adapters for resume files
 - In-memory connector repository + Greenhouse and Lever public board connector adapters
 - API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
 - Connector fixture-driven unit tests plus connector route integration tests

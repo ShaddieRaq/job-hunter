@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import type { SavedSearch } from '@job-hunter/shared';
+
 import { HttpError } from '../../src/http/http-errors.js';
+import type { SavedSearchRepository } from '../../src/modules/saved-searches/repository.js';
 import { createSavedSearchService } from '../../src/modules/saved-searches/service.js';
 
 test('createSavedSearch stores normalized query and list returns newest first', async () => {
@@ -115,4 +118,69 @@ test('deleteSavedSearch removes record and throws not found on repeated delete',
       error.statusCode === 404 &&
       error.code === 'saved_search_not_found',
   );
+});
+
+test('list/get normalize legacy saved searches missing source filter', async () => {
+  const legacySavedSearch = {
+    savedSearchId: '33333333-3333-4333-8333-999999999999',
+    userId: '76d4f8af-5704-4600-9f77-54dcf1e89e2d',
+    name: 'Legacy preset',
+    query: {
+      q: 'backend',
+      recommendation: 'all',
+      remote: 'any',
+      sort: 'fit',
+      includeHidden: false,
+    },
+    createdAt: '2026-04-13T10:00:00.000Z',
+    updatedAt: '2026-04-13T10:00:00.000Z',
+    lastUsedAt: null,
+  } as unknown as SavedSearch;
+
+  const repository: SavedSearchRepository = {
+    async createSavedSearch(savedSearch) {
+      return savedSearch;
+    },
+    async updateSavedSearch(savedSearch) {
+      return savedSearch;
+    },
+    async findSavedSearchById(userId, savedSearchId) {
+      if (
+        userId !== legacySavedSearch.userId ||
+        savedSearchId !== legacySavedSearch.savedSearchId
+      ) {
+        return null;
+      }
+
+      return legacySavedSearch;
+    },
+    async findSavedSearchByName() {
+      return null;
+    },
+    async listSavedSearches({ userId }) {
+      if (userId !== legacySavedSearch.userId) {
+        return [];
+      }
+
+      return [legacySavedSearch];
+    },
+    async deleteSavedSearch() {
+      return false;
+    },
+  };
+
+  const service = createSavedSearchService({ repository });
+
+  const listed = await service.listSavedSearches({
+    userId: legacySavedSearch.userId,
+    limit: 10,
+  });
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0]?.query.source, 'any');
+
+  const detail = await service.getSavedSearch(
+    legacySavedSearch.userId,
+    legacySavedSearch.savedSearchId,
+  );
+  assert.equal(detail?.query.source, 'any');
 });

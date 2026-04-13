@@ -3,7 +3,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   canonicalJobIdSchema,
   canonicalRebuildRequestSchema,
+  feedRecommendationFilterSchema,
+  feedRemoteFilterSchema,
+  feedSortSchema,
+  feedSourceFilterSchema,
   jobsContractVersion,
+  type FeedJobCard,
+  type FeedQuery,
+  type UserPreferences,
 } from '@job-hunter/shared';
 
 import { HttpError } from '../../http/http-errors.js';
@@ -11,12 +18,27 @@ import { readJsonBody, sendJson } from '../../http/json.js';
 import type { AiService } from '../ai/service.js';
 import type { AuthProfileService } from '../auth-profile/service.js';
 import type { CanonicalJobsService } from './service.js';
+import type { TrackerService } from '../tracker/service.js';
 
 export interface CanonicalJobRoutesDependencies {
   authProfileService: AuthProfileService;
   canonicalJobsService: CanonicalJobsService;
   aiService: AiService;
+  trackerService: TrackerService;
 }
+
+const defaultFeedLimit = 50;
+const maxFeedSourceLimit = 500;
+
+const defaultFeedQuery: FeedQuery = {
+  q: '',
+  recommendation: 'all',
+  remote: 'any',
+  source: 'any',
+  sort: 'fit',
+  includeHidden: true,
+  limit: defaultFeedLimit,
+};
 
 const mapValidationDetails = (
   issues: Array<{ code: string; message: string; path: (string | number)[] }>,
@@ -141,6 +163,244 @@ const parseFeedDetailPath = (pathname: string): string | null => {
   return pathParam;
 };
 
+const parseFeedQuery = (requestUrl: URL): FeedQuery => {
+  const recommendationRaw = requestUrl.searchParams.get('recommendation');
+  const remoteRaw = requestUrl.searchParams.get('remote');
+  const sourceRaw = requestUrl.searchParams.get('source');
+  const sortRaw = requestUrl.searchParams.get('sort');
+  const includeHiddenRaw = requestUrl.searchParams.get('includeHidden');
+
+  const recommendation = feedRecommendationFilterSchema.safeParse(recommendationRaw);
+  const remote = feedRemoteFilterSchema.safeParse(remoteRaw);
+  const source = feedSourceFilterSchema.safeParse(sourceRaw);
+  const sort = feedSortSchema.safeParse(sortRaw);
+
+  const parsedLimit = parseLimitQuery(requestUrl.searchParams.get('limit'));
+  if (parsedLimit !== undefined && parsedLimit > maxFeedSourceLimit) {
+    throw new HttpError(400, 'invalid_canonical_job_limit', {
+      limit: parsedLimit,
+    });
+  }
+
+  return {
+    q: (requestUrl.searchParams.get('q') ?? '').trim().slice(0, 120),
+    recommendation: recommendation.success
+      ? recommendation.data
+      : defaultFeedQuery.recommendation,
+    remote: remote.success ? remote.data : defaultFeedQuery.remote,
+    source: source.success ? source.data : defaultFeedQuery.source,
+    sort: sort.success ? sort.data : defaultFeedQuery.sort,
+    includeHidden:
+      includeHiddenRaw === '1'
+        ? true
+        : includeHiddenRaw === '0'
+          ? false
+          : defaultFeedQuery.includeHidden,
+    limit: parsedLimit ?? defaultFeedLimit,
+  };
+};
+
+const matchesRemotePreference = (
+  remoteType: string,
+  preference: UserPreferences['remotePreference'],
+): boolean => {
+  if (preference === 'flexible') {
+    return remoteType === 'remote' || remoteType === 'hybrid' || remoteType === 'onsite';
+  }
+
+  return remoteType === preference;
+};
+
+const matchesRemoteFilter = (
+  remoteType: FeedJobCard['job']['remoteType'],
+  filter: FeedQuery['remote'],
+  preferences: UserPreferences,
+): boolean => {
+  if (filter === 'any') {
+    return true;
+  }
+
+  if (filter === 'aligned') {
+    return matchesRemotePreference(remoteType, preferences.remotePreference);
+  }
+
+  return remoteType === filter;
+};
+
+const isHiddenByPreferences = (
+  item: FeedJobCard,
+  preferences: UserPreferences,
+): boolean => {
+  const company = item.job.canonicalCompanyName.toLowerCase();
+  const title = item.job.canonicalTitle.toLowerCase();
+
+  const hiddenCompanyHit = preferences.hiddenCompanies.some((value) =>
+    company.includes(value.toLowerCase()),
+  );
+  if (hiddenCompanyHit) {
+    return true;
+  }
+
+  return preferences.hiddenTitles.some((value) => title.includes(value.toLowerCase()));
+};
+
+type FeedRecommendationValue = 'apply' | 'review' | 'skip' | 'unscored';
+
+const getRecommendation = (item: FeedJobCard): FeedRecommendationValue => {
+  const artifact = item.latestScoreArtifact;
+  if (!artifact) {
+    return 'unscored';
+  }
+
+  return artifact.recommendation;
+};
+
+const isHighFitRecommendation = (item: FeedJobCard): boolean => {
+  const artifact = item.latestScoreArtifact;
+  if (!artifact) {
+    return false;
+  }
+
+  return (
+    artifact.recommendation === 'apply' &&
+    artifact.scoreBreakdown.overallScore >= 75 &&
+    artifact.dealBreakers.length === 0
+  );
+};
+
+const matchesRecommendation = (
+  item: FeedJobCard,
+  filter: FeedQuery['recommendation'],
+): boolean => {
+  if (filter === 'high_fit') {
+    return isHighFitRecommendation(item);
+  }
+
+  if (filter === 'all') {
+    return true;
+  }
+
+  return getRecommendation(item) === filter;
+};
+
+const matchesSourceFilter = (
+  sourceNames: FeedJobCard['job']['sourceNames'],
+  filter: FeedQuery['source'],
+): boolean => {
+  if (filter === 'any') {
+    return true;
+  }
+
+  return sourceNames.includes(filter);
+};
+
+const matchesSearch = (item: FeedJobCard, query: string): boolean => {
+  if (query.length === 0) {
+    return true;
+  }
+
+  const haystack = [
+    item.job.canonicalTitle,
+    item.job.canonicalCompanyName,
+    item.job.normalizedLocation ?? '',
+    ...item.job.topSkills,
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const terms = query.toLowerCase().split(/\s+/).filter((term) => term.length > 0);
+  return terms.every((term) => haystack.includes(term));
+};
+
+const compareIsoDatesDesc = (leftIso: string, rightIso: string): number => {
+  const left = Date.parse(leftIso);
+  const right = Date.parse(rightIso);
+  return right - left;
+};
+
+const recommendationOrder: Record<'apply' | 'review' | 'skip' | 'unscored', number> = {
+  apply: 3,
+  review: 2,
+  skip: 1,
+  unscored: 0,
+};
+
+const compareFeedByFit = (left: FeedJobCard, right: FeedJobCard): number => {
+  const leftRec = getRecommendation(left);
+  const rightRec = getRecommendation(right);
+
+  const recommendationDelta = recommendationOrder[rightRec] - recommendationOrder[leftRec];
+  if (recommendationDelta !== 0) {
+    return recommendationDelta;
+  }
+
+  const leftScore = left.latestScoreArtifact?.scoreBreakdown.overallScore ?? -1;
+  const rightScore = right.latestScoreArtifact?.scoreBreakdown.overallScore ?? -1;
+  if (rightScore !== leftScore) {
+    return rightScore - leftScore;
+  }
+
+  return compareIsoDatesDesc(left.job.lastSeenAt, right.job.lastSeenAt);
+};
+
+const compareFeedByRecent = (left: FeedJobCard, right: FeedJobCard): number =>
+  compareIsoDatesDesc(left.job.lastSeenAt, right.job.lastSeenAt);
+
+const compareFeedBySalary = (left: FeedJobCard, right: FeedJobCard): number => {
+  const leftSalary = left.job.salaryMax ?? left.job.salaryMin ?? -1;
+  const rightSalary = right.job.salaryMax ?? right.job.salaryMin ?? -1;
+
+  if (rightSalary !== leftSalary) {
+    return rightSalary - leftSalary;
+  }
+
+  return compareFeedByFit(left, right);
+};
+
+const applyFeedFilters = (
+  items: FeedJobCard[],
+  query: FeedQuery,
+  preferences: UserPreferences,
+  trackerStateByCanonicalJobId: Map<string, string>,
+): FeedJobCard[] => {
+  const filtered = items.filter((item) => {
+    if (!query.includeHidden && isHiddenByPreferences(item, preferences)) {
+      return false;
+    }
+
+    if (
+      !query.includeHidden &&
+      trackerStateByCanonicalJobId.get(item.job.canonicalJobId) === 'archived'
+    ) {
+      return false;
+    }
+
+    if (!matchesRecommendation(item, query.recommendation)) {
+      return false;
+    }
+
+    if (!matchesRemoteFilter(item.job.remoteType, query.remote, preferences)) {
+      return false;
+    }
+
+    if (!matchesSourceFilter(item.job.sourceNames, query.source)) {
+      return false;
+    }
+
+    return matchesSearch(item, query.q);
+  });
+
+  if (query.sort === 'recent') {
+    return filtered.sort(compareFeedByRecent);
+  }
+
+  if (query.sort === 'salary') {
+    return filtered.sort(compareFeedBySalary);
+  }
+
+  return filtered.sort(compareFeedByFit);
+};
+
 export const handleCanonicalJobRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -148,6 +408,7 @@ export const handleCanonicalJobRoutes = async (
     authProfileService,
     canonicalJobsService,
     aiService,
+    trackerService,
   }: CanonicalJobRoutesDependencies,
 ): Promise<boolean> => {
   const method = req.method ?? 'GET';
@@ -186,8 +447,17 @@ export const handleCanonicalJobRoutes = async (
     const accessToken = requireAccessToken(req);
     const user = await authProfileService.authenticate(accessToken);
 
-    const limit = parseLimitQuery(requestUrl.searchParams.get('limit'));
-    const jobs = await canonicalJobsService.listCanonicalJobs(limit);
+    const feedQuery = parseFeedQuery(requestUrl);
+
+    const [preferences, trackers, jobs] = await Promise.all([
+      authProfileService.getPreferences(user.userId),
+      trackerService.listTrackedJobs({
+        userId: user.userId,
+        limit: maxFeedSourceLimit,
+      }),
+      canonicalJobsService.listCanonicalJobs(maxFeedSourceLimit),
+    ]);
+
     const items = await Promise.all(
       jobs.map(async (job) => ({
         job,
@@ -198,9 +468,20 @@ export const handleCanonicalJobRoutes = async (
       })),
     );
 
+    const trackerStateByCanonicalJobId = new Map(
+      trackers.map((tracker) => [tracker.canonicalJobId, tracker.state] as const),
+    );
+
+    const filteredItems = applyFeedFilters(
+      items,
+      feedQuery,
+      preferences,
+      trackerStateByCanonicalJobId,
+    ).slice(0, feedQuery.limit);
+
     sendJson(res, 200, {
       contractVersion: jobsContractVersion,
-      items,
+      items: filteredItems,
     });
     return true;
   }

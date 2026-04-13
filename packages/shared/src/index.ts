@@ -108,6 +108,11 @@ export {
   canonicalRebuildRequestSchema,
   canonicalRebuildResponseSchema,
   canonicalSourceMappingSchema,
+  feedQuerySchema,
+  feedRecommendationFilterSchema,
+  feedRemoteFilterSchema,
+  feedSourceFilterSchema,
+  feedSortSchema,
   dedupeTraceEventTypeSchema,
   feedDetailResponseSchema,
   feedJobCardSchema,
@@ -265,7 +270,12 @@ export type {
   CanonicalSourceMapping,
   FeedDetailResponse,
   FeedJobCard,
+  FeedQuery,
+  FeedRecommendationFilter,
+  FeedRemoteFilter,
   FeedResponse,
+  FeedSort,
+  FeedSourceFilter,
 } from './contracts/jobs/v1.js';
 
 export type {

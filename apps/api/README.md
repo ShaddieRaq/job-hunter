@@ -25,6 +25,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/canonical-jobs/:canonicalJobId`
 	- `GET /v1/canonical-jobs/:canonicalJobId/dedupe-events`
 	- `GET /v1/feed`
+	  - supports server-side query filters: `q`, `recommendation`, `remote`, `source`, `sort`, `includeHidden`, `limit`
 	- `GET /v1/feed/:canonicalJobId`
 - AI extraction/explanation v1 endpoints:
 	- `POST /v1/ai/extract/resume`
@@ -66,8 +67,8 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- deterministic score-breakdown generation persisted as per-user, per-job versioned artifacts
 - Domain service validation for preference constraints (salary and seniority ranges)
 - Resume parsing service with deterministic text extraction heuristics
-- Object-storage abstraction with in-memory adapter for uploaded resume files
-- In-memory repository adapter for local development
+- Object-storage abstraction with in-memory and filesystem adapters for uploaded resume files
+- In-memory repository adapters for local development and PostgreSQL adapters for durable workflow runtime
 - PostgreSQL migrations:
 	- `migrations/0001_auth_profile_preferences.sql`
 	- `migrations/0002_resume_pipeline.sql`
@@ -79,6 +80,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `migrations/0008_reminder_tasks.sql`
 	- `migrations/0009_notification_logs.sql`
 	- `migrations/0010_application_records.sql`
+	- `migrations/0011_workflow_persistence_and_notifications.sql`
 
 ## AI provider configuration
 
@@ -100,6 +102,18 @@ Structured Node.js API for the Job Hunter modular monolith.
 ## Canonical catalog repository configuration
 
 - `CANONICAL_JOBS_REPOSITORY`: repository mode for canonical jobs (`in-memory` default, `postgres` optional)
+
+## Workflow repository configuration
+
+- `WORKFLOW_REPOSITORY`: repository mode for auth/profile/resume/tracker/reminder/notification/application/saved-search modules (`in-memory` default, `postgres` optional)
+- `RESUME_OBJECT_STORAGE_DIR`: filesystem directory used for resume uploads when `WORKFLOW_REPOSITORY=postgres` (default: `.data/resumes`)
+- `API_RUNTIME_MODE`: `development` (default), `validation`, or `production`
+
+When `API_RUNTIME_MODE` is `validation` or `production`, durable runtime is enforced and all repository modes must be `postgres`:
+- `WORKFLOW_REPOSITORY=postgres`
+- `CONNECTOR_REPOSITORY=postgres`
+- `CANONICAL_JOBS_REPOSITORY=postgres`
+- `DATABASE_URL` must be configured
 
 ## PostgreSQL adapter configuration
 

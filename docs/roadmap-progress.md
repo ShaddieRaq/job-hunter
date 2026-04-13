@@ -41,8 +41,8 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: maintain MVP-validated baseline and prioritize connector quality hardening with incremental UX polish
-- Next PR target: post-validation connector quality hardening and ingestion resilience improvements
+- Active step: maintain MVP-validated baseline and prioritize external-audit hardening for durability and API/UI parity
+- Next PR target: post-validation durability hardening and feed-contract parity follow-through
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -106,6 +106,7 @@ Owner: team
 - 2026-04-13: Post-validation worker cadence landed with high-fit dispatch-all orchestration (`POST /v1/notifications/high-fit/dispatch-all`) triggered after successful worker rebuild cycles, plus API/worker regression coverage for aggregate and degraded dispatch paths.
 - 2026-04-13: Post-validation connector expansion landed with Lever public board ingestion (`lever_public_board`) wired into default connector service, fixture-driven normalization tests, and connector route integration coverage for multi-source sync/list behavior.
 - 2026-04-13: Post-validation feed UX refinement landed with source-aware discovery controls (feed `source` filter, per-card source provenance chips, source-aware saved-search snapshots), plus shared/API/web regression coverage updates.
+- 2026-04-13: External-analysis remediation hardening landed with workflow Postgres repositories (auth/profile, resume, tracker, reminders, notifications, applications, saved searches), migration `0011_workflow_persistence_and_notifications.sql`, runtime durability enforcement via `API_RUNTIME_MODE` + repository mode gating, server-side `/v1/feed` query filtering parity (`q`, recommendation/remote/source/sort/includeHidden/limit), and regression coverage for feed filter semantics plus legacy saved-search source normalization.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

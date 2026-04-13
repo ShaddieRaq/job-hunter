@@ -4,7 +4,9 @@ import type {
   SavedSearch,
   SavedSearchCreateRequest,
   SavedSearchId,
+  SavedSearchSourceFilter,
 } from '@job-hunter/shared';
+import { savedSearchSourceFilterSchema } from '@job-hunter/shared';
 
 import { HttpError } from '../../http/http-errors.js';
 import { createInMemorySavedSearchRepository } from './in-memory-repository.js';
@@ -22,6 +24,28 @@ const normalizeLimit = (limit: number | undefined): number => {
 };
 
 const normalizeQueryText = (value: string): string => value.trim().slice(0, 120);
+
+const normalizeSourceFilter = (value: unknown): SavedSearchSourceFilter => {
+  const parsed = savedSearchSourceFilterSchema.safeParse(value);
+  if (!parsed.success) {
+    return 'any';
+  }
+
+  return parsed.data;
+};
+
+const normalizeSavedSearchShape = (savedSearch: SavedSearch): SavedSearch => {
+  const rawSource = (savedSearch.query as SavedSearch['query'] & { source?: unknown })
+    .source;
+
+  return {
+    ...savedSearch,
+    query: {
+      ...savedSearch.query,
+      source: normalizeSourceFilter(rawSource),
+    },
+  };
+};
 
 export interface SavedSearchService {
   listSavedSearches(options: { userId: string; limit?: number }): Promise<SavedSearch[]>;
@@ -45,10 +69,12 @@ export const createSavedSearchService = ({
   async listSavedSearches({ userId, limit }) {
     const resolvedLimit = normalizeLimit(limit);
 
-    return repository.listSavedSearches({
+    const savedSearches = await repository.listSavedSearches({
       userId,
       limit: resolvedLimit,
     });
+
+    return savedSearches.map(normalizeSavedSearchShape);
   },
 
   async createSavedSearch(userId, input) {
@@ -75,11 +101,12 @@ export const createSavedSearchService = ({
       lastUsedAt: null,
     };
 
-    return repository.createSavedSearch(savedSearch);
+    return normalizeSavedSearchShape(await repository.createSavedSearch(savedSearch));
   },
 
   async getSavedSearch(userId, savedSearchId) {
-    return repository.findSavedSearchById(userId, savedSearchId);
+    const savedSearch = await repository.findSavedSearchById(userId, savedSearchId);
+    return savedSearch ? normalizeSavedSearchShape(savedSearch) : null;
   },
 
   async deleteSavedSearch(userId, savedSearchId) {

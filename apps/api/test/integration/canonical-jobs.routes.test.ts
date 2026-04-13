@@ -229,6 +229,72 @@ test('canonical routes rebuild and return canonical detail view', async () => {
     assert.equal(feedBody.items[0]?.job.canonicalJobId, canonicalJobId);
     assert.equal(feedBody.items[0]?.latestScoreArtifact, null);
 
+    const unscoredFeedResponse = await fetch(
+      `${app.baseUrl}/v1/feed?limit=10&recommendation=unscored`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(unscoredFeedResponse.status, 200);
+    const unscoredFeedBody = (await unscoredFeedResponse.json()) as {
+      items: Array<{ job: { canonicalJobId: string } }>;
+    };
+
+    assert.equal(unscoredFeedBody.items.length, 1);
+    assert.equal(unscoredFeedBody.items[0]?.job.canonicalJobId, canonicalJobId);
+
+    const highFitFeedResponse = await fetch(
+      `${app.baseUrl}/v1/feed?limit=10&recommendation=high_fit`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(highFitFeedResponse.status, 200);
+    const highFitFeedBody = (await highFitFeedResponse.json()) as {
+      items: unknown[];
+    };
+
+    assert.equal(highFitFeedBody.items.length, 0);
+
+    const sourceFilteredResponse = await fetch(
+      `${app.baseUrl}/v1/feed?limit=10&source=greenhouse_public_board`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(sourceFilteredResponse.status, 200);
+    const sourceFilteredBody = (await sourceFilteredResponse.json()) as {
+      items: Array<{ job: { canonicalJobId: string } }>;
+    };
+
+    assert.equal(sourceFilteredBody.items.length, 1);
+    assert.equal(sourceFilteredBody.items[0]?.job.canonicalJobId, canonicalJobId);
+
+    const missingSourceResponse = await fetch(
+      `${app.baseUrl}/v1/feed?limit=10&source=lever_public_board`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(missingSourceResponse.status, 200);
+    const missingSourceBody = (await missingSourceResponse.json()) as {
+      items: unknown[];
+    };
+
+    assert.equal(missingSourceBody.items.length, 0);
+
     const feedDetailResponse = await fetch(`${app.baseUrl}/v1/feed/${canonicalJobId}`, {
       headers: {
         authorization: `Bearer ${accessToken}`,
