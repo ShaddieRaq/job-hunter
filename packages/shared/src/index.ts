@@ -113,6 +113,18 @@ export {
 } from './contracts/reminders/v1.js';
 
 export {
+  notificationChannelSchema,
+  notificationDispatchRequestSchema,
+  notificationDispatchResponseSchema,
+  notificationIdSchema,
+  notificationListResponseSchema,
+  notificationLogSchema,
+  notificationsContractVersion,
+  notificationStatusSchema,
+  notificationTypeSchema,
+} from './contracts/notifications/v1.js';
+
+export {
   profileContractVersion,
   userProfilePayloadSchema,
   userProfileSchema,
@@ -218,6 +230,17 @@ export type {
   ReminderTask,
   ReminderTaskType,
 } from './contracts/reminders/v1.js';
+
+export type {
+  NotificationChannel,
+  NotificationDispatchRequest,
+  NotificationDispatchResponse,
+  NotificationId,
+  NotificationListResponse,
+  NotificationLog,
+  NotificationStatus,
+  NotificationType,
+} from './contracts/notifications/v1.js';
 
 export type {
   UserProfile,

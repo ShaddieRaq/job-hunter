@@ -33,14 +33,14 @@ Owner: team
 7. ✅ Explainable match scoring
    - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, deterministic score-breakdown artifacts are persisted/versioned via `/v1/ai/score-match` routes, score explanation rollout controls (`AI_SCORE_EXPLANATION_MODE`, `AI_SCORE_EXPLANATION_ROLLOUT_PERCENT`) are implemented, and explanation evidence guardrails enforce deterministic fallback for unsupported outputs.
    - Remaining: none.
-8. 🟨 Tracker and reminders
-   - Evidence: tracker contracts (`packages/shared/src/contracts/tracker/v1.ts`), API tracker module (`apps/api/src/modules/tracker`) with auditable transition events and transition validation routes (`/v1/tracker/jobs*`), reminder contracts (`packages/shared/src/contracts/reminders/v1.ts`), API reminder module (`apps/api/src/modules/reminders`) with authenticated create/list/detail/complete routes (`/v1/reminders*`), tracker transition observer wiring for auto-created follow-up reminders on `applied`/`interview`, migrations `0007_tracker_state_history.sql` + `0008_reminder_tasks.sql`, and unit/integration coverage (commits `5169288`, `2a82afa`).
-   - Remaining: notification workflows.
+8. ✅ Tracker and reminders
+   - Evidence: tracker contracts (`packages/shared/src/contracts/tracker/v1.ts`), reminder contracts (`packages/shared/src/contracts/reminders/v1.ts`), notification contracts (`packages/shared/src/contracts/notifications/v1.ts`), API modules for tracker/reminder/notification workflows (`apps/api/src/modules/tracker`, `apps/api/src/modules/reminders`, `apps/api/src/modules/notifications`), authenticated routes (`/v1/tracker/jobs*`, `/v1/reminders*`, `/v1/notifications*`), tracker observer-driven auto-reminders for `applied`/`interview`, and migrations `0007_tracker_state_history.sql` + `0008_reminder_tasks.sql` + `0009_notification_logs.sql` with unit/integration coverage.
+   - Remaining: none.
 9. ⬜ Resume/application support
 
 ## Current focus
-- Active step: 8 (tracker and reminders)
-- Next PR target: add notification workflow scaffolding for reminder delivery
+- Active step: 9 (resume/application support)
+- Next PR target: add resume/application support baseline contracts and API scaffolding
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
@@ -54,6 +54,7 @@ Owner: team
 - 2026-04-12: Step 7 completed with score explanation rollout controls, deterministic guardrail fallback for unsupported explanation evidence, expanded explanation fixtures (including review recommendations), and stricter explanation quality threshold checks.
 - 2026-04-12: Step 8 first slice landed with tracker state transition contracts, authenticated tracker transition/list/detail/history routes, transition audit events, migration `0007_tracker_state_history.sql`, and tracker unit/integration coverage (`5169288`).
 - 2026-04-12: Step 8 second slice landed with reminder task contracts/routes (`GET/POST /v1/reminders`, `GET /v1/reminders/:reminderId`, `PUT /v1/reminders/:reminderId/complete`), tracker transition observer hooks for auto-reminder creation on `applied` and `interview`, migration `0008_reminder_tasks.sql`, and reminder unit/integration coverage (`2a82afa`).
+- 2026-04-12: Step 8 final slice landed with notification log contracts/routes (`GET /v1/notifications`, `POST /v1/notifications/reminders/dispatch`), due-reminder dispatch workflow scaffolding, migration `0009_notification_logs.sql`, and notification unit/integration coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

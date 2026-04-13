@@ -44,6 +44,10 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/reminders/:reminderId`
 	- `PUT /v1/reminders/:reminderId/complete`
 	- tracker transitions to `applied` and `interview` auto-create follow-up reminder tasks
+- Notification v1 endpoints:
+	- `GET /v1/notifications`
+	- `POST /v1/notifications/reminders/dispatch`
+	- dispatch endpoint queues + marks sent due reminder notifications for authenticated users (in-app scaffold)
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)
 	- deterministic fallback provider for resilient local/dev behavior
@@ -62,6 +66,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `migrations/0006_canonical_dedupe_trace_events.sql`
 	- `migrations/0007_tracker_state_history.sql`
 	- `migrations/0008_reminder_tasks.sql`
+	- `migrations/0009_notification_logs.sql`
 
 ## AI provider configuration
 

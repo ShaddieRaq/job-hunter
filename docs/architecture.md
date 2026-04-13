@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2 through 7 are implemented and Step 8 tracker/reminder slices are in progress:
+As of 2026-04-12, Steps 2 through 8 are implemented:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -27,6 +27,7 @@ As of 2026-04-12, Steps 2 through 7 are implemented and Step 8 tracker/reminder 
 - Greenhouse public board connector adapter with source-job normalization and in-memory ingestion persistence
 - SQL migration for connector/source job persistence scaffolding
 - shared v1 canonical job contracts for catalog summaries, source mappings, and rebuild/list/detail payloads
+- shared v1 notification contracts for reminder-due delivery logs and dispatch responses
 - API v1 canonical catalog routes for rebuilding and retrieving deduped canonical jobs
 - deterministic canonicalization/dedupe domain service with conservative matching heuristics and mapping reason codes
 - SQL migration scaffold for canonical jobs and source mapping traceability tables
@@ -36,9 +37,11 @@ As of 2026-04-12, Steps 2 through 7 are implemented and Step 8 tracker/reminder 
 - server-rendered web feed/detail experience with auth session handling, preference-aligned filtering/sorting, and explicit sync/rebuild controls
 - tracker state transition API slice with explicit transition rules and auditable transition-event history
 - reminder task API slice with authenticated create/list/detail/complete routes and completion lifecycle
+- notification API slice with authenticated log listing and due-reminder dispatch workflows
 - tracker transition observer linkage for auto-created follow-up reminders on key workflow states
 - SQL migration for versioned match score artifacts
 - SQL migrations for tracker state history and reminder task lifecycle
+- SQL migration for notification log workflow scaffolding
 
 ## Guiding approach
 

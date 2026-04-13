@@ -24,11 +24,13 @@ Steps 2 through 7 (auth/profile/preferences, resume pipeline, connector/canonica
 - feed/detail route integration tests for score-joined query payloads
 - web integration tests for Step 6 sign-in, feed filtering, detail rendering, and sync/rebuild action redirects
 
-Step 8 tracker/reminder slices currently include:
+Step 8 tracker/reminder/notification slices currently include:
 - tracker service unit tests for transition-rule enforcement, canonical existence checks, transition observer hooks, and transition audit history behavior
 - reminder service unit tests for creation, completion lifecycle, dedupe-by-tracker-event behavior, and unsupported-state handling
+- notification service unit tests for due-reminder queue/send dispatch semantics and idempotency
 - tracker route integration tests for authenticated list/detail/transition/history boundaries and invalid-transition handling
 - reminder route integration tests for authenticated create/list/detail/complete boundaries, validation/auth errors, and tracker-transition side-effect coverage
+- notification route integration tests for authenticated dispatch/log-list boundaries and validation/auth errors
 
 ## Testing goals
 

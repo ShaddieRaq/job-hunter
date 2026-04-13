@@ -26,6 +26,11 @@ import {
   createConnectorService,
   type ConnectorService,
 } from './modules/connectors/service.js';
+import { handleNotificationRoutes } from './modules/notifications/routes.js';
+import {
+  createNotificationService,
+  type NotificationService,
+} from './modules/notifications/service.js';
 import { createInMemoryObjectStorage } from './modules/resume/in-memory-object-storage.js';
 import { createInMemoryResumeRepository } from './modules/resume/in-memory-repository.js';
 import { createHeuristicResumeParser } from './modules/resume/parser.js';
@@ -109,6 +114,10 @@ const defaultReminderService = createReminderService({
   canonicalJobLookup: defaultCanonicalJobsService,
 });
 
+const defaultNotificationService = createNotificationService({
+  reminderReader: defaultReminderService,
+});
+
 const defaultTrackerService = createTrackerService({
   canonicalJobLookup: defaultCanonicalJobsService,
   transitionObservers: [defaultReminderService],
@@ -121,6 +130,7 @@ export interface CreateApiServerOptions {
   connectorService?: ConnectorService;
   canonicalJobsService?: CanonicalJobsService;
   reminderService?: ReminderService;
+  notificationService?: NotificationService;
   trackerService?: TrackerService;
 }
 
@@ -136,6 +146,7 @@ const handleRequest = async (
   connectorService: ConnectorService,
   canonicalJobsService: CanonicalJobsService,
   reminderService: ReminderService,
+  notificationService: NotificationService,
   trackerService: TrackerService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
@@ -206,6 +217,15 @@ const handleRequest = async (
     return;
   }
 
+  const notificationHandled = await handleNotificationRoutes(req, res, {
+    authProfileService,
+    notificationService,
+  });
+
+  if (notificationHandled) {
+    return;
+  }
+
   sendJson(res, 404, { error: 'not_found' });
 };
 
@@ -230,6 +250,7 @@ export const createApiServer = ({
   connectorService = defaultConnectorService,
   canonicalJobsService = defaultCanonicalJobsService,
   reminderService = defaultReminderService,
+  notificationService = defaultNotificationService,
   trackerService = defaultTrackerService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
@@ -242,6 +263,7 @@ export const createApiServer = ({
       connectorService,
       canonicalJobsService,
       reminderService,
+      notificationService,
       trackerService,
     ).catch((error: unknown) => {
       handleUnhandledError(res, error);

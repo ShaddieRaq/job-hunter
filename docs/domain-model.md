@@ -281,13 +281,18 @@ Tracks notification generation and delivery.
 Suggested fields:
 - id
 - user_id
+- reminder_id
+- canonical_job_id
 - notification_type
-- related_entity_type
-- related_entity_id
 - delivery_channel
+- message
 - scheduled_for
 - sent_at
+- failed_at
+- error_code
 - status
+- created_at
+- updated_at
 
 ## Relationship summary
 
@@ -302,6 +307,7 @@ Suggested fields:
 - one user can have zero or more applications per canonical job, but MVP should generally assume one active application record
 - one user can have zero or more reminders per canonical job
 - reminders may link to tracker transition events for traceable auto-created follow-ups
+- one user can have zero or more notification logs tied to reminder tasks
 
 ## Business rules
 
