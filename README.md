@@ -17,11 +17,11 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 7 complete:
+This repository is a TypeScript monorepo with Steps 2 through 7 complete and Step 8 tracker foundations in progress:
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + AI extraction/scoring/explanation v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker v1 endpoints
   web/      # Server-rendered feed/detail UI with auth, filters, and sync/rebuild controls
   worker/   # Background worker entrypoint stub
 packages/
@@ -55,6 +55,10 @@ docs/
 - POST /v1/ai/score-match
 - GET /v1/ai/score-match/:canonicalJobId
 - GET /v1/ai/score-match/:canonicalJobId/versions
+- GET /v1/tracker/jobs
+- GET /v1/tracker/jobs/:canonicalJobId
+- PUT /v1/tracker/jobs/:canonicalJobId/state
+- GET /v1/tracker/jobs/:canonicalJobId/history
 
 ### Persistence and tests currently included
 
@@ -64,6 +68,7 @@ docs/
 - Canonical jobs + source mapping dedupe migration scaffold under apps/api/migrations
 - Canonical dedupe trace-event migration under apps/api/migrations
 - Match scoring artifact migration under apps/api/migrations
+- Tracker state + transition audit migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
 - In-memory connector repository + Greenhouse public board connector adapter
@@ -104,5 +109,5 @@ Recommended order for early implementation:
 5. canonical jobs and dedupe (done)
 6. search and discovery UI (done)
 7. explainable scoring (done)
-8. tracker and reminders
+8. tracker and reminders (in progress)
 9. application support tooling

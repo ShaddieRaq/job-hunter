@@ -107,6 +107,18 @@ export {
   workAuthorizationSchema,
 } from './contracts/profile/v1.js';
 
+export {
+  trackedJobStateSchema,
+  trackerContractVersion,
+  trackerHistoryResponseSchema,
+  trackerJobListResponseSchema,
+  trackerJobStateResponseSchema,
+  trackerStateSchema,
+  trackerTransitionEventSchema,
+  trackerTransitionRequestSchema,
+  trackerTransitionResponseSchema,
+} from './contracts/tracker/v1.js';
+
 export type {
   AuthLoginRequest,
   AuthRegisterRequest,
@@ -189,3 +201,14 @@ export type {
   UserProfilePayload,
   WorkAuthorization,
 } from './contracts/profile/v1.js';
+
+export type {
+  TrackedJobState,
+  TrackerHistoryResponse,
+  TrackerJobListResponse,
+  TrackerJobStateResponse,
+  TrackerState,
+  TrackerTransitionEvent,
+  TrackerTransitionRequest,
+  TrackerTransitionResponse,
+} from './contracts/tracker/v1.js';

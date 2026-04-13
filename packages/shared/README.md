@@ -13,3 +13,4 @@ Shared contracts and utilities for Job Hunter apps.
 	- connector health, sync requests, and source job summaries
 	- canonical jobs, source mappings, and rebuild/list response payloads
 	- feed/detail payloads and dedupe trace event contracts
+	- tracker state transitions and transition-history payloads

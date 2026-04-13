@@ -33,12 +33,14 @@ Owner: team
 7. ✅ Explainable match scoring
    - Evidence: provider-backed structured AI outputs remain wired through the API AI module with OpenAI adapter + deterministic fallback, deterministic score-breakdown artifacts are persisted/versioned via `/v1/ai/score-match` routes, score explanation rollout controls (`AI_SCORE_EXPLANATION_MODE`, `AI_SCORE_EXPLANATION_ROLLOUT_PERCENT`) are implemented, and explanation evidence guardrails enforce deterministic fallback for unsupported outputs.
    - Remaining: none.
-8. ⬜ Tracker and reminders
+8. 🟨 Tracker and reminders
+   - Evidence: tracker contracts (`packages/shared/src/contracts/tracker/v1.ts`), API tracker module (`apps/api/src/modules/tracker`) with auditable transition events and transition validation routes (`/v1/tracker/jobs*`), migration scaffold `0007_tracker_state_history.sql`, and unit/integration coverage.
+   - Remaining: reminders, reminder task scheduling surfaces, and notification workflows.
 9. ⬜ Resume/application support
 
 ## Current focus
 - Active step: 8 (tracker and reminders)
-- Next PR target: add tracker state model + API skeleton with auditable state transitions
+- Next PR target: add reminder task model + API skeleton with due-date lifecycle and completion events
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
@@ -50,6 +52,7 @@ Owner: team
 - 2026-04-12: Step 5 completion landed with dedupe trace event persistence (`0006_canonical_dedupe_trace_events.sql`), canonical dedupe-event route, and feed/detail query routes joined with latest score artifacts.
 - 2026-04-12: Step 6 landed with authenticated web feed/detail UI, preference-aligned filtering/sorting, score and dedupe context rendering, and web integration tests for sign-in/feed/detail/action flows.
 - 2026-04-12: Step 7 completed with score explanation rollout controls, deterministic guardrail fallback for unsupported explanation evidence, expanded explanation fixtures (including review recommendations), and stricter explanation quality threshold checks.
+- 2026-04-12: Step 8 first slice landed with tracker state transition contracts, authenticated tracker transition/list/detail/history routes, transition audit events, migration `0007_tracker_state_history.sql`, and tracker unit/integration coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

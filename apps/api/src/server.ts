@@ -31,6 +31,8 @@ import { createInMemoryResumeRepository } from './modules/resume/in-memory-repos
 import { createHeuristicResumeParser } from './modules/resume/parser.js';
 import { handleResumeRoutes } from './modules/resume/routes.js';
 import { createResumeService, type ResumeService } from './modules/resume/service.js';
+import { handleTrackerRoutes } from './modules/tracker/routes.js';
+import { createTrackerService, type TrackerService } from './modules/tracker/service.js';
 
 const defaultAuthProfileService = createAuthProfileService({
   repository: createInMemoryAuthProfileRepository(),
@@ -98,12 +100,17 @@ const defaultResumeService = createResumeService({
   parser: createHeuristicResumeParser(),
 });
 
+const defaultTrackerService = createTrackerService({
+  canonicalJobLookup: defaultCanonicalJobsService,
+});
+
 export interface CreateApiServerOptions {
   authProfileService?: AuthProfileService;
   resumeService?: ResumeService;
   aiService?: AiService;
   connectorService?: ConnectorService;
   canonicalJobsService?: CanonicalJobsService;
+  trackerService?: TrackerService;
 }
 
 const isHealthRequest = (req: IncomingMessage): boolean =>
@@ -117,6 +124,7 @@ const handleRequest = async (
   aiService: AiService,
   connectorService: ConnectorService,
   canonicalJobsService: CanonicalJobsService,
+  trackerService: TrackerService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
     sendJson(res, 200, { status: 'ok', service: 'api' });
@@ -168,6 +176,15 @@ const handleRequest = async (
     return;
   }
 
+  const trackerHandled = await handleTrackerRoutes(req, res, {
+    authProfileService,
+    trackerService,
+  });
+
+  if (trackerHandled) {
+    return;
+  }
+
   sendJson(res, 404, { error: 'not_found' });
 };
 
@@ -191,6 +208,7 @@ export const createApiServer = ({
   aiService = defaultAiService,
   connectorService = defaultConnectorService,
   canonicalJobsService = defaultCanonicalJobsService,
+  trackerService = defaultTrackerService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
     void handleRequest(
@@ -201,6 +219,7 @@ export const createApiServer = ({
       aiService,
       connectorService,
       canonicalJobsService,
+      trackerService,
     ).catch((error: unknown) => {
       handleUnhandledError(res, error);
     });

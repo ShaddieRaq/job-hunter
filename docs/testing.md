@@ -24,6 +24,10 @@ Steps 2 through 7 (auth/profile/preferences, resume pipeline, connector/canonica
 - feed/detail route integration tests for score-joined query payloads
 - web integration tests for Step 6 sign-in, feed filtering, detail rendering, and sync/rebuild action redirects
 
+Step 8 tracker foundations currently include:
+- tracker service unit tests for transition-rule enforcement, canonical existence checks, and transition audit history behavior
+- tracker route integration tests for authenticated list/detail/transition/history boundaries and invalid-transition handling
+
 ## Testing goals
 
 The product handles messy source data, user-sensitive career data, and decision-support logic.
