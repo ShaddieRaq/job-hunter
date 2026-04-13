@@ -10,6 +10,13 @@ import {
 } from './modules/auth-profile/service.js';
 import { handleAiRoutes } from './modules/ai/routes.js';
 import { createAiService, type AiService } from './modules/ai/service.js';
+import { createGreenhousePublicBoardConnector } from './modules/connectors/greenhouse-public-board-connector.js';
+import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
+import { handleConnectorRoutes } from './modules/connectors/routes.js';
+import {
+  createConnectorService,
+  type ConnectorService,
+} from './modules/connectors/service.js';
 import { createInMemoryObjectStorage } from './modules/resume/in-memory-object-storage.js';
 import { createInMemoryResumeRepository } from './modules/resume/in-memory-repository.js';
 import { createHeuristicResumeParser } from './modules/resume/parser.js';
@@ -22,6 +29,17 @@ const defaultAuthProfileService = createAuthProfileService({
 
 const defaultAiService = createAiService();
 
+const defaultConnectorService = createConnectorService({
+  repository: createInMemoryConnectorRepository(),
+  connectors: [
+    createGreenhousePublicBoardConnector({
+      boardToken: process.env.GREENHOUSE_BOARD_TOKEN ?? 'stripe',
+      sourceName: 'greenhouse_public_board',
+      displayName: 'Greenhouse Public Board',
+    }),
+  ],
+});
+
 const defaultResumeService = createResumeService({
   repository: createInMemoryResumeRepository(),
   objectStorage: createInMemoryObjectStorage(),
@@ -32,6 +50,7 @@ export interface CreateApiServerOptions {
   authProfileService?: AuthProfileService;
   resumeService?: ResumeService;
   aiService?: AiService;
+  connectorService?: ConnectorService;
 }
 
 const isHealthRequest = (req: IncomingMessage): boolean =>
@@ -43,6 +62,7 @@ const handleRequest = async (
   authProfileService: AuthProfileService,
   resumeService: ResumeService,
   aiService: AiService,
+  connectorService: ConnectorService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
     sendJson(res, 200, { status: 'ok', service: 'api' });
@@ -75,6 +95,15 @@ const handleRequest = async (
     return;
   }
 
+  const connectorHandled = await handleConnectorRoutes(req, res, {
+    authProfileService,
+    connectorService,
+  });
+
+  if (connectorHandled) {
+    return;
+  }
+
   sendJson(res, 404, { error: 'not_found' });
 };
 
@@ -96,9 +125,17 @@ export const createApiServer = ({
   authProfileService = defaultAuthProfileService,
   resumeService = defaultResumeService,
   aiService = defaultAiService,
+  connectorService = defaultConnectorService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
-    void handleRequest(req, res, authProfileService, resumeService, aiService).catch((error: unknown) => {
+    void handleRequest(
+      req,
+      res,
+      authProfileService,
+      resumeService,
+      aiService,
+      connectorService,
+    ).catch((error: unknown) => {
       handleUnhandledError(res, error);
     });
   });

@@ -67,6 +67,22 @@ export {
 } from './contracts/ai/v1.js';
 
 export {
+  connectorContractVersion,
+  connectorListResponseSchema,
+  connectorSyncRequestSchema,
+  connectorSyncResponseSchema,
+  sourceConnectorHealthStatusSchema,
+  sourceConnectorSchema,
+  sourceEmploymentTypeSchema,
+  sourceJobListResponseSchema,
+  sourceJobStatusSchema,
+  sourceJobSummarySchema,
+  sourceNameSchema,
+  sourceRemoteTypeSchema,
+  sourceSalaryPeriodSchema,
+} from './contracts/connectors/v1.js';
+
+export {
   profileContractVersion,
   userProfilePayloadSchema,
   userProfileSchema,
@@ -117,6 +133,21 @@ export type {
   ResumeExtractionResponse,
   ScoreBreakdown,
 } from './contracts/ai/v1.js';
+
+export type {
+  ConnectorListResponse,
+  ConnectorSyncRequest,
+  ConnectorSyncResponse,
+  SourceConnector,
+  SourceConnectorHealthStatus,
+  SourceEmploymentType,
+  SourceJobListResponse,
+  SourceJobStatus,
+  SourceJobSummary,
+  SourceName,
+  SourceRemoteType,
+  SourceSalaryPeriod,
+} from './contracts/connectors/v1.js';
 
 export type {
   UserProfile,

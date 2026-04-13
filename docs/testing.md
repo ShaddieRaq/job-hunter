@@ -4,7 +4,7 @@ This document defines the testing expectations for the Job Hunter MVP.
 
 ## Current coverage snapshot
 
-Steps 2 and 3 (auth/profile/preferences and resume pipeline) include:
+Steps 2 through 4 (auth/profile/preferences, resume pipeline, and connector framework) include:
 - unit tests for preference rule validation and normalization behavior
 - integration tests for auth/profile/preferences API request boundaries and happy paths
 - unit tests for resume upload service parse behavior and error paths
@@ -14,6 +14,9 @@ Steps 2 and 3 (auth/profile/preferences and resume pipeline) include:
 - AI integration tests for `/v1/ai/*` route boundaries plus explicit provider failure mode responses
 - AI integration tests for score artifact create/latest/history route behavior
 - fixture-driven AI eval harness tests for extraction precision/recall and explanation unsupported-claim checks
+- fixture-driven connector normalization tests for Greenhouse source payloads, including malformed-record handling
+- connector service idempotency tests for inserted/updated/unchanged import behavior
+- connector route integration tests for authenticated sync and ingested source-job listing
 
 ## Testing goals
 

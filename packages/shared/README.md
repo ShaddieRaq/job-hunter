@@ -9,3 +9,5 @@ Shared contracts and utilities for Job Hunter apps.
 	- user profile
 	- user preferences
 	- resume upload/metadata/structured profile
+	- AI extraction, explainable match narratives, and score artifacts
+	- connector health, sync requests, and source job summaries

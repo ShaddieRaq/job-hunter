@@ -17,11 +17,11 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 and 3 complete and Step 7 AI foundation work in progress:
+This repository is a TypeScript monorepo with Steps 2, 3, and 4 complete and Step 7 AI foundation work in progress:
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences/resume + AI extraction/scoring/explanation v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + AI extraction/scoring/explanation v1 endpoints
   web/      # Placeholder web homepage server
   worker/   # Background worker entrypoint stub
 packages/
@@ -40,6 +40,9 @@ docs/
 - POST /v1/resumes
 - GET /v1/resumes
 - GET /v1/resumes/:resumeId
+- GET /v1/connectors
+- POST /v1/connectors/:sourceName/sync
+- GET /v1/source-jobs
 - POST /v1/ai/extract/resume
 - POST /v1/ai/extract/job
 - POST /v1/ai/explain-match
@@ -51,10 +54,13 @@ docs/
 
 - Initial migration for users/sessions/profiles/preferences schema under apps/api/migrations
 - Resume metadata + structured profile migration under apps/api/migrations
+- Connector source health + source job payload migration under apps/api/migrations
 - Match scoring artifact migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
+- In-memory connector repository + Greenhouse public board connector adapter
 - API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
+- Connector fixture-driven unit tests plus connector route integration tests
 - Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals
 
 ## Suggested local commands
@@ -86,7 +92,7 @@ Recommended order for early implementation:
 1. repository skeleton
 2. auth and user profile/preferences (done)
 3. resume upload and parsing (done)
-4. connector framework and first job sources
+4. connector framework and first job sources (done)
 5. canonical jobs and dedupe
 6. search and discovery UI
 7. explainable scoring

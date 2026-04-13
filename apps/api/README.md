@@ -15,6 +15,10 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `POST /v1/resumes`
 	- `GET /v1/resumes`
 	- `GET /v1/resumes/:resumeId`
+- Connector ingestion v1 endpoints:
+	- `GET /v1/connectors`
+	- `POST /v1/connectors/:sourceName/sync`
+	- `GET /v1/source-jobs`
 - AI extraction/explanation v1 endpoints:
 	- `POST /v1/ai/extract/resume`
 	- `POST /v1/ai/extract/job`
@@ -35,6 +39,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `migrations/0001_auth_profile_preferences.sql`
 	- `migrations/0002_resume_pipeline.sql`
 	- `migrations/0003_match_scoring_artifacts.sql`
+	- `migrations/0004_connector_framework.sql`
 
 ## AI provider configuration
 
@@ -44,6 +49,10 @@ Structured Node.js API for the Job Hunter modular monolith.
 - `OPENAI_MODEL`: optional model override (default: `gpt-4.1-mini`)
 - `OPENAI_BASE_URL`: optional endpoint override (default: `https://api.openai.com/v1`)
 - `OPENAI_TIMEOUT_MS`: optional request timeout in milliseconds (default: `20000`)
+
+## Connector configuration
+
+- `GREENHOUSE_BOARD_TOKEN`: Greenhouse board token used by the default public-board connector instance (default: `stripe` for local/dev bootstrap)
 
 ## AI eval harness
 

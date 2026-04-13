@@ -14,7 +14,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@job-hunter/shared": "workspace:*"
+    "@job-hunter/shared": "workspace:*",
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2 and 3 are implemented and Step 7 AI foundation work is active in the API and shared packages:
+As of 2026-04-12, Steps 2, 3, and 4 are implemented and Step 7 AI foundation work is active in the API and shared packages:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -21,6 +21,10 @@ As of 2026-04-12, Steps 2 and 3 are implemented and Step 7 AI foundation work is
 - object-storage abstraction with in-memory adapter for uploaded resume files
 - deterministic text resume parser wired into the resume upload pipeline
 - SQL migration for resumes and structured profile extraction snapshots
+- shared v1 connector contracts for source health + source job ingestion payloads
+- API v1 connector routes for listing connector health, triggering source sync, and listing ingested source jobs
+- Greenhouse public board connector adapter with source-job normalization and in-memory ingestion persistence
+- SQL migration for connector/source job persistence scaffolding
 - SQL migration for versioned match score artifacts
 
 ## Guiding approach
