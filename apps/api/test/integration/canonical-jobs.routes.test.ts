@@ -221,13 +221,18 @@ test('canonical routes rebuild and return canonical detail view', async () => {
     assert.equal(feedResponse.status, 200);
     const feedBody = (await feedResponse.json()) as {
       contractVersion: string;
-      items: Array<{ job: { canonicalJobId: string }; latestScoreArtifact: unknown }>;
+      items: Array<{
+        job: { canonicalJobId: string };
+        latestScoreArtifact: unknown;
+        nextAction: { action: string; title: string; rationale: string };
+      }>;
     };
 
     assert.equal(feedBody.contractVersion, 'v1');
     assert.equal(feedBody.items.length, 1);
     assert.equal(feedBody.items[0]?.job.canonicalJobId, canonicalJobId);
     assert.equal(feedBody.items[0]?.latestScoreArtifact, null);
+    assert.equal(feedBody.items[0]?.nextAction.action, 'shortlist');
 
     const unscoredFeedResponse = await fetch(
       `${app.baseUrl}/v1/feed?limit=10&recommendation=unscored`,
@@ -314,10 +319,12 @@ test('canonical routes rebuild and return canonical detail view', async () => {
         requiredSkills: string[];
         preferredSkills: string[];
       }>;
+      nextAction: { action: string; title: string; rationale: string };
     };
 
     assert.equal(feedDetailBody.canonical.sourceMappings.length, 2);
     assert.equal(feedDetailBody.latestScoreArtifact, null);
+    assert.equal(feedDetailBody.nextAction.action, 'shortlist');
     assert.equal(feedDetailBody.sourceJobs.length, 2);
     assert.equal(
       feedDetailBody.sourceJobs.every((sourceJob) => sourceJob.fetchUrl.startsWith('https://')),

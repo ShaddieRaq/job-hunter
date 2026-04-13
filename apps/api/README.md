@@ -26,8 +26,10 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/canonical-jobs/:canonicalJobId/dedupe-events`
 	- `GET /v1/feed`
 	  - supports server-side query filters: `q`, `recommendation`, `remote`, `source`, `sort`, `includeHidden`, `limit`
+	  - includes deterministic `nextAction` cues derived from tracker/application/reminder + score context
 	- `GET /v1/feed/:canonicalJobId`
 	  - includes canonical mappings, dedupe trace, latest score artifact, and source listing summaries for detail UX
+	  - includes deterministic `nextAction` cue for the selected role
 - AI extraction/explanation v1 endpoints:
 	- `POST /v1/ai/extract/resume`
 	- `POST /v1/ai/extract/job`

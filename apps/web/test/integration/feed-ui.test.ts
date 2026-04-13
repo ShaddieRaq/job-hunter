@@ -113,6 +113,12 @@ const visibleFeedItem = {
     updatedAt: '2026-04-12T12:00:00.000Z',
   },
   latestScoreArtifact: scoredArtifact,
+  nextAction: {
+    action: 'shortlist',
+    title: 'Shortlist this role',
+    rationale:
+      'Recommendation is apply; shortlist now so you can prioritize material prep and submission.',
+  },
 };
 
 const hiddenFeedItem = {
@@ -137,6 +143,11 @@ const hiddenFeedItem = {
     updatedAt: '2026-04-12T10:00:00.000Z',
   },
   latestScoreArtifact: null,
+  nextAction: {
+    action: 'archive',
+    title: 'Archive and move on',
+    rationale: 'This role is already hidden in your tracker. Keep focus on active opportunities.',
+  },
 };
 
 const feedDetailResponse = {
@@ -154,6 +165,12 @@ const feedDetailResponse = {
     ],
   },
   latestScoreArtifact: scoredArtifact,
+  nextAction: {
+    action: 'shortlist',
+    title: 'Shortlist this role',
+    rationale:
+      'Recommendation is apply; shortlist now so you can prioritize material prep and submission.',
+  },
   dedupeEvents: [
     {
       eventId: '4ef03bb9-39d2-4d94-82f7-caf9fdd2fcc0',
@@ -1387,6 +1404,7 @@ test('job detail renders score and dedupe context; sync and rebuild actions redi
     const detailHtml = await detailResponse.text();
     assert.match(detailHtml, /Score rationale/);
     assert.match(detailHtml, /Linked To Canonical/);
+    assert.match(detailHtml, /Next action/);
     assert.match(detailHtml, /Source listing details/);
     assert.match(detailHtml, /Open listing/);
 

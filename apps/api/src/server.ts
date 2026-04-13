@@ -379,6 +379,8 @@ const handleRequest = async (
     aiService,
     trackerService,
     connectorService,
+    applicationService,
+    reminderService,
   });
 
   if (canonicalHandled) {

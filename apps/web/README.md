@@ -6,6 +6,7 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 - Email sign-in/create-account flow backed by API auth routes
 - Feed view backed by `GET /v1/feed`
 - Job detail view backed by `GET /v1/feed/:canonicalJobId`, including source listing details (listing/apply URLs, posted date, location, and required/preferred skills)
+- Feed cards and job detail include deterministic next-action cues based on tracker/application/reminder and score context
 - Source-aware feed filtering and source provenance chips on job cards
 - Discovery tracker actions (save/shortlist/hide) backed by `POST /v1/tracker/jobs/:canonicalJobId/actions/:action`
 - Saved-search create/apply/delete workflows backed by `GET/POST/DELETE /v1/saved-searches*`, including source-filter snapshots

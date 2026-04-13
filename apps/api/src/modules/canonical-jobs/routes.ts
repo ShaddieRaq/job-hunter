@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import {
+  type ApplicationRecord,
   type CanonicalSourceMapping,
   canonicalJobIdSchema,
   canonicalRebuildRequestSchema,
@@ -11,16 +12,21 @@ import {
   jobsContractVersion,
   type FeedJobCard,
   type FeedQuery,
+  type ReminderTask,
   type SourceJobSummary,
+  type TrackerState,
   type UserPreferences,
 } from '@job-hunter/shared';
 
 import { HttpError } from '../../http/http-errors.js';
 import { readJsonBody, sendJson } from '../../http/json.js';
 import type { AiService } from '../ai/service.js';
+import type { ApplicationService } from '../applications/service.js';
 import type { AuthProfileService } from '../auth-profile/service.js';
 import type { ConnectorService } from '../connectors/service.js';
+import type { ReminderService } from '../reminders/service.js';
 import type { CanonicalJobsService } from './service.js';
+import { resolveFeedNextAction } from '../tracker/next-action.js';
 import type { TrackerService } from '../tracker/service.js';
 
 export interface CanonicalJobRoutesDependencies {
@@ -29,6 +35,8 @@ export interface CanonicalJobRoutesDependencies {
   aiService: AiService;
   trackerService: TrackerService;
   connectorService: ConnectorService;
+  applicationService: ApplicationService;
+  reminderService: ReminderService;
 }
 
 const defaultFeedLimit = 50;
@@ -365,7 +373,7 @@ const applyFeedFilters = (
   items: FeedJobCard[],
   query: FeedQuery,
   preferences: UserPreferences,
-  trackerStateByCanonicalJobId: Map<string, string>,
+  trackerStateByCanonicalJobId: Map<string, TrackerState>,
 ): FeedJobCard[] => {
   const filtered = items.filter((item) => {
     if (!query.includeHidden && isHiddenByPreferences(item, preferences)) {
@@ -405,6 +413,30 @@ const applyFeedFilters = (
   return filtered.sort(compareFeedByFit);
 };
 
+const toApplicationByCanonicalJobId = (
+  applications: ApplicationRecord[],
+): Map<string, ApplicationRecord> =>
+  new Map(applications.map((application) => [application.canonicalJobId, application] as const));
+
+const toPendingReminderByCanonicalJobId = (
+  reminders: ReminderTask[],
+): Map<string, ReminderTask> => {
+  const sorted = [...reminders].sort((left, right) => {
+    const leftDueAt = Date.parse(left.dueAt);
+    const rightDueAt = Date.parse(right.dueAt);
+    return leftDueAt - rightDueAt;
+  });
+
+  const reminderByCanonicalJobId = new Map<string, ReminderTask>();
+  for (const reminder of sorted) {
+    if (!reminderByCanonicalJobId.has(reminder.canonicalJobId)) {
+      reminderByCanonicalJobId.set(reminder.canonicalJobId, reminder);
+    }
+  }
+
+  return reminderByCanonicalJobId;
+};
+
 const resolveSourceJobs = async (
   connectorService: ConnectorService,
   mappings: CanonicalSourceMapping[],
@@ -441,6 +473,8 @@ export const handleCanonicalJobRoutes = async (
     aiService,
     trackerService,
     connectorService,
+    applicationService,
+    reminderService,
   }: CanonicalJobRoutesDependencies,
 ): Promise<boolean> => {
   const method = req.method ?? 'GET';
@@ -481,27 +515,53 @@ export const handleCanonicalJobRoutes = async (
 
     const feedQuery = parseFeedQuery(requestUrl);
 
-    const [preferences, trackers, jobs] = await Promise.all([
+    const [preferences, trackers, jobs, applications, reminders] = await Promise.all([
       authProfileService.getPreferences(user.userId),
       trackerService.listTrackedJobs({
         userId: user.userId,
         limit: maxFeedSourceLimit,
       }),
       canonicalJobsService.listCanonicalJobs(maxFeedSourceLimit),
+      applicationService.listApplications({
+        userId: user.userId,
+        limit: maxFeedSourceLimit,
+      }),
+      reminderService.listReminders({
+        userId: user.userId,
+        status: 'pending',
+        limit: maxFeedSourceLimit,
+      }),
     ]);
-
-    const items = await Promise.all(
-      jobs.map(async (job) => ({
-        job,
-        latestScoreArtifact: await aiService.getLatestMatchArtifact(
-          user.userId,
-          job.canonicalJobId,
-        ),
-      })),
-    );
 
     const trackerStateByCanonicalJobId = new Map(
       trackers.map((tracker) => [tracker.canonicalJobId, tracker.state] as const),
+    );
+    const applicationByCanonicalJobId = toApplicationByCanonicalJobId(applications);
+    const pendingReminderByCanonicalJobId = toPendingReminderByCanonicalJobId(reminders);
+
+    const items = await Promise.all(
+      jobs.map(async (job) => {
+        const latestScoreArtifact = await aiService.getLatestMatchArtifact(
+          user.userId,
+          job.canonicalJobId,
+        );
+
+        const trackerState = trackerStateByCanonicalJobId.get(job.canonicalJobId) ?? null;
+        const application = applicationByCanonicalJobId.get(job.canonicalJobId) ?? null;
+        const pendingReminder =
+          pendingReminderByCanonicalJobId.get(job.canonicalJobId) ?? null;
+
+        return {
+          job,
+          latestScoreArtifact,
+          nextAction: resolveFeedNextAction({
+            trackerState,
+            application,
+            pendingReminder,
+            latestScoreArtifact,
+          }),
+        };
+      }),
     );
 
     const filteredItems = applyFeedFilters(
@@ -540,19 +600,33 @@ export const handleCanonicalJobRoutes = async (
         });
       }
 
-      const dedupeEvents = await canonicalJobsService.listDedupeTraceEvents(
-        parsedCanonicalJobId.data,
-      );
+      const [dedupeEvents, latestScoreArtifact, sourceJobs, tracker, applications, reminders] =
+        await Promise.all([
+          canonicalJobsService.listDedupeTraceEvents(parsedCanonicalJobId.data),
+          aiService.getLatestMatchArtifact(user.userId, parsedCanonicalJobId.data),
+          resolveSourceJobs(connectorService, canonical.sourceMappings),
+          trackerService.getTrackedJob(user.userId, parsedCanonicalJobId.data),
+          applicationService.listApplications({
+            userId: user.userId,
+            canonicalJobId: parsedCanonicalJobId.data,
+            limit: 1,
+          }),
+          reminderService.listReminders({
+            userId: user.userId,
+            canonicalJobId: parsedCanonicalJobId.data,
+            status: 'pending',
+            limit: 1,
+          }),
+        ]);
 
-      const latestScoreArtifact = await aiService.getLatestMatchArtifact(
-        user.userId,
-        parsedCanonicalJobId.data,
-      );
-
-      const sourceJobs = await resolveSourceJobs(
-        connectorService,
-        canonical.sourceMappings,
-      );
+      const application = applications[0] ?? null;
+      const pendingReminder = reminders[0] ?? null;
+      const nextAction = resolveFeedNextAction({
+        trackerState: tracker?.state ?? null,
+        application,
+        pendingReminder,
+        latestScoreArtifact,
+      });
 
       sendJson(res, 200, {
         contractVersion: jobsContractVersion,
@@ -560,6 +634,7 @@ export const handleCanonicalJobRoutes = async (
         latestScoreArtifact,
         dedupeEvents,
         sourceJobs,
+        nextAction,
       });
       return true;
     }

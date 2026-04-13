@@ -164,10 +164,27 @@ export const feedQuerySchema = z
   })
   .strict();
 
+export const feedNextActionTypeSchema = z.enum([
+  'shortlist',
+  'create_application',
+  'submit_application',
+  'follow_up',
+  'archive',
+]);
+
+export const feedNextActionSchema = z
+  .object({
+    action: feedNextActionTypeSchema,
+    title: trimmedText(120),
+    rationale: trimmedText(280),
+  })
+  .strict();
+
 export const feedJobCardSchema = z
   .object({
     job: canonicalJobSummarySchema,
     latestScoreArtifact: matchScoreArtifactSchema.nullable(),
+    nextAction: feedNextActionSchema,
   })
   .strict();
 
@@ -185,6 +202,7 @@ export const feedDetailResponseSchema = z
     latestScoreArtifact: matchScoreArtifactSchema.nullable(),
     dedupeEvents: z.array(canonicalDedupeTraceEventSchema).max(500),
     sourceJobs: z.array(sourceJobSummarySchema).max(200),
+    nextAction: feedNextActionSchema,
   })
   .strict();
 
@@ -214,6 +232,8 @@ export type FeedRemoteFilter = z.infer<typeof feedRemoteFilterSchema>;
 export type FeedSort = z.infer<typeof feedSortSchema>;
 export type FeedSourceFilter = z.infer<typeof feedSourceFilterSchema>;
 export type FeedQuery = z.infer<typeof feedQuerySchema>;
+export type FeedNextActionType = z.infer<typeof feedNextActionTypeSchema>;
+export type FeedNextAction = z.infer<typeof feedNextActionSchema>;
 export type FeedJobCard = z.infer<typeof feedJobCardSchema>;
 export type FeedResponse = z.infer<typeof feedResponseSchema>;
 export type FeedDetailResponse = z.infer<typeof feedDetailResponseSchema>;

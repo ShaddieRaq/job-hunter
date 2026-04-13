@@ -108,6 +108,7 @@ Owner: team
 - 2026-04-13: Post-validation feed UX refinement landed with source-aware discovery controls (feed `source` filter, per-card source provenance chips, source-aware saved-search snapshots), plus shared/API/web regression coverage updates.
 - 2026-04-13: External-analysis remediation hardening landed with workflow Postgres repositories (auth/profile, resume, tracker, reminders, notifications, applications, saved searches), migration `0011_workflow_persistence_and_notifications.sql`, runtime durability enforcement via `API_RUNTIME_MODE` + repository mode gating, server-side `/v1/feed` query filtering parity (`q`, recommendation/remote/source/sort/includeHidden/limit), and regression coverage for feed filter semantics plus legacy saved-search source normalization.
 - 2026-04-13: Iteration phase 1 landed with feed-detail source listing enrichment (`sourceJobs` summaries resolved per canonical mapping) and web job-detail source listing panel rendering (listing/apply URLs, posted date, location text, required/preferred skills), with API connector/canonical and web detail regression coverage updates.
+- 2026-04-13: Iteration phase 2 landed with deterministic feed/detail `nextAction` cues derived from tracker/application/reminder + score context, tracker next-action rule unit coverage, and web job-detail next-action rendering regression coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

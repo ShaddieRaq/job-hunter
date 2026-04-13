@@ -47,9 +47,11 @@ Post-MVP hardening coverage currently includes:
 - saved-search unit/integration tests for create/list/get/delete API behavior and web feed save/apply/delete flows, including source-aware query snapshots
 - canonical feed integration tests for server-side query filtering (`recommendation`, `source`) and consistent feed payload behavior
 - canonical feed-detail integration tests for source listing summary payload enrichment used by job detail UX
+- tracker next-action rule unit tests for deterministic shortlist/create-application/submit/follow-up/archive cues
 - saved-search service regression tests that normalize legacy records missing `query.source` to the safe default (`any`)
 - web feed regression tests for high-fit-first recommendation defaults and explicit recommendation/source filter parsing behavior
 - web job-detail regression tests for source listing details rendering (listing links + required/preferred skills visibility)
+- web job-detail regression tests for deterministic next-action cue rendering
 - AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
 - notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating + duplicate suppression and `/v1/notifications/high-fit/dispatch-all` aggregate partial-failure reporting
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and run-status tracking

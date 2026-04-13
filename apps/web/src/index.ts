@@ -1975,6 +1975,22 @@ const renderTrackerDiscoveryPanel = (
   </div>`;
 };
 
+const renderNextActionCue = (nextAction: FeedJobCard['nextAction']): string =>
+  `<div class="score-box">
+    <p>
+      <span class="recommendation review">next action</span>
+      <span class="mono">${escapeHtml(nextAction.title)}</span>
+    </p>
+    <p class="muted">${escapeHtml(nextAction.rationale)}</p>
+  </div>`;
+
+const renderNextActionPanel = (nextAction: FeedDetailResponse['nextAction']): string =>
+  `<article class="panel">
+    <h3>Next action</h3>
+    <p><span class="mono">${escapeHtml(nextAction.title)}</span></p>
+    <p class="muted">${escapeHtml(nextAction.rationale)}</p>
+  </article>`;
+
 const renderJobCard = (
   item: FeedJobCard,
   returnTo: string,
@@ -2076,6 +2092,7 @@ const renderJobCard = (
         }
       </div>
       ${scoreBox}
+      ${renderNextActionCue(item.nextAction)}
       <ul class="skill-list">
         ${topSkills.map((skill) => `<li>${escapeHtml(skill)}</li>`).join('')}
       </ul>
@@ -2677,6 +2694,9 @@ const renderDetailPage = (
               .join('')}
           </ul>
         </article>
+      </section>
+      <section class="detail-layout">
+        ${renderNextActionPanel(detail.nextAction)}
       </section>
       <section class="detail-layout">
         ${renderSourceListingDetails(detail)}
