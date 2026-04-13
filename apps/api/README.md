@@ -53,7 +53,9 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `POST /v1/applications`
 	- `GET /v1/applications/:applicationId`
 	- `PUT /v1/applications/:applicationId`
+	- `GET /v1/applications/:applicationId/material-guidance`
 	- baseline flow stores one active application record per user/canonical job in MVP scope
+	- material-guidance endpoint returns deterministic resume-tailoring checklist items, keyword suggestions, bullet prompts, and cover-letter talking points based on profile/preferences + canonical role context
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)
 	- deterministic fallback provider for resilient local/dev behavior

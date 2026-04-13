@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 
 import {
   applicationIdSchema,
+  applicationMaterialGuidanceResponseSchema,
   applicationListResponseSchema,
   applicationResponseSchema,
   applicationStatusSchema,
@@ -21,6 +22,7 @@ import {
   userPreferencesSchema,
   userProfileSchema,
   type ApplicationRecord,
+  type ApplicationMaterialGuidance,
   type ApplicationStatus,
   type FeedDetailResponse,
   type FeedJobCard,
@@ -1298,6 +1300,31 @@ const fetchApplication = async (
   };
 };
 
+const fetchApplicationMaterialGuidance = async (
+  apiBaseUrl: string,
+  accessToken: string,
+  applicationId: string,
+): Promise<ApiResult<ApplicationMaterialGuidance>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    `/v1/applications/${applicationId}/material-guidance`,
+    {
+      method: 'GET',
+    },
+    applicationMaterialGuidanceResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.guidance,
+  };
+};
+
 const compareApplications = (
   left: ApplicationRecord,
   right: ApplicationRecord,
@@ -1851,7 +1878,7 @@ const renderScoreDetails = (artifact: MatchScoreArtifact | null): string => {
   `;
 };
 
-const renderMaterialGuidance = (detail: FeedDetailResponse): string => {
+const renderFallbackMaterialGuidance = (detail: FeedDetailResponse): string => {
   const strengths = detail.latestScoreArtifact?.strengths.slice(0, 3) ?? [];
   const gaps = detail.latestScoreArtifact?.gaps.slice(0, 3) ?? [];
 
@@ -1880,6 +1907,43 @@ const renderMaterialGuidance = (detail: FeedDetailResponse): string => {
       <ul class="stack-list">${strengthItems}</ul>
       <h4>Gap response notes</h4>
       <ul class="stack-list">${gapItems}</ul>
+    </article>
+  `;
+};
+
+const renderStructuredMaterialGuidance = (
+  guidance: ApplicationMaterialGuidance,
+): string => {
+  const checklistItems = guidance.checklist
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join('');
+  const keywordItems = guidance.keywordSuggestions
+    .map((keyword) => `<li>${escapeHtml(keyword)}</li>`)
+    .join('');
+  const bulletItems = guidance.bulletSuggestions
+    .map(
+      (suggestion) => `<li>
+        <strong>${escapeHtml(suggestion.focusArea)}</strong><br />
+        ${escapeHtml(suggestion.prompt)}
+      </li>`,
+    )
+    .join('');
+  const talkingPointItems = guidance.coverLetterTalkingPoints
+    .map((point) => `<li>${escapeHtml(point)}</li>`)
+    .join('');
+
+  return `
+    <article class="panel">
+      <h3>Material assistant</h3>
+      <p class="muted">Deterministic guidance generated from your profile, preferences, application state, and canonical role signals.</p>
+      <h4>Checklist</h4>
+      <ul class="stack-list">${checklistItems}</ul>
+      <h4>Keyword suggestions</h4>
+      <ul class="stack-list">${keywordItems}</ul>
+      <h4>Resume bullet prompts</h4>
+      <ul class="stack-list">${bulletItems}</ul>
+      <h4>Cover letter talking points</h4>
+      <ul class="stack-list">${talkingPointItems}</ul>
     </article>
   `;
 };
@@ -1968,6 +2032,7 @@ const renderDetailPage = (
   profile: UserProfile,
   detail: FeedDetailResponse | null,
   application: ApplicationRecord | null,
+  materialGuidance: ApplicationMaterialGuidance | null,
   returnTo: string,
   errorCode: string | null,
 ): string => {
@@ -2023,7 +2088,9 @@ const renderDetailPage = (
       </section>
       <section class="detail-layout">
         ${renderJobApplicationPanel(detail.canonical.job.canonicalJobId, application, returnTo)}
-        ${renderMaterialGuidance(detail)}
+        ${materialGuidance
+          ? renderStructuredMaterialGuidance(materialGuidance)
+          : renderFallbackMaterialGuidance(detail)}
       </section>
     `
     : `<section class="panel"><h2>Job detail unavailable</h2><p class="muted">This job could not be loaded at the moment.</p></section>`;
@@ -2167,6 +2234,7 @@ const renderApplicationDetailPage = (
   application: ApplicationRecord | null,
   feedJob: FeedJobCard['job'] | null,
   feedDetail: FeedDetailResponse | null,
+  materialGuidance: ApplicationMaterialGuidance | null,
   returnTo: string,
   noticeCode: string | null,
   errorCode: string | null,
@@ -2233,8 +2301,10 @@ const renderApplicationDetailPage = (
             <button type="submit" data-pending-label="Saving updates...">Save updates</button>
           </form>
         </article>
-        ${feedDetail
-          ? renderMaterialGuidance(feedDetail)
+        ${materialGuidance
+          ? renderStructuredMaterialGuidance(materialGuidance)
+          : feedDetail
+          ? renderFallbackMaterialGuidance(feedDetail)
           : '<article class="panel"><h3>Material guidance</h3><p class="muted">No feed detail is available for this job yet. Use your target skills and role requirements to tailor resume bullets before applying.</p></article>'}
       </section>
     `;
@@ -2618,6 +2688,7 @@ const handleApplicationDetailRoute = async (
         null,
         null,
         null,
+        null,
         returnTo,
         requestUrl.searchParams.get('notice'),
         applicationResult.error.code,
@@ -2626,7 +2697,7 @@ const handleApplicationDetailRoute = async (
     return;
   }
 
-  const [feedResult, feedDetailResult] = await Promise.all([
+  const [feedResult, feedDetailResult, materialGuidanceResult] = await Promise.all([
     requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
     requestApi(
       apiBaseUrl,
@@ -2636,6 +2707,11 @@ const handleApplicationDetailRoute = async (
       },
       feedDetailResponseSchema,
       accessToken,
+    ),
+    fetchApplicationMaterialGuidance(
+      apiBaseUrl,
+      accessToken,
+      applicationResult.data.applicationId,
     ),
   ]);
 
@@ -2650,6 +2726,8 @@ const handleApplicationDetailRoute = async (
     ? routeErrorCode
     : !feedResult.ok
       ? feedResult.error.code
+      : !materialGuidanceResult.ok
+        ? materialGuidanceResult.error.code
       : !feedDetailResult.ok &&
           feedDetailResult.error.code !== 'canonical_job_not_found'
         ? feedDetailResult.error.code
@@ -2663,6 +2741,7 @@ const handleApplicationDetailRoute = async (
       applicationResult.data,
       feedItem?.job ?? null,
       feedDetailResult.ok ? feedDetailResult.data : null,
+      materialGuidanceResult.ok ? materialGuidanceResult.data : null,
       returnTo,
       requestUrl.searchParams.get('notice'),
       computedErrorCode,
@@ -3001,7 +3080,7 @@ const handleJobDetailRoute = async (
     sendHtml(
       res,
       detailResult.error.status === 404 ? 404 : 200,
-      renderDetailPage(profileResult.data, null, null, returnTo, detailResult.error.code),
+      renderDetailPage(profileResult.data, null, null, null, returnTo, detailResult.error.code),
     );
     return;
   }
@@ -3009,11 +3088,23 @@ const handleJobDetailRoute = async (
   const application = applicationResult.ok
     ? findApplicationForCanonicalJob(applicationResult.data, parsedJobId.data)
     : null;
+  const materialGuidanceResult = application
+    ? await fetchApplicationMaterialGuidance(
+        apiBaseUrl,
+        accessToken,
+        application.applicationId,
+      )
+    : null;
+  const materialGuidance = materialGuidanceResult?.ok
+    ? materialGuidanceResult.data
+    : null;
   const routeErrorCode = requestUrl.searchParams.get('error');
   const computedErrorCode = routeErrorCode
     ? routeErrorCode
     : !applicationResult.ok
       ? applicationResult.error.code
+      : materialGuidanceResult && !materialGuidanceResult.ok
+        ? materialGuidanceResult.error.code
       : null;
 
   sendHtml(
@@ -3023,6 +3114,7 @@ const handleJobDetailRoute = async (
       profileResult.data,
       detailResult.data,
       application,
+      materialGuidance,
       returnTo,
       computedErrorCode,
     ),

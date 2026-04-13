@@ -193,6 +193,22 @@ const parseApplicationPath = (pathname: string): string | null => {
   return value;
 };
 
+const parseApplicationMaterialGuidancePath = (pathname: string): string | null => {
+  const prefix = '/v1/applications/';
+  const suffix = '/material-guidance';
+
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) {
+    return null;
+  }
+
+  const value = pathname.slice(prefix.length, -suffix.length);
+  if (!value || value.includes('/')) {
+    return null;
+  }
+
+  return value;
+};
+
 const normalizeNullableText = (value: unknown): string | null | undefined => {
   if (value === undefined) {
     return undefined;
@@ -376,6 +392,62 @@ const createApiStubServer = (): Server => {
         applications: records,
       });
       return;
+    }
+
+    if (method === 'GET') {
+      const applicationId = parseApplicationMaterialGuidancePath(pathname);
+      if (applicationId) {
+        const record = applications.get(applicationId);
+        if (!record) {
+          sendJson(res, 404, { error: 'application_not_found' });
+          return;
+        }
+
+        const job =
+          record.canonicalJobId === visibleCanonicalJobId
+            ? visibleFeedItem.job
+            : record.canonicalJobId === hiddenCanonicalJobId
+              ? hiddenFeedItem.job
+              : null;
+
+        if (!job) {
+          sendJson(res, 404, { error: 'canonical_job_not_found' });
+          return;
+        }
+
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          guidance: {
+            application: record,
+            canonicalJob: {
+              canonicalJobId: job.canonicalJobId,
+              canonicalTitle: job.canonicalTitle,
+              canonicalCompanyName: job.canonicalCompanyName,
+              remoteType: job.remoteType,
+              employmentType: job.employmentType,
+              topSkills: job.topSkills,
+            },
+            checklist: [
+              'Mirror the role title in your resume headline.',
+              'Anchor your first two bullets to top role skills.',
+              'Capture the exact resume version used in your tracker notes.',
+            ],
+            keywordSuggestions: ['TypeScript', 'Node.js', 'PostgreSQL'],
+            bulletSuggestions: [
+              {
+                focusArea: 'TypeScript',
+                prompt:
+                  'Write one quantified bullet showing impact from a TypeScript service improvement.',
+              },
+            ],
+            coverLetterTalkingPoints: [
+              'Open with direct role-to-background alignment.',
+              'Highlight one measurable backend systems outcome.',
+            ],
+          },
+        });
+        return;
+      }
     }
 
     if (method === 'POST' && pathname === '/v1/applications') {
@@ -773,7 +845,8 @@ test('application workflow routes create, list, detail, and update through web a
     assert.equal(detailResponse.status, 200);
     const detailHtml = await detailResponse.text();
     assert.match(detailHtml, /Application detail/);
-    assert.match(detailHtml, /Material guidance/);
+    assert.match(detailHtml, /Material assistant/);
+    assert.match(detailHtml, /Keyword suggestions/);
 
     const updateResponse = await fetch(`${web.baseUrl}/actions/applications/update`, {
       method: 'POST',

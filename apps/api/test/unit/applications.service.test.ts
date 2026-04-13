@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { CanonicalJobDetail, CanonicalJobId } from '@job-hunter/shared';
+import type {
+  CanonicalJobDetail,
+  CanonicalJobId,
+  UserPreferences,
+  UserProfile,
+} from '@job-hunter/shared';
 
 import { HttpError } from '../../src/http/http-errors.js';
 import { createApplicationService } from '../../src/modules/applications/service.js';
@@ -38,6 +43,42 @@ const createCanonicalJob = (canonicalJobId: CanonicalJobId): CanonicalJobDetail 
       mappingReasonCodes: ['exact_company_title'],
     },
   ],
+});
+
+const createProfile = (userId: string): UserProfile => ({
+  userId,
+  currentTitle: 'Senior Backend Engineer',
+  yearsExperience: 8,
+  summary: 'Builds reliable distributed systems.',
+  workAuthorization: 'citizen',
+  sponsorshipRequired: false,
+  transitionNotes: null,
+  createdAt: nowIso,
+  updatedAt: nowIso,
+});
+
+const createPreferences = (userId: string): UserPreferences => ({
+  userId,
+  preferredTitles: ['Senior Backend Engineer'],
+  preferredIndustries: ['Software'],
+  preferredSkills: ['TypeScript', 'Node.js', 'PostgreSQL'],
+  preferredLocations: ['United States'],
+  remotePreference: 'remote',
+  targetSeniorityMin: 'senior',
+  targetSeniorityMax: 'principal',
+  salaryMin: 170000,
+  salaryTarget: 200000,
+  dealBreakers: [],
+  hiddenCompanies: [],
+  hiddenTitles: [],
+  stretchPreferenceLevel: 3,
+  notificationPreferences: {
+    dailyDigest: true,
+    weeklyDigest: true,
+    instantHighFit: true,
+  },
+  createdAt: nowIso,
+  updatedAt: nowIso,
 });
 
 test('createApplication stores default ready_to_apply record', async () => {
@@ -234,4 +275,42 @@ test('listApplications filters by status and canonical job', async () => {
   });
   assert.equal(byCanonical.length, 1);
   assert.equal(byCanonical[0]?.canonicalJobId, canonicalJobA);
+});
+
+test('getApplicationMaterialGuidance returns deterministic tailoring suggestions', async () => {
+  const canonicalJobId = 'f2eb26d8-2c4b-4aa8-82bf-cf2c0d272f0d';
+  const userId = '28b89962-c138-4b6e-a020-aac925f5a2bc';
+
+  const service = createApplicationService({
+    canonicalJobLookup: {
+      async getCanonicalJob(id) {
+        return id === canonicalJobId ? createCanonicalJob(canonicalJobId) : null;
+      },
+    },
+    resumeLookup: {
+      async getResume() {
+        return { ok: true };
+      },
+    },
+    now: () => new Date(nowIso),
+  });
+
+  const created = await service.createApplication(userId, {
+    canonicalJobId,
+    status: 'ready_to_apply',
+  });
+
+  const guidance = await service.getApplicationMaterialGuidance({
+    userId,
+    applicationId: created.applicationId,
+    profile: createProfile(userId),
+    preferences: createPreferences(userId),
+  });
+
+  assert.equal(guidance.application.applicationId, created.applicationId);
+  assert.equal(guidance.canonicalJob.canonicalJobId, canonicalJobId);
+  assert.ok(guidance.checklist.length >= 3);
+  assert.ok(guidance.keywordSuggestions.includes('TypeScript'));
+  assert.ok(guidance.bulletSuggestions.length >= 1);
+  assert.ok(guidance.coverLetterTalkingPoints.length >= 2);
 });

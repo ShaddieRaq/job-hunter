@@ -181,6 +181,35 @@ test('application routes create/list/detail/update for authenticated users', asy
 
     assert.equal(detailResponse.status, 200);
 
+    const guidanceResponse = await fetch(
+      `${app.baseUrl}/v1/applications/${createBody.application.applicationId}/material-guidance`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(guidanceResponse.status, 200);
+    const guidanceBody = (await guidanceResponse.json()) as {
+      contractVersion: string;
+      guidance: {
+        application: { applicationId: string };
+        keywordSuggestions: string[];
+        bulletSuggestions: Array<{ focusArea: string; prompt: string }>;
+        coverLetterTalkingPoints: string[];
+      };
+    };
+
+    assert.equal(guidanceBody.contractVersion, 'v1');
+    assert.equal(
+      guidanceBody.guidance.application.applicationId,
+      createBody.application.applicationId,
+    );
+    assert.ok(guidanceBody.guidance.keywordSuggestions.length > 0);
+    assert.ok(guidanceBody.guidance.bulletSuggestions.length > 0);
+    assert.ok(guidanceBody.guidance.coverLetterTalkingPoints.length > 0);
+
     const updateResponse = await fetch(
       `${app.baseUrl}/v1/applications/${createBody.application.applicationId}`,
       {
@@ -342,6 +371,16 @@ test('application routes enforce auth and validation errors', async () => {
     );
     assert.equal(invalidApplicationIdResponse.status, 400);
 
+    const invalidGuidanceApplicationIdResponse = await fetch(
+      `${app.baseUrl}/v1/applications/not-a-uuid/material-guidance`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+    assert.equal(invalidGuidanceApplicationIdResponse.status, 400);
+
     const unknownApplicationResponse = await fetch(
       `${app.baseUrl}/v1/applications/2bcde7fc-2b8a-4fe8-a27d-e8984d96117f`,
       {
@@ -351,6 +390,16 @@ test('application routes enforce auth and validation errors', async () => {
       },
     );
     assert.equal(unknownApplicationResponse.status, 404);
+
+    const unknownGuidanceApplicationResponse = await fetch(
+      `${app.baseUrl}/v1/applications/2bcde7fc-2b8a-4fe8-a27d-e8984d96117f/material-guidance`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+    assert.equal(unknownGuidanceApplicationResponse.status, 404);
 
     const invalidUpdateBodyResponse = await fetch(
       `${app.baseUrl}/v1/applications/2bcde7fc-2b8a-4fe8-a27d-e8984d96117f`,

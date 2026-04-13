@@ -14,8 +14,12 @@ export type AppState = (typeof appStates)[keyof typeof appStates];
 
 export {
   applicationCreateRequestSchema,
+  applicationGuidanceBulletSuggestionSchema,
+  applicationGuidanceJobSnapshotSchema,
   applicationIdSchema,
   applicationListResponseSchema,
+  applicationMaterialGuidanceResponseSchema,
+  applicationMaterialGuidanceSchema,
   applicationRecordSchema,
   applicationResponseSchema,
   applicationsContractVersion,
@@ -156,8 +160,12 @@ export {
 
 export type {
   ApplicationCreateRequest,
+  ApplicationGuidanceBulletSuggestion,
+  ApplicationGuidanceJobSnapshot,
   ApplicationId,
   ApplicationListResponse,
+  ApplicationMaterialGuidance,
+  ApplicationMaterialGuidanceResponse,
   ApplicationRecord,
   ApplicationResponse,
   ApplicationStatus,

@@ -17,7 +17,7 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 8 complete and Step 9 baseline in progress:
+This repository is a TypeScript monorepo with Steps 2 through 9 complete:
 
 ```text
 apps/
@@ -69,6 +69,7 @@ docs/
 - POST /v1/applications
 - GET /v1/applications/:applicationId
 - PUT /v1/applications/:applicationId
+- GET /v1/applications/:applicationId/material-guidance
 
 ### Persistence and tests currently included
 
@@ -91,6 +92,7 @@ docs/
 - Tracker/reminder unit and integration tests for transition history, reminder lifecycle, and tracker-linked reminder side effects
 - Notification unit and integration tests for reminder-due dispatch and notification log listing
 - Application unit and integration tests for create/list/detail/update workflows and validation paths
+- Application material-guidance unit/integration coverage and web integration coverage for assistant rendering
 - Web integration tests for sign-in/feed/detail plus application create/list/detail/update workflows
 
 ## Suggested local commands
@@ -127,4 +129,4 @@ Recommended order for early implementation:
 6. search and discovery UI (done)
 7. explainable scoring (done)
 8. tracker and reminders (done)
-9. application support tooling (in progress)
+9. application support tooling (done)

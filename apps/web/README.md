@@ -8,6 +8,7 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 - Job detail view backed by `GET /v1/feed/:canonicalJobId`
 - Application tracker list/detail views backed by `GET /v1/applications*`
 - Application create/update actions backed by `POST /v1/applications` and `PUT /v1/applications/:applicationId`
+- Structured material assistant rendering backed by `GET /v1/applications/:applicationId/material-guidance`
 - Preference-aligned filtering and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
 - Resume/application material guidance checklists in job and application detail views

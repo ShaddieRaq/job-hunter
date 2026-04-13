@@ -148,6 +148,24 @@ const parseApplicationPathParam = (pathname: string): string | null => {
   return pathParam;
 };
 
+const parseApplicationMaterialGuidancePathParam = (
+  pathname: string,
+): string | null => {
+  const prefix = '/v1/applications/';
+  const suffix = '/material-guidance';
+
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) {
+    return null;
+  }
+
+  const pathParam = pathname.slice(prefix.length, -suffix.length);
+  if (!pathParam || pathParam.includes('/')) {
+    return null;
+  }
+
+  return pathParam;
+};
+
 export const handleApplicationRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -221,6 +239,38 @@ export const handleApplicationRoutes = async (
       sendJson(res, 200, {
         contractVersion: applicationsContractVersion,
         application,
+      });
+      return true;
+    }
+  }
+
+  if (method === 'GET') {
+    const guidancePathParam = parseApplicationMaterialGuidancePathParam(pathname);
+    if (guidancePathParam) {
+      const parsedApplicationId = applicationIdSchema.safeParse(guidancePathParam);
+      if (!parsedApplicationId.success) {
+        throw new HttpError(400, 'invalid_application_id', {
+          applicationId: guidancePathParam,
+        });
+      }
+
+      const accessToken = requireAccessToken(req);
+      const user = await authProfileService.authenticate(accessToken);
+      const [profile, preferences] = await Promise.all([
+        authProfileService.getProfile(user.userId),
+        authProfileService.getPreferences(user.userId),
+      ]);
+
+      const guidance = await applicationService.getApplicationMaterialGuidance({
+        userId: user.userId,
+        applicationId: parsedApplicationId.data,
+        profile,
+        preferences,
+      });
+
+      sendJson(res, 200, {
+        contractVersion: applicationsContractVersion,
+        guidance,
       });
       return true;
     }

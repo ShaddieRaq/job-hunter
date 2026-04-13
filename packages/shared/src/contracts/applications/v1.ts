@@ -78,6 +78,42 @@ export const applicationResponseSchema = z
   })
   .strict();
 
+export const applicationGuidanceBulletSuggestionSchema = z
+  .object({
+    focusArea: trimmedText(80),
+    prompt: trimmedText(320),
+  })
+  .strict();
+
+export const applicationGuidanceJobSnapshotSchema = z
+  .object({
+    canonicalJobId: canonicalJobIdSchema,
+    canonicalTitle: trimmedText(200),
+    canonicalCompanyName: trimmedText(200),
+    remoteType: trimmedText(32),
+    employmentType: trimmedText(32),
+    topSkills: z.array(trimmedText(80)).max(12),
+  })
+  .strict();
+
+export const applicationMaterialGuidanceSchema = z
+  .object({
+    application: applicationRecordSchema,
+    canonicalJob: applicationGuidanceJobSnapshotSchema,
+    checklist: z.array(trimmedText(240)).min(3).max(12),
+    keywordSuggestions: z.array(trimmedText(80)).min(1).max(12),
+    bulletSuggestions: z.array(applicationGuidanceBulletSuggestionSchema).min(1).max(8),
+    coverLetterTalkingPoints: z.array(trimmedText(280)).min(2).max(8),
+  })
+  .strict();
+
+export const applicationMaterialGuidanceResponseSchema = z
+  .object({
+    contractVersion: z.literal(applicationsContractVersion),
+    guidance: applicationMaterialGuidanceSchema,
+  })
+  .strict();
+
 export type ApplicationId = z.infer<typeof applicationIdSchema>;
 export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
 export type ApplicationRecord = z.infer<typeof applicationRecordSchema>;
@@ -85,3 +121,13 @@ export type ApplicationCreateRequest = z.infer<typeof applicationCreateRequestSc
 export type ApplicationUpdateRequest = z.infer<typeof applicationUpdateRequestSchema>;
 export type ApplicationListResponse = z.infer<typeof applicationListResponseSchema>;
 export type ApplicationResponse = z.infer<typeof applicationResponseSchema>;
+export type ApplicationGuidanceBulletSuggestion = z.infer<
+  typeof applicationGuidanceBulletSuggestionSchema
+>;
+export type ApplicationGuidanceJobSnapshot = z.infer<
+  typeof applicationGuidanceJobSnapshotSchema
+>;
+export type ApplicationMaterialGuidance = z.infer<typeof applicationMaterialGuidanceSchema>;
+export type ApplicationMaterialGuidanceResponse = z.infer<
+  typeof applicationMaterialGuidanceResponseSchema
+>;
