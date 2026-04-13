@@ -19,6 +19,8 @@ Steps 2 through 4 (auth/profile/preferences, resume pipeline, and connector fram
 - connector route integration tests for authenticated sync and ingested source-job listing
 - canonicalization/dedupe unit tests for conservative clustering, traceable mappings, and rebuild idempotency
 - canonical catalog route integration tests for authenticated rebuild/list/detail boundaries
+- canonical dedupe trace-event tests for link/unlink event history behavior
+- feed/detail route integration tests for score-joined query payloads
 
 ## Testing goals
 

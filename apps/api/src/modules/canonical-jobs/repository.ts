@@ -1,4 +1,5 @@
 import type {
+  CanonicalDedupeTraceEvent,
   CanonicalJobDetail,
   CanonicalJobId,
   CanonicalJobSummary,
@@ -34,4 +35,9 @@ export interface CanonicalJobRepository {
   }): Promise<UpsertCanonicalJobResult>;
   listCanonicalJobs(limit: number): Promise<CanonicalJobSummary[]>;
   findCanonicalJobById(canonicalJobId: CanonicalJobId): Promise<CanonicalJobRecord | null>;
+  upsertDedupeTraceEvents(events: CanonicalDedupeTraceEvent[]): Promise<void>;
+  listDedupeTraceEvents(
+    canonicalJobId: CanonicalJobId,
+    limit: number,
+  ): Promise<CanonicalDedupeTraceEvent[]>;
 }

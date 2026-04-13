@@ -211,6 +211,62 @@ test('canonical routes rebuild and return canonical detail view', async () => {
     };
 
     assert.equal(detailBody.canonical.sourceMappings.length, 2);
+
+    const feedResponse = await fetch(`${app.baseUrl}/v1/feed?limit=10`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    assert.equal(feedResponse.status, 200);
+    const feedBody = (await feedResponse.json()) as {
+      contractVersion: string;
+      items: Array<{ job: { canonicalJobId: string }; latestScoreArtifact: unknown }>;
+    };
+
+    assert.equal(feedBody.contractVersion, 'v1');
+    assert.equal(feedBody.items.length, 1);
+    assert.equal(feedBody.items[0]?.job.canonicalJobId, canonicalJobId);
+    assert.equal(feedBody.items[0]?.latestScoreArtifact, null);
+
+    const feedDetailResponse = await fetch(`${app.baseUrl}/v1/feed/${canonicalJobId}`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    assert.equal(feedDetailResponse.status, 200);
+    const feedDetailBody = (await feedDetailResponse.json()) as {
+      canonical: { sourceMappings: Array<{ sourceJobId: string }> };
+      latestScoreArtifact: unknown;
+      dedupeEvents: Array<{ eventType: string }>;
+    };
+
+    assert.equal(feedDetailBody.canonical.sourceMappings.length, 2);
+    assert.equal(feedDetailBody.latestScoreArtifact, null);
+    assert.ok(
+      feedDetailBody.dedupeEvents.some(
+        (event) => event.eventType === 'linked_to_canonical',
+      ),
+    );
+
+    const dedupeEventsResponse = await fetch(
+      `${app.baseUrl}/v1/canonical-jobs/${canonicalJobId}/dedupe-events`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(dedupeEventsResponse.status, 200);
+    const dedupeEventsBody = (await dedupeEventsResponse.json()) as {
+      canonicalJobId: string;
+      events: Array<{ eventType: string }>;
+    };
+
+    assert.equal(dedupeEventsBody.canonicalJobId, canonicalJobId);
+    assert.equal(dedupeEventsBody.events.length, 2);
   } finally {
     await app.close();
   }
@@ -227,6 +283,9 @@ test('canonical routes enforce auth and validate request params', async () => {
   try {
     const unauthorizedResponse = await fetch(`${app.baseUrl}/v1/canonical-jobs`);
     assert.equal(unauthorizedResponse.status, 401);
+
+    const unauthorizedFeed = await fetch(`${app.baseUrl}/v1/feed`);
+    assert.equal(unauthorizedFeed.status, 401);
 
     const accessToken = await registerAndGetAccessToken(app.baseUrl);
 
@@ -245,6 +304,14 @@ test('canonical routes enforce auth and validate request params', async () => {
     });
 
     assert.equal(invalidId.status, 400);
+
+    const invalidFeedId = await fetch(`${app.baseUrl}/v1/feed/not-a-uuid`, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    assert.equal(invalidFeedId.status, 400);
   } finally {
     await app.close();
   }

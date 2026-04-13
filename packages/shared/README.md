@@ -12,3 +12,4 @@ Shared contracts and utilities for Job Hunter apps.
 	- AI extraction, explainable match narratives, and score artifacts
 	- connector health, sync requests, and source job summaries
 	- canonical jobs, source mappings, and rebuild/list response payloads
+	- feed/detail payloads and dedupe trace event contracts

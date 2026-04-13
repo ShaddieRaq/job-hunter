@@ -8,12 +8,14 @@ import {
 
 import { HttpError } from '../../http/http-errors.js';
 import { readJsonBody, sendJson } from '../../http/json.js';
+import type { AiService } from '../ai/service.js';
 import type { AuthProfileService } from '../auth-profile/service.js';
 import type { CanonicalJobsService } from './service.js';
 
 export interface CanonicalJobRoutesDependencies {
   authProfileService: AuthProfileService;
   canonicalJobsService: CanonicalJobsService;
+  aiService: AiService;
 }
 
 const mapValidationDetails = (
@@ -110,10 +112,43 @@ const parseCanonicalPath = (pathname: string): string | null => {
   return pathParam;
 };
 
+const parseCanonicalDedupeEventsPath = (pathname: string): string | null => {
+  const prefix = '/v1/canonical-jobs/';
+  const suffix = '/dedupe-events';
+  if (!pathname.startsWith(prefix) || !pathname.endsWith(suffix)) {
+    return null;
+  }
+
+  const pathParam = pathname.slice(prefix.length, -suffix.length);
+  if (!pathParam || pathParam.includes('/')) {
+    return null;
+  }
+
+  return pathParam;
+};
+
+const parseFeedDetailPath = (pathname: string): string | null => {
+  const prefix = '/v1/feed/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const pathParam = pathname.slice(prefix.length);
+  if (!pathParam || pathParam.includes('/')) {
+    return null;
+  }
+
+  return pathParam;
+};
+
 export const handleCanonicalJobRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
-  { authProfileService, canonicalJobsService }: CanonicalJobRoutesDependencies,
+  {
+    authProfileService,
+    canonicalJobsService,
+    aiService,
+  }: CanonicalJobRoutesDependencies,
 ): Promise<boolean> => {
   const method = req.method ?? 'GET';
   const requestUrl = getUrl(req);
@@ -145,6 +180,96 @@ export const handleCanonicalJobRoutes = async (
       jobs,
     });
     return true;
+  }
+
+  if (method === 'GET' && pathname === '/v1/feed') {
+    const accessToken = requireAccessToken(req);
+    const user = await authProfileService.authenticate(accessToken);
+
+    const limit = parseLimitQuery(requestUrl.searchParams.get('limit'));
+    const jobs = await canonicalJobsService.listCanonicalJobs(limit);
+    const items = await Promise.all(
+      jobs.map(async (job) => ({
+        job,
+        latestScoreArtifact: await aiService.getLatestMatchArtifact(
+          user.userId,
+          job.canonicalJobId,
+        ),
+      })),
+    );
+
+    sendJson(res, 200, {
+      contractVersion: jobsContractVersion,
+      items,
+    });
+    return true;
+  }
+
+  if (method === 'GET') {
+    const feedPathParam = parseFeedDetailPath(pathname);
+    if (feedPathParam) {
+      const parsedCanonicalJobId = canonicalJobIdSchema.safeParse(feedPathParam);
+      if (!parsedCanonicalJobId.success) {
+        throw new HttpError(400, 'invalid_canonical_job_id', {
+          canonicalJobId: feedPathParam,
+        });
+      }
+
+      const accessToken = requireAccessToken(req);
+      const user = await authProfileService.authenticate(accessToken);
+
+      const canonical = await canonicalJobsService.getCanonicalJob(
+        parsedCanonicalJobId.data,
+      );
+      if (!canonical) {
+        throw new HttpError(404, 'canonical_job_not_found', {
+          canonicalJobId: parsedCanonicalJobId.data,
+        });
+      }
+
+      const dedupeEvents = await canonicalJobsService.listDedupeTraceEvents(
+        parsedCanonicalJobId.data,
+      );
+
+      const latestScoreArtifact = await aiService.getLatestMatchArtifact(
+        user.userId,
+        parsedCanonicalJobId.data,
+      );
+
+      sendJson(res, 200, {
+        contractVersion: jobsContractVersion,
+        canonical,
+        latestScoreArtifact,
+        dedupeEvents,
+      });
+      return true;
+    }
+  }
+
+  if (method === 'GET') {
+    const dedupePathParam = parseCanonicalDedupeEventsPath(pathname);
+    if (dedupePathParam) {
+      const parsedCanonicalJobId = canonicalJobIdSchema.safeParse(dedupePathParam);
+      if (!parsedCanonicalJobId.success) {
+        throw new HttpError(400, 'invalid_canonical_job_id', {
+          canonicalJobId: dedupePathParam,
+        });
+      }
+
+      const accessToken = requireAccessToken(req);
+      await authProfileService.authenticate(accessToken);
+
+      const events = await canonicalJobsService.listDedupeTraceEvents(
+        parsedCanonicalJobId.data,
+      );
+
+      sendJson(res, 200, {
+        contractVersion: jobsContractVersion,
+        canonicalJobId: parsedCanonicalJobId.data,
+        events,
+      });
+      return true;
+    }
   }
 
   if (method === 'GET') {

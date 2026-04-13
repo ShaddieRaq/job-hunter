@@ -1,4 +1,5 @@
 import type {
+  CanonicalDedupeTraceEvent,
   CanonicalJobId,
   CanonicalJobSummary,
   CanonicalSourceMapping,
@@ -24,6 +25,13 @@ const cloneMappings = (
     ...mapping,
     mappingReasonCodes: [...mapping.mappingReasonCodes],
   }));
+
+const cloneDedupeTraceEvent = (
+  event: CanonicalDedupeTraceEvent,
+): CanonicalDedupeTraceEvent => ({
+  ...event,
+  mappingReasonCodes: [...event.mappingReasonCodes],
+});
 
 const cloneRecord = (record: CanonicalJobRecord): CanonicalJobRecord => ({
   job: cloneSummary(record.job),
@@ -76,6 +84,7 @@ const toSummary = (
 
 export const createInMemoryCanonicalJobRepository = (): CanonicalJobRepository => {
   const recordStore = new Map<CanonicalJobId, CanonicalJobRecord>();
+  const dedupeEventStore = new Map<CanonicalJobId, Map<string, CanonicalDedupeTraceEvent>>();
 
   return {
     async upsertCanonicalJob({ job, sourceMappings, nowIso }): Promise<UpsertCanonicalJobResult> {
@@ -140,6 +149,31 @@ export const createInMemoryCanonicalJobRepository = (): CanonicalJobRepository =
     async findCanonicalJobById(canonicalJobId) {
       const record = recordStore.get(canonicalJobId);
       return record ? cloneRecord(record) : null;
+    },
+
+    async upsertDedupeTraceEvents(events) {
+      for (const event of events) {
+        const existingForJob = dedupeEventStore.get(event.canonicalJobId);
+        const eventMap = existingForJob ?? new Map<string, CanonicalDedupeTraceEvent>();
+
+        eventMap.set(event.eventId, cloneDedupeTraceEvent(event));
+        dedupeEventStore.set(event.canonicalJobId, eventMap);
+      }
+    },
+
+    async listDedupeTraceEvents(canonicalJobId, limit) {
+      const events = [...(dedupeEventStore.get(canonicalJobId)?.values() ?? [])]
+        .sort((left, right) => {
+          if (left.occurredAt === right.occurredAt) {
+            return right.eventId.localeCompare(left.eventId);
+          }
+
+          return right.occurredAt.localeCompare(left.occurredAt);
+        })
+        .slice(0, limit)
+        .map(cloneDedupeTraceEvent);
+
+      return events;
     },
   };
 };

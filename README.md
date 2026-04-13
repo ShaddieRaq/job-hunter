@@ -17,7 +17,7 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2, 3, and 4 complete, Step 5 canonical catalog work in progress, and Step 7 AI foundation work in progress:
+This repository is a TypeScript monorepo with Steps 2 through 5 complete and Step 7 AI foundation work in progress:
 
 ```text
 apps/
@@ -46,6 +46,9 @@ docs/
 - POST /v1/canonical-jobs/rebuild
 - GET /v1/canonical-jobs
 - GET /v1/canonical-jobs/:canonicalJobId
+- GET /v1/canonical-jobs/:canonicalJobId/dedupe-events
+- GET /v1/feed
+- GET /v1/feed/:canonicalJobId
 - POST /v1/ai/extract/resume
 - POST /v1/ai/extract/job
 - POST /v1/ai/explain-match
@@ -59,6 +62,7 @@ docs/
 - Resume metadata + structured profile migration under apps/api/migrations
 - Connector source health + source job payload migration under apps/api/migrations
 - Canonical jobs + source mapping dedupe migration scaffold under apps/api/migrations
+- Canonical dedupe trace-event migration under apps/api/migrations
 - Match scoring artifact migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
@@ -97,7 +101,7 @@ Recommended order for early implementation:
 2. auth and user profile/preferences (done)
 3. resume upload and parsing (done)
 4. connector framework and first job sources (done)
-5. canonical jobs and dedupe (in progress)
+5. canonical jobs and dedupe (done)
 6. search and discovery UI
 7. explainable scoring
 8. tracker and reminders

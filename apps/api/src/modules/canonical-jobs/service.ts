@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type {
+  CanonicalDedupeTraceEvent,
   CanonicalMappingReasonCode,
   CanonicalRebuildRequest,
   CanonicalRebuildResponse,
@@ -17,6 +18,9 @@ import { createInMemoryCanonicalJobRepository } from './in-memory-repository.js'
 const defaultListLimit = 50;
 const maxListLimit = 500;
 const defaultSourceJobLimit = 500;
+const defaultDedupeEventLimit = 50;
+const maxDedupeEventLimit = 500;
+const dedupeVersion = 'canonical-dedupe-v1';
 
 export interface SourceJobReader {
   listSourceJobs(options?: {
@@ -74,10 +78,15 @@ const tokenOverlap = (left: Set<string>, right: Set<string>): number => {
   return overlap / Math.max(left.size, right.size);
 };
 
-const toCanonicalJobId = (value: string): string => {
+const toDeterministicUuid = (value: string): string => {
   const hash = createHash('sha256').update(value).digest('hex');
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 };
+
+const toCanonicalJobId = (value: string): string => toDeterministicUuid(value);
+
+const mappingKey = (mapping: Pick<CanonicalSourceMapping, 'sourceName' | 'sourceJobId'>): string =>
+  `${mapping.sourceName}:${mapping.sourceJobId}`;
 
 const compareIso = (left: string, right: string): number => left.localeCompare(right);
 
@@ -454,6 +463,66 @@ const buildClusters = (sourceJobs: SourceJobSummary[]): CanonicalCluster[] => {
   return clusters;
 };
 
+const buildDedupeTraceEvents = (input: {
+  canonicalJobId: string;
+  previousMappings: CanonicalSourceMapping[];
+  nextMappings: CanonicalSourceMapping[];
+  occurredAt: string;
+}): CanonicalDedupeTraceEvent[] => {
+  const previousByKey = new Map(
+    input.previousMappings.map((mapping) => [mappingKey(mapping), mapping]),
+  );
+  const nextByKey = new Map(
+    input.nextMappings.map((mapping) => [mappingKey(mapping), mapping]),
+  );
+
+  const events: CanonicalDedupeTraceEvent[] = [];
+
+  for (const [key, mapping] of nextByKey) {
+    if (previousByKey.has(key)) {
+      continue;
+    }
+
+    events.push({
+      eventId: toDeterministicUuid(
+        `${dedupeVersion}:${input.canonicalJobId}:${key}:linked_to_canonical`,
+      ),
+      canonicalJobId: input.canonicalJobId,
+      sourceName: mapping.sourceName,
+      sourceJobId: mapping.sourceJobId,
+      eventType: 'linked_to_canonical',
+      mappingConfidence: mapping.mappingConfidence,
+      mappingReasonCodes: [...mapping.mappingReasonCodes],
+      reversible: true,
+      dedupeVersion,
+      occurredAt: input.occurredAt,
+    });
+  }
+
+  for (const [key, mapping] of previousByKey) {
+    if (nextByKey.has(key)) {
+      continue;
+    }
+
+    events.push({
+      eventId: toDeterministicUuid(
+        `${dedupeVersion}:${input.canonicalJobId}:${key}:unlinked_from_canonical`,
+      ),
+      canonicalJobId: input.canonicalJobId,
+      sourceName: mapping.sourceName,
+      sourceJobId: mapping.sourceJobId,
+      eventType: 'unlinked_from_canonical',
+      mappingConfidence: mapping.mappingConfidence,
+      mappingReasonCodes: [...mapping.mappingReasonCodes],
+      reversible: true,
+      dedupeVersion,
+      occurredAt: input.occurredAt,
+    });
+  }
+
+  return events.sort((left, right) => left.eventId.localeCompare(right.eventId));
+};
+
 export interface CanonicalJobsService {
   rebuildCatalog(
     request: CanonicalRebuildRequest,
@@ -463,6 +532,10 @@ export interface CanonicalJobsService {
     job: CanonicalJobSummary;
     sourceMappings: CanonicalSourceMapping[];
   } | null>;
+  listDedupeTraceEvents(
+    canonicalJobId: string,
+    limit?: number,
+  ): Promise<CanonicalDedupeTraceEvent[]>;
 }
 
 export interface CreateCanonicalJobsServiceOptions {
@@ -490,11 +563,25 @@ export const createCanonicalJobsService = ({
 
     for (const cluster of clusters) {
       const canonical = toCanonicalDraft(cluster);
+      const nowIso = now().toISOString();
+      const existing = await repository.findCanonicalJobById(
+        canonical.job.canonicalJobId,
+      );
+
       const result = await repository.upsertCanonicalJob({
         job: canonical.job,
         sourceMappings: canonical.mappings,
-        nowIso: now().toISOString(),
+        nowIso,
       });
+
+      const dedupeEvents = buildDedupeTraceEvents({
+        canonicalJobId: canonical.job.canonicalJobId,
+        previousMappings: existing?.sourceMappings ?? [],
+        nextMappings: canonical.mappings,
+        occurredAt: nowIso,
+      });
+
+      await repository.upsertDedupeTraceEvents(dedupeEvents);
 
       if (result.status === 'created') {
         canonicalJobsCreated += 1;
@@ -536,5 +623,16 @@ export const createCanonicalJobsService = ({
       job: record.job,
       sourceMappings: record.sourceMappings,
     };
+  },
+
+  async listDedupeTraceEvents(canonicalJobId, limit = defaultDedupeEventLimit) {
+    if (limit < 1 || limit > maxDedupeEventLimit) {
+      throw new HttpError(400, 'invalid_dedupe_event_limit', {
+        limit,
+        maxDedupeEventLimit,
+      });
+    }
+
+    return repository.listDedupeTraceEvents(canonicalJobId, limit);
   },
 });

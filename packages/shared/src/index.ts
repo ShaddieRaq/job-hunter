@@ -83,6 +83,8 @@ export {
 } from './contracts/connectors/v1.js';
 
 export {
+  canonicalDedupeTraceEventSchema,
+  canonicalDedupeTraceEventsResponseSchema,
   canonicalJobDetailsResponseSchema,
   canonicalJobDetailSchema,
   canonicalJobListResponseSchema,
@@ -91,6 +93,10 @@ export {
   canonicalRebuildRequestSchema,
   canonicalRebuildResponseSchema,
   canonicalSourceMappingSchema,
+  dedupeTraceEventTypeSchema,
+  feedDetailResponseSchema,
+  feedJobCardSchema,
+  feedResponseSchema,
   jobsContractVersion,
 } from './contracts/jobs/v1.js';
 
@@ -162,6 +168,8 @@ export type {
 } from './contracts/connectors/v1.js';
 
 export type {
+  CanonicalDedupeTraceEvent,
+  CanonicalDedupeTraceEventsResponse,
   CanonicalJobDetail,
   CanonicalJobDetailsResponse,
   CanonicalJobId,
@@ -171,6 +179,9 @@ export type {
   CanonicalRebuildRequest,
   CanonicalRebuildResponse,
   CanonicalSourceMapping,
+  FeedDetailResponse,
+  FeedJobCard,
+  FeedResponse,
 } from './contracts/jobs/v1.js';
 
 export type {

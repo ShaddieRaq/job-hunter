@@ -34,3 +34,22 @@ export interface CanonicalSourceMappingRow {
     'exact_company_title' | 'strong_title_overlap' | 'same_remote_type' | 'same_location_token' | 'same_salary_band'
   >;
 }
+
+export interface CanonicalDedupeTraceEventRow {
+  event_id: string;
+  canonical_job_id: string;
+  source_name: string;
+  source_job_id: string;
+  event_type: 'linked_to_canonical' | 'unlinked_from_canonical';
+  mapping_confidence: number | string;
+  mapping_reason_codes: Array<
+    | 'exact_company_title'
+    | 'strong_title_overlap'
+    | 'same_remote_type'
+    | 'same_location_token'
+    | 'same_salary_band'
+  >;
+  reversible: boolean;
+  dedupe_version: string;
+  occurred_at: string;
+}

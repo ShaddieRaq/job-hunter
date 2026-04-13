@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { matchScoreArtifactSchema } from '../ai/v1.js';
 import {
   sourceEmploymentTypeSchema,
   sourceJobStatusSchema,
@@ -32,6 +33,26 @@ export const canonicalSourceMappingSchema = z
     isPrimary: z.boolean(),
     mappingConfidence: z.number().min(0).max(1),
     mappingReasonCodes: z.array(canonicalMappingReasonCodeSchema).max(10),
+  })
+  .strict();
+
+export const dedupeTraceEventTypeSchema = z.enum([
+  'linked_to_canonical',
+  'unlinked_from_canonical',
+]);
+
+export const canonicalDedupeTraceEventSchema = z
+  .object({
+    eventId: z.string().uuid(),
+    canonicalJobId: canonicalJobIdSchema,
+    sourceName: sourceNameSchema,
+    sourceJobId: trimmedText(160),
+    eventType: dedupeTraceEventTypeSchema,
+    mappingConfidence: z.number().min(0).max(1),
+    mappingReasonCodes: z.array(canonicalMappingReasonCodeSchema).max(10),
+    reversible: z.boolean(),
+    dedupeVersion: trimmedText(64),
+    occurredAt: z.string().datetime(),
   })
   .strict();
 
@@ -98,11 +119,45 @@ export const canonicalJobDetailsResponseSchema = z
   })
   .strict();
 
+export const canonicalDedupeTraceEventsResponseSchema = z
+  .object({
+    contractVersion: z.literal(jobsContractVersion),
+    canonicalJobId: canonicalJobIdSchema,
+    events: z.array(canonicalDedupeTraceEventSchema).max(500),
+  })
+  .strict();
+
+export const feedJobCardSchema = z
+  .object({
+    job: canonicalJobSummarySchema,
+    latestScoreArtifact: matchScoreArtifactSchema.nullable(),
+  })
+  .strict();
+
+export const feedResponseSchema = z
+  .object({
+    contractVersion: z.literal(jobsContractVersion),
+    items: z.array(feedJobCardSchema).max(500),
+  })
+  .strict();
+
+export const feedDetailResponseSchema = z
+  .object({
+    contractVersion: z.literal(jobsContractVersion),
+    canonical: canonicalJobDetailSchema,
+    latestScoreArtifact: matchScoreArtifactSchema.nullable(),
+    dedupeEvents: z.array(canonicalDedupeTraceEventSchema).max(500),
+  })
+  .strict();
+
 export type CanonicalJobId = z.infer<typeof canonicalJobIdSchema>;
 export type CanonicalMappingReasonCode = z.infer<
   typeof canonicalMappingReasonCodeSchema
 >;
 export type CanonicalSourceMapping = z.infer<typeof canonicalSourceMappingSchema>;
+export type CanonicalDedupeTraceEvent = z.infer<
+  typeof canonicalDedupeTraceEventSchema
+>;
 export type CanonicalJobSummary = z.infer<typeof canonicalJobSummarySchema>;
 export type CanonicalJobDetail = z.infer<typeof canonicalJobDetailSchema>;
 export type CanonicalRebuildRequest = z.infer<typeof canonicalRebuildRequestSchema>;
@@ -111,3 +166,9 @@ export type CanonicalJobListResponse = z.infer<typeof canonicalJobListResponseSc
 export type CanonicalJobDetailsResponse = z.infer<
   typeof canonicalJobDetailsResponseSchema
 >;
+export type CanonicalDedupeTraceEventsResponse = z.infer<
+  typeof canonicalDedupeTraceEventsResponseSchema
+>;
+export type FeedJobCard = z.infer<typeof feedJobCardSchema>;
+export type FeedResponse = z.infer<typeof feedResponseSchema>;
+export type FeedDetailResponse = z.infer<typeof feedDetailResponseSchema>;

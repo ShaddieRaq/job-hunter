@@ -30,6 +30,8 @@ As of 2026-04-12, Steps 2, 3, and 4 are implemented, Step 5 canonical catalog wo
 - deterministic canonicalization/dedupe domain service with conservative matching heuristics and mapping reason codes
 - SQL migration scaffold for canonical jobs and source mapping traceability tables
 - PostgreSQL repository adapters for source connector ingestion state and canonical catalog persistence (env-configurable with in-memory defaults)
+- canonical dedupe trace-event persistence and retrieval for reversible audit trails
+- feed/detail query paths backed by canonical catalog with latest score artifact joins
 - SQL migration for versioned match score artifacts
 
 ## Guiding approach

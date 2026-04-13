@@ -1,4 +1,5 @@
 import type {
+  CanonicalDedupeTraceEvent,
   CanonicalJobId,
   CanonicalJobSummary,
   CanonicalSourceMapping,
@@ -12,6 +13,7 @@ import type {
   UpsertCanonicalJobResult,
 } from './repository.js';
 import type {
+  CanonicalDedupeTraceEventRow,
   CanonicalJobRow,
   CanonicalSourceMappingRow,
 } from './persistence-model.js';
@@ -56,6 +58,21 @@ const rowToCanonicalSourceMapping = (
   isPrimary: row.is_primary,
   mappingConfidence: toMappingConfidence(row.mapping_confidence),
   mappingReasonCodes: row.mapping_reason_codes,
+});
+
+const rowToCanonicalDedupeTraceEvent = (
+  row: CanonicalDedupeTraceEventRow,
+): CanonicalDedupeTraceEvent => ({
+  eventId: row.event_id,
+  canonicalJobId: row.canonical_job_id,
+  sourceName: row.source_name,
+  sourceJobId: row.source_job_id,
+  eventType: row.event_type,
+  mappingConfidence: toMappingConfidence(row.mapping_confidence),
+  mappingReasonCodes: row.mapping_reason_codes,
+  reversible: row.reversible,
+  dedupeVersion: row.dedupe_version,
+  occurredAt: row.occurred_at,
 });
 
 const draftEqualsSummary = (
@@ -454,6 +471,91 @@ export const createPostgresCanonicalJobRepository = (
         job: rowToCanonicalSummary(summaryRow),
         sourceMappings: mappingsResult.rows.map(rowToCanonicalSourceMapping),
       };
+    },
+
+    async upsertDedupeTraceEvents(events: CanonicalDedupeTraceEvent[]) {
+      if (events.length === 0) {
+        return;
+      }
+
+      const client = await pool.connect();
+
+      try {
+        await client.query('BEGIN');
+
+        for (const event of events) {
+          await client.query(
+            `INSERT INTO canonical_dedupe_trace_events (
+               event_id,
+               canonical_job_id,
+               source_name,
+               source_job_id,
+               event_type,
+               mapping_confidence,
+               mapping_reason_codes,
+               reversible,
+               dedupe_version,
+               occurred_at,
+               created_at
+             ) VALUES (
+               $1,
+               $2,
+               $3,
+               $4,
+               $5,
+               $6,
+               $7,
+               $8,
+               $9,
+               $10::timestamptz,
+               NOW()
+             )
+             ON CONFLICT (event_id) DO NOTHING`,
+            [
+              event.eventId,
+              event.canonicalJobId,
+              event.sourceName,
+              event.sourceJobId,
+              event.eventType,
+              event.mappingConfidence,
+              event.mappingReasonCodes,
+              event.reversible,
+              event.dedupeVersion,
+              event.occurredAt,
+            ],
+          );
+        }
+
+        await client.query('COMMIT');
+      } catch (error: unknown) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async listDedupeTraceEvents(canonicalJobId, limit) {
+      const result = await pool.query<CanonicalDedupeTraceEventRow>(
+        `SELECT
+           event_id,
+           canonical_job_id,
+           source_name,
+           source_job_id,
+           event_type,
+           mapping_confidence,
+           mapping_reason_codes,
+           reversible,
+           dedupe_version,
+           occurred_at::text
+         FROM canonical_dedupe_trace_events
+         WHERE canonical_job_id = $1
+         ORDER BY occurred_at DESC, event_id DESC
+         LIMIT $2`,
+        [canonicalJobId, limit],
+      );
+
+      return result.rows.map(rowToCanonicalDedupeTraceEvent);
     },
   };
 };

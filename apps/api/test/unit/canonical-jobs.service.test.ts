@@ -88,6 +88,16 @@ test('rebuildCatalog dedupes strict same-company title overlap and preserves sou
         mapping.mappingReasonCodes.includes('exact_company_title'),
       ),
   );
+
+  const dedupeEvents = await service.listDedupeTraceEvents(
+    merged!.canonicalJobId,
+    20,
+  );
+  assert.equal(dedupeEvents.length, 2);
+  assert.ok(
+    dedupeEvents.every((event) => event.eventType === 'linked_to_canonical'),
+  );
+  assert.ok(dedupeEvents.every((event) => event.reversible === true));
 });
 
 test('rebuildCatalog is idempotent for unchanged source jobs', async () => {
@@ -114,9 +124,24 @@ test('rebuildCatalog is idempotent for unchanged source jobs', async () => {
   assert.equal(first.canonicalJobsCreated, 1);
   assert.equal(first.canonicalJobsUpdated, 0);
 
+  const initialJob = (await service.listCanonicalJobs(10))[0];
+  assert.ok(initialJob);
+
+  const eventsAfterFirst = await service.listDedupeTraceEvents(
+    initialJob!.canonicalJobId,
+    20,
+  );
+  assert.equal(eventsAfterFirst.length, 2);
+
   const second = await service.rebuildCatalog({});
   assert.equal(second.canonicalJobsCreated, 0);
   assert.equal(second.canonicalJobsUpdated, 0);
+
+  const eventsAfterSecond = await service.listDedupeTraceEvents(
+    initialJob!.canonicalJobId,
+    20,
+  );
+  assert.equal(eventsAfterSecond.length, 2);
 });
 
 test('rebuildCatalog marks canonical jobs as updated when source aggregate changes', async () => {
@@ -145,4 +170,43 @@ test('rebuildCatalog marks canonical jobs as updated when source aggregate chang
   const second = await service.rebuildCatalog({});
   assert.equal(second.canonicalJobsCreated, 0);
   assert.equal(second.canonicalJobsUpdated, 1);
+});
+
+test('rebuildCatalog records unlinked events when mappings are removed', async () => {
+  let activeJobs: SourceJobSummary[] = [
+    createSourceJob('greenhouse_public_board', '4001', {
+      checksumSha256: '2'.repeat(64),
+    }),
+    createSourceJob('greenhouse_public_board', '4002', {
+      title: 'Sr Backend Engineer',
+      checksumSha256: '3'.repeat(64),
+    }),
+  ];
+
+  const service = createCanonicalJobsService({
+    sourceJobReader: {
+      async listSourceJobs() {
+        return activeJobs;
+      },
+    },
+    now: () => new Date('2026-04-12T13:00:00.000Z'),
+  });
+
+  const first = await service.rebuildCatalog({});
+  assert.equal(first.canonicalJobsCreated, 1);
+
+  const job = (await service.listCanonicalJobs(10))[0];
+  assert.ok(job);
+
+  activeJobs = [
+    createSourceJob('greenhouse_public_board', '4001', {
+      checksumSha256: '2'.repeat(64),
+    }),
+  ];
+
+  const second = await service.rebuildCatalog({});
+  assert.equal(second.canonicalJobsUpdated, 1);
+
+  const events = await service.listDedupeTraceEvents(job!.canonicalJobId, 20);
+  assert.ok(events.some((event) => event.eventType === 'unlinked_from_canonical'));
 });

@@ -161,6 +161,7 @@ const handleRequest = async (
   const canonicalHandled = await handleCanonicalJobRoutes(req, res, {
     authProfileService,
     canonicalJobsService,
+    aiService,
   });
 
   if (canonicalHandled) {
