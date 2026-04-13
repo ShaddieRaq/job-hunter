@@ -4,7 +4,7 @@ This document defines the testing expectations for the Job Hunter MVP.
 
 ## Current coverage snapshot
 
-Steps 2 through 4 (auth/profile/preferences, resume pipeline, and connector framework) include:
+Steps 2 through 6 (auth/profile/preferences, resume pipeline, connector/canonical services, and search/feed UI) include:
 - unit tests for preference rule validation and normalization behavior
 - integration tests for auth/profile/preferences API request boundaries and happy paths
 - unit tests for resume upload service parse behavior and error paths
@@ -21,6 +21,7 @@ Steps 2 through 4 (auth/profile/preferences, resume pipeline, and connector fram
 - canonical catalog route integration tests for authenticated rebuild/list/detail boundaries
 - canonical dedupe trace-event tests for link/unlink event history behavior
 - feed/detail route integration tests for score-joined query payloads
+- web integration tests for Step 6 sign-in, feed filtering, detail rendering, and sync/rebuild action redirects
 
 ## Testing goals
 

@@ -47,6 +47,10 @@ importers:
         version: 4.21.0
 
   apps/web:
+    dependencies:
+      '@job-hunter/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
     devDependencies:
       '@types/node':
         specifier: ^22.14.0

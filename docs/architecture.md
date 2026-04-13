@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2, 3, and 4 are implemented, Step 5 canonical catalog work is in progress, and Step 7 AI foundation work is active in the API and shared packages:
+As of 2026-04-12, Steps 2 through 6 are implemented and Step 7 AI foundation work is active in the API and shared packages:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -32,6 +32,7 @@ As of 2026-04-12, Steps 2, 3, and 4 are implemented, Step 5 canonical catalog wo
 - PostgreSQL repository adapters for source connector ingestion state and canonical catalog persistence (env-configurable with in-memory defaults)
 - canonical dedupe trace-event persistence and retrieval for reversible audit trails
 - feed/detail query paths backed by canonical catalog with latest score artifact joins
+- server-rendered web feed/detail experience with auth session handling, preference-aligned filtering/sorting, and explicit sync/rebuild controls
 - SQL migration for versioned match score artifacts
 
 ## Guiding approach

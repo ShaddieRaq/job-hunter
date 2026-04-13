@@ -44,7 +44,7 @@ This document turns the recommended AI roadmap into concrete implementation work
   - Remaining: production provider configuration hardening and environment-level rollout guardrails.
 - A2 Explainable match narrative layer: 🟨 in progress
   - Done: explanation generation runs over deterministic score outputs with evidence-only prompt constraints, schema-bound output validation, versioned score/explanation snapshots exposed via API, and score-artifact reads integrated into canonical feed/detail query models.
-  - Remaining: surface explanation-ready score context in the web feed/detail experience (Step 6).
+  - Remaining: refine explanation readability and quality checks as real usage data expands.
 - A3 Eval harness baseline: 🟨 in progress
   - Done: fixture corpus + extraction/explanation eval harness + threshold test.
   - Remaining: wire eval command into repository CI workflow once pipeline definitions are in place.

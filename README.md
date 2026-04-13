@@ -17,12 +17,12 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 5 complete and Step 7 AI foundation work in progress:
+This repository is a TypeScript monorepo with Steps 2 through 6 complete and Step 7 AI foundation work in progress:
 
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + AI extraction/scoring/explanation v1 endpoints
-  web/      # Placeholder web homepage server
+  web/      # Server-rendered feed/detail UI with auth, filters, and sync/rebuild controls
   worker/   # Background worker entrypoint stub
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
@@ -102,7 +102,7 @@ Recommended order for early implementation:
 3. resume upload and parsing (done)
 4. connector framework and first job sources (done)
 5. canonical jobs and dedupe (done)
-6. search and discovery UI
+6. search and discovery UI (done)
 7. explainable scoring
 8. tracker and reminders
 9. application support tooling
