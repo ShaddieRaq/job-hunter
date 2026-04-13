@@ -304,7 +304,7 @@ Suggested fields:
 - one canonical job can have many requirements
 - one user can have one score per canonical job per scoring version
 - one user can have one state per canonical job
-- one user can have zero or more applications per canonical job, but MVP should generally assume one active application record
+- one user can have at most one active application record per canonical job in MVP workflows
 - one user can have zero or more reminders per canonical job
 - reminders may link to tracker transition events for traceable auto-created follow-ups
 - one user can have zero or more notification logs tied to reminder tasks

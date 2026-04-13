@@ -32,6 +32,10 @@ Step 8 tracker/reminder/notification slices currently include:
 - reminder route integration tests for authenticated create/list/detail/complete boundaries, validation/auth errors, and tracker-transition side-effect coverage
 - notification route integration tests for authenticated dispatch/log-list boundaries and validation/auth errors
 
+Step 9 resume/application support baseline currently includes:
+- application service unit tests for create/update lifecycle, duplicate prevention, resume validation, and list filtering
+- application route integration tests for authenticated create/list/detail/update boundaries plus validation/auth error paths
+
 ## Testing goals
 
 The product handles messy source data, user-sensitive career data, and decision-support logic.

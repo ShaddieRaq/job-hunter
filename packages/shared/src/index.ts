@@ -13,6 +13,17 @@ export const appStates = {
 export type AppState = (typeof appStates)[keyof typeof appStates];
 
 export {
+  applicationCreateRequestSchema,
+  applicationIdSchema,
+  applicationListResponseSchema,
+  applicationRecordSchema,
+  applicationResponseSchema,
+  applicationsContractVersion,
+  applicationStatusSchema,
+  applicationUpdateRequestSchema,
+} from './contracts/applications/v1.js';
+
+export {
   authContractVersion,
   authLoginRequestSchema,
   authRegisterRequestSchema,
@@ -142,6 +153,16 @@ export {
   trackerTransitionRequestSchema,
   trackerTransitionResponseSchema,
 } from './contracts/tracker/v1.js';
+
+export type {
+  ApplicationCreateRequest,
+  ApplicationId,
+  ApplicationListResponse,
+  ApplicationRecord,
+  ApplicationResponse,
+  ApplicationStatus,
+  ApplicationUpdateRequest,
+} from './contracts/applications/v1.js';
 
 export type {
   AuthLoginRequest,

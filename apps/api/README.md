@@ -48,6 +48,12 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/notifications`
 	- `POST /v1/notifications/reminders/dispatch`
 	- dispatch endpoint queues + marks sent due reminder notifications for authenticated users (in-app scaffold)
+- Application v1 endpoints:
+	- `GET /v1/applications`
+	- `POST /v1/applications`
+	- `GET /v1/applications/:applicationId`
+	- `PUT /v1/applications/:applicationId`
+	- baseline flow stores one active application record per user/canonical job in MVP scope
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)
 	- deterministic fallback provider for resilient local/dev behavior
@@ -67,6 +73,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `migrations/0007_tracker_state_history.sql`
 	- `migrations/0008_reminder_tasks.sql`
 	- `migrations/0009_notification_logs.sql`
+	- `migrations/0010_application_records.sql`
 
 ## AI provider configuration
 

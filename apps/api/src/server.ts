@@ -3,6 +3,11 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { isHttpError } from './http/http-errors.js';
 import { sendJson } from './http/json.js';
 import { getSharedPostgresPool } from './db/postgres.js';
+import { handleApplicationRoutes } from './modules/applications/routes.js';
+import {
+  createApplicationService,
+  type ApplicationService,
+} from './modules/applications/service.js';
 import { createInMemoryAuthProfileRepository } from './modules/auth-profile/in-memory-repository.js';
 import { handleAuthProfileRoutes } from './modules/auth-profile/routes.js';
 import {
@@ -110,6 +115,11 @@ const defaultResumeService = createResumeService({
   parser: createHeuristicResumeParser(),
 });
 
+const defaultApplicationService = createApplicationService({
+  canonicalJobLookup: defaultCanonicalJobsService,
+  resumeLookup: defaultResumeService,
+});
+
 const defaultReminderService = createReminderService({
   canonicalJobLookup: defaultCanonicalJobsService,
 });
@@ -129,6 +139,7 @@ export interface CreateApiServerOptions {
   aiService?: AiService;
   connectorService?: ConnectorService;
   canonicalJobsService?: CanonicalJobsService;
+  applicationService?: ApplicationService;
   reminderService?: ReminderService;
   notificationService?: NotificationService;
   trackerService?: TrackerService;
@@ -145,6 +156,7 @@ const handleRequest = async (
   aiService: AiService,
   connectorService: ConnectorService,
   canonicalJobsService: CanonicalJobsService,
+  applicationService: ApplicationService,
   reminderService: ReminderService,
   notificationService: NotificationService,
   trackerService: TrackerService,
@@ -199,6 +211,15 @@ const handleRequest = async (
     return;
   }
 
+  const applicationHandled = await handleApplicationRoutes(req, res, {
+    authProfileService,
+    applicationService,
+  });
+
+  if (applicationHandled) {
+    return;
+  }
+
   const trackerHandled = await handleTrackerRoutes(req, res, {
     authProfileService,
     trackerService,
@@ -249,6 +270,7 @@ export const createApiServer = ({
   aiService = defaultAiService,
   connectorService = defaultConnectorService,
   canonicalJobsService = defaultCanonicalJobsService,
+  applicationService = defaultApplicationService,
   reminderService = defaultReminderService,
   notificationService = defaultNotificationService,
   trackerService = defaultTrackerService,
@@ -262,6 +284,7 @@ export const createApiServer = ({
       aiService,
       connectorService,
       canonicalJobsService,
+      applicationService,
       reminderService,
       notificationService,
       trackerService,

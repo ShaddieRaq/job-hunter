@@ -36,11 +36,13 @@ Owner: team
 8. ✅ Tracker and reminders
    - Evidence: tracker contracts (`packages/shared/src/contracts/tracker/v1.ts`), reminder contracts (`packages/shared/src/contracts/reminders/v1.ts`), notification contracts (`packages/shared/src/contracts/notifications/v1.ts`), API modules for tracker/reminder/notification workflows (`apps/api/src/modules/tracker`, `apps/api/src/modules/reminders`, `apps/api/src/modules/notifications`), authenticated routes (`/v1/tracker/jobs*`, `/v1/reminders*`, `/v1/notifications*`), tracker observer-driven auto-reminders for `applied`/`interview`, and migrations `0007_tracker_state_history.sql` + `0008_reminder_tasks.sql` + `0009_notification_logs.sql` with unit/integration coverage.
    - Remaining: none.
-9. ⬜ Resume/application support
+9. 🟨 Resume/application support
+   - Evidence: shared application contracts (`packages/shared/src/contracts/applications/v1.ts`), API application module (`apps/api/src/modules/applications`) with authenticated create/list/detail/update routes (`/v1/applications*`), migration `0010_application_records.sql`, canonical/resume validation in domain service, and unit/integration coverage.
+   - Remaining: resume tailoring suggestions, application checklist/material guidance flows, and application support UI integration.
 
 ## Current focus
 - Active step: 9 (resume/application support)
-- Next PR target: add resume/application support baseline contracts and API scaffolding
+- Next PR target: add resume/application support UI surfaces and application-material guidance flows
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
@@ -55,6 +57,7 @@ Owner: team
 - 2026-04-12: Step 8 first slice landed with tracker state transition contracts, authenticated tracker transition/list/detail/history routes, transition audit events, migration `0007_tracker_state_history.sql`, and tracker unit/integration coverage (`5169288`).
 - 2026-04-12: Step 8 second slice landed with reminder task contracts/routes (`GET/POST /v1/reminders`, `GET /v1/reminders/:reminderId`, `PUT /v1/reminders/:reminderId/complete`), tracker transition observer hooks for auto-reminder creation on `applied` and `interview`, migration `0008_reminder_tasks.sql`, and reminder unit/integration coverage (`2a82afa`).
 - 2026-04-12: Step 8 final slice landed with notification log contracts/routes (`GET /v1/notifications`, `POST /v1/notifications/reminders/dispatch`), due-reminder dispatch workflow scaffolding, migration `0009_notification_logs.sql`, and notification unit/integration coverage.
+- 2026-04-12: Step 9 first slice landed with application contracts/routes (`GET/POST /v1/applications`, `GET/PUT /v1/applications/:applicationId`), canonical/resume validation, migration `0010_application_records.sql`, and application unit/integration coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

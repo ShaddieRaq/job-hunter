@@ -17,11 +17,11 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 8 complete:
+This repository is a TypeScript monorepo with Steps 2 through 8 complete and Step 9 baseline in progress:
 
 ```text
 apps/
-  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification v1 endpoints
+  api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
   web/      # Server-rendered feed/detail UI with auth, filters, and sync/rebuild controls
   worker/   # Background worker entrypoint stub
 packages/
@@ -65,6 +65,10 @@ docs/
 - PUT /v1/reminders/:reminderId/complete
 - GET /v1/notifications
 - POST /v1/notifications/reminders/dispatch
+- GET /v1/applications
+- POST /v1/applications
+- GET /v1/applications/:applicationId
+- PUT /v1/applications/:applicationId
 
 ### Persistence and tests currently included
 
@@ -77,6 +81,7 @@ docs/
 - Tracker state + transition audit migration under apps/api/migrations
 - Reminder task lifecycle migration under apps/api/migrations
 - Notification log workflow migration under apps/api/migrations
+- Application record workflow migration under apps/api/migrations
 - In-memory repository adapter for local runtime behavior
 - In-memory object storage abstraction for resume files
 - In-memory connector repository + Greenhouse public board connector adapter
@@ -85,6 +90,7 @@ docs/
 - Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals
 - Tracker/reminder unit and integration tests for transition history, reminder lifecycle, and tracker-linked reminder side effects
 - Notification unit and integration tests for reminder-due dispatch and notification log listing
+- Application unit and integration tests for create/list/detail/update workflows and validation paths
 
 ## Suggested local commands
 
@@ -120,4 +126,4 @@ Recommended order for early implementation:
 6. search and discovery UI (done)
 7. explainable scoring (done)
 8. tracker and reminders (done)
-9. application support tooling
+9. application support tooling (in progress)
