@@ -1,15 +1,17 @@
 # Web App
 
-Server-rendered Step 6 discovery UI for Job Hunter.
+Server-rendered discovery and application workflow UI for Job Hunter.
 
 ## Current scope
 - Email sign-in/create-account flow backed by API auth routes
 - Feed view backed by `GET /v1/feed`
 - Job detail view backed by `GET /v1/feed/:canonicalJobId`
+- Application tracker list/detail views backed by `GET /v1/applications*`
+- Application create/update actions backed by `POST /v1/applications` and `PUT /v1/applications/:applicationId`
 - Preference-aligned filtering and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
-- Integration tests for sign-in, feed, detail, and action redirects
-- Step 9 application workflow UI is not yet wired; current web scope remains discovery-focused
+- Resume/application material guidance checklists in job and application detail views
+- Integration tests for sign-in, feed, detail, sync/rebuild actions, and application workflow routes
 
 ## Runtime configuration
 - `WEB_PORT`: web server port (default `3000`)

@@ -8,6 +8,10 @@ import {
 import { pathToFileURL } from 'node:url';
 
 import {
+  applicationIdSchema,
+  applicationListResponseSchema,
+  applicationResponseSchema,
+  applicationStatusSchema,
   authSessionSchema,
   canonicalJobIdSchema,
   canonicalRebuildResponseSchema,
@@ -16,6 +20,8 @@ import {
   feedResponseSchema,
   userPreferencesSchema,
   userProfileSchema,
+  type ApplicationRecord,
+  type ApplicationStatus,
   type FeedDetailResponse,
   type FeedJobCard,
   type MatchScoreArtifact,
@@ -34,6 +40,7 @@ const upstreamTimeoutMs = 10_000;
 type RemoteFilter = 'aligned' | 'any' | 'remote' | 'hybrid' | 'onsite';
 type RecommendationFilter = 'all' | 'apply' | 'review' | 'skip' | 'unscored';
 type FeedSort = 'fit' | 'recent' | 'salary';
+type ApplicationStatusFilter = 'all' | ApplicationStatus;
 
 interface FeedQueryState {
   q: string;
@@ -41,6 +48,10 @@ interface FeedQueryState {
   remote: RemoteFilter;
   sort: FeedSort;
   includeHidden: boolean;
+}
+
+interface ApplicationQueryState {
+  status: ApplicationStatusFilter;
 }
 
 interface CreateWebServerOptions {
@@ -90,6 +101,28 @@ const defaultFeedQueryState: FeedQueryState = {
   includeHidden: false,
 };
 
+const defaultApplicationQueryState: ApplicationQueryState = {
+  status: 'all',
+};
+
+const applicationStatusOrder: Record<ApplicationStatus, number> = {
+  ready_to_apply: 0,
+  applied: 1,
+  interview: 2,
+  offer: 3,
+  rejected: 4,
+  archived: 5,
+};
+
+const applicationStatuses: ApplicationStatus[] = [
+  'ready_to_apply',
+  'applied',
+  'interview',
+  'offer',
+  'rejected',
+  'archived',
+];
+
 const recommendationOrder: Record<'apply' | 'review' | 'skip' | 'unscored', number> = {
   apply: 3,
   review: 2,
@@ -110,6 +143,9 @@ const noticeMessages: Record<string, string> = {
   sync_complete: 'Source sync completed.',
   sync_partial: 'Source sync completed with one or more source errors.',
   rebuild_complete: 'Canonical catalog rebuild completed.',
+  application_created: 'Application record created.',
+  application_updated: 'Application status updated.',
+  application_exists: 'An application already exists for this job.',
 };
 
 const authErrorMessages: Record<string, string> = {
@@ -131,6 +167,12 @@ const feedErrorMessages: Record<string, string> = {
   invalid_authorization_header: 'Session expired. Sign in again.',
   invalid_canonical_job_id: 'The selected job id is invalid.',
   canonical_job_not_found: 'This job was not found.',
+  invalid_application_id: 'The selected application id is invalid.',
+  application_not_found: 'Application record not found.',
+  application_already_exists_for_job: 'An application already exists for this job.',
+  invalid_application_limit: 'Application limit filter is invalid.',
+  invalid_application_status_filter: 'Application status filter is invalid.',
+  resume_not_found: 'The selected resume could not be found for this account.',
   upstream_timeout: 'The API timed out while loading data.',
   upstream_unreachable: 'API is unreachable. Confirm the API server is running.',
   invalid_api_contract: 'API response schema mismatch. Check API and shared contracts.',
@@ -283,6 +325,10 @@ button,
   font: inherit;
 }
 
+textarea {
+  font: inherit;
+}
+
 input,
 select {
   border: 1px solid rgba(25, 77, 74, 0.2);
@@ -290,6 +336,16 @@ select {
   color: var(--ink);
   border-radius: 10px;
   padding: 0.58rem 0.62rem;
+}
+
+textarea {
+  border: 1px solid rgba(25, 77, 74, 0.2);
+  background: var(--card-strong);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.58rem 0.62rem;
+  min-height: 7.5rem;
+  resize: vertical;
 }
 
 input:focus,
@@ -364,6 +420,11 @@ button[disabled] {
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.9rem;
+}
+
+.application-cards {
+  display: grid;
   gap: 0.9rem;
 }
 
@@ -499,6 +560,32 @@ button[disabled] {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.inline-form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.inline-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.inline-row > * {
+  flex: 1;
+}
+
+.inline-row .inline-action {
+  flex: 0 0 auto;
+}
+
+.application-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
 }
 
 .footnote {
@@ -831,6 +918,23 @@ const parseFeedQuery = (requestUrl: URL): FeedQueryState => {
   };
 };
 
+const parseApplicationQuery = (requestUrl: URL): ApplicationQueryState => {
+  const status = requestUrl.searchParams.get('status');
+
+  if (status === 'all' || status === null) {
+    return defaultApplicationQueryState;
+  }
+
+  const parsed = applicationStatusSchema.safeParse(status);
+  if (!parsed.success) {
+    return defaultApplicationQueryState;
+  }
+
+  return {
+    status: parsed.data,
+  };
+};
+
 const buildFeedReturnPath = (query: FeedQueryState): string => {
   const params = new URLSearchParams();
 
@@ -856,6 +960,17 @@ const buildFeedReturnPath = (query: FeedQueryState): string => {
 
   const queryString = params.toString();
   return queryString.length > 0 ? `/?${queryString}` : '/';
+};
+
+const buildApplicationReturnPath = (query: ApplicationQueryState): string => {
+  const params = new URLSearchParams();
+
+  if (query.status !== defaultApplicationQueryState.status) {
+    params.set('status', query.status);
+  }
+
+  const queryString = params.toString();
+  return queryString.length > 0 ? `/applications?${queryString}` : '/applications';
 };
 
 const getApiErrorCode = (payload: unknown, statusCode: number): string => {
@@ -1113,6 +1228,110 @@ const fetchPreferences = async (
   };
 };
 
+const fetchApplications = async (
+  apiBaseUrl: string,
+  accessToken: string,
+  options: {
+    status?: ApplicationStatus;
+    canonicalJobId?: string;
+    limit?: number;
+  } = {},
+): Promise<ApiResult<ApplicationRecord[]>> => {
+  const params = new URLSearchParams();
+
+  if (options.status) {
+    params.set('status', options.status);
+  }
+
+  if (options.canonicalJobId) {
+    params.set('canonicalJobId', options.canonicalJobId);
+  }
+
+  if (options.limit) {
+    params.set('limit', options.limit.toString());
+  }
+
+  const path = params.size > 0 ? `/v1/applications?${params.toString()}` : '/v1/applications';
+
+  const response = await requestApi(
+    apiBaseUrl,
+    path,
+    {
+      method: 'GET',
+    },
+    applicationListResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.applications,
+  };
+};
+
+const fetchApplication = async (
+  apiBaseUrl: string,
+  accessToken: string,
+  applicationId: string,
+): Promise<ApiResult<ApplicationRecord>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    `/v1/applications/${applicationId}`,
+    {
+      method: 'GET',
+    },
+    applicationResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.application,
+  };
+};
+
+const compareApplications = (
+  left: ApplicationRecord,
+  right: ApplicationRecord,
+): number => {
+  const statusDelta = applicationStatusOrder[left.status] - applicationStatusOrder[right.status];
+  if (statusDelta !== 0) {
+    return statusDelta;
+  }
+
+  return compareIsoDatesDesc(left.updatedAt, right.updatedAt);
+};
+
+const mapApplicationsByCanonicalJobId = (
+  applications: ApplicationRecord[],
+): Map<string, ApplicationRecord> => {
+  const entries = applications.map((application) => [
+    application.canonicalJobId,
+    application,
+  ] as const);
+
+  return new Map(entries);
+};
+
+const findApplicationForCanonicalJob = (
+  applications: ApplicationRecord[],
+  canonicalJobId: string,
+): ApplicationRecord | null => {
+  const found = applications.find(
+    (application) => application.canonicalJobId === canonicalJobId,
+  );
+
+  return found ?? null;
+};
+
 const matchesRemotePreference = (
   remoteType: string,
   preference: RemotePreference,
@@ -1269,6 +1488,13 @@ const applyFeedFilters = (
 const countHiddenItems = (items: FeedJobCard[], preferences: UserPreferences): number =>
   items.filter((item) => isHiddenByPreferences(item, preferences)).length;
 
+const buildFeedJobMap = (
+  items: FeedJobCard[],
+): Map<string, FeedJobCard['job']> => {
+  const entries = items.map((item) => [item.job.canonicalJobId, item.job] as const);
+  return new Map(entries);
+};
+
 const renderFlash = (
   message: string,
   type: 'notice' | 'error',
@@ -1339,7 +1565,33 @@ const renderAuthPage = (authError: string | null, email: string, returnTo: strin
   return renderPage('Job Hunter | Sign in', body);
 };
 
-const renderJobCard = (item: FeedJobCard, returnTo: string): string => {
+const renderApplicationStatusOptions = (
+  selected: ApplicationStatusFilter,
+  includeAll: boolean,
+): string => {
+  const options: string[] = [];
+
+  if (includeAll) {
+    options.push(`<option value="all"${selected === 'all' ? ' selected' : ''}>all</option>`);
+  }
+
+  for (const status of applicationStatuses) {
+    const isSelected = selected === status;
+    options.push(
+      `<option value="${escapeHtml(status)}"${isSelected ? ' selected' : ''}>${escapeHtml(
+        humanizeToken(status),
+      )}</option>`,
+    );
+  }
+
+  return options.join('');
+};
+
+const renderJobCard = (
+  item: FeedJobCard,
+  returnTo: string,
+  application: ApplicationRecord | null,
+): string => {
   const recommendation = getRecommendation(item.latestScoreArtifact);
   const recommendationClass = recommendationLabel[recommendation];
   const overallScore = item.latestScoreArtifact?.scoreBreakdown.overallScore;
@@ -1360,6 +1612,55 @@ const renderJobCard = (item: FeedJobCard, returnTo: string): string => {
 
   const detailsHref = `/jobs/${item.job.canonicalJobId}?returnTo=${encodeURIComponent(returnTo)}`;
 
+  const applicationPanel = application
+    ? `<div class="score-box">
+        <p>
+          <span class="recommendation ${escapeHtml(
+            recommendationLabel[recommendation],
+          )}">tracked</span>
+          <span class="mono">${escapeHtml(humanizeToken(application.status))}</span>
+        </p>
+        <p class="muted">Updated ${escapeHtml(formatDateTime(application.updatedAt))}</p>
+        <div class="sticky-tools">
+          <a class="link-button secondary" href="/applications/${escapeHtml(
+            application.applicationId,
+          )}?returnTo=${encodeURIComponent(returnTo)}">Open application</a>
+        </div>
+        <form method="POST" action="/actions/applications/update" class="inline-form" data-pending-label>
+          <input type="hidden" name="applicationId" value="${escapeHtml(
+            application.applicationId,
+          )}" />
+          <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
+          <div class="inline-row">
+            <label>
+              Status
+              <select name="status">
+                ${renderApplicationStatusOptions(application.status, false)}
+              </select>
+            </label>
+            <button class="inline-action" type="submit" data-pending-label="Updating...">Update</button>
+          </div>
+        </form>
+      </div>`
+    : `<div class="score-box">
+        <p class="muted">No application record yet.</p>
+        <form method="POST" action="/actions/applications/create" class="inline-form" data-pending-label>
+          <input type="hidden" name="canonicalJobId" value="${escapeHtml(
+            item.job.canonicalJobId,
+          )}" />
+          <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
+          <div class="inline-row">
+            <label>
+              Start status
+              <select name="status">
+                ${renderApplicationStatusOptions('ready_to_apply', false)}
+              </select>
+            </label>
+            <button class="inline-action" type="submit" data-pending-label="Creating...">Track application</button>
+          </div>
+        </form>
+      </div>`;
+
   return `
     <article class="job-card">
       <header>
@@ -1375,6 +1676,7 @@ const renderJobCard = (item: FeedJobCard, returnTo: string): string => {
       <ul class="skill-list">
         ${topSkills.map((skill) => `<li>${escapeHtml(skill)}</li>`).join('')}
       </ul>
+      ${applicationPanel}
       <a class="link-button" href="${escapeHtml(detailsHref)}">Open detail</a>
     </article>
   `;
@@ -1385,6 +1687,7 @@ const renderFeedPage = (
   preferences: UserPreferences,
   allItems: FeedJobCard[],
   filteredItems: FeedJobCard[],
+  applicationsByCanonicalJobId: Map<string, ApplicationRecord>,
   query: FeedQueryState,
   noticeCode: string | null,
   errorCode: string | null,
@@ -1401,7 +1704,15 @@ const renderFeedPage = (
 
   const cards =
     filteredItems.length > 0
-      ? filteredItems.map((item) => renderJobCard(item, returnTo)).join('')
+      ? filteredItems
+          .map((item) =>
+            renderJobCard(
+              item,
+              returnTo,
+              applicationsByCanonicalJobId.get(item.job.canonicalJobId) ?? null,
+            ),
+          )
+          .join('')
       : `<div class="empty panel">
            <h3>No jobs match this filter set</h3>
            <p class="muted">Try recommendation=all, remote=any, or clear search terms.</p>
@@ -1422,6 +1733,7 @@ const renderFeedPage = (
           <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
           <button type="submit" class="secondary" data-pending-label="Rebuilding catalog...">Rebuild catalog</button>
         </form>
+        <a class="link-button secondary" href="/applications">Applications</a>
         <form method="POST" action="/signout" data-pending-label>
           <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
         </form>
@@ -1476,6 +1788,7 @@ const renderFeedPage = (
         <p>
           Showing <strong>${filteredItems.length}</strong> of <strong>${allItems.length}</strong> feed jobs
           ${query.includeHidden ? '' : ` | Hidden by preferences: ${hiddenCount}`}
+          | Application records: ${applicationsByCanonicalJobId.size}
         </p>
         <p class="muted">Last refresh: ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
       </section>
@@ -1538,9 +1851,123 @@ const renderScoreDetails = (artifact: MatchScoreArtifact | null): string => {
   `;
 };
 
+const renderMaterialGuidance = (detail: FeedDetailResponse): string => {
+  const strengths = detail.latestScoreArtifact?.strengths.slice(0, 3) ?? [];
+  const gaps = detail.latestScoreArtifact?.gaps.slice(0, 3) ?? [];
+
+  const strengthItems =
+    strengths.length > 0
+      ? strengths.map((value) => `<li>Show evidence for: ${escapeHtml(value)}</li>`).join('')
+      : '<li>Highlight one quantified win that directly matches the core role scope.</li>';
+
+  const gapItems =
+    gaps.length > 0
+      ? gaps.map((value) => `<li>Address this gap in your cover note: ${escapeHtml(value)}</li>`).join('')
+      : '<li>Call out one learning edge and how you would close it quickly in the first 30 days.</li>';
+
+  const skillItems = detail.canonical.job.topSkills
+    .slice(0, 4)
+    .map((skill) => `<li>Include a resume bullet with concrete impact for ${escapeHtml(skill)}.</li>`)
+    .join('');
+
+  return `
+    <article class="panel">
+      <h3>Material guidance</h3>
+      <p class="muted">Use this checklist to prepare tailored application materials before submitting.</p>
+      <h4>Resume evidence</h4>
+      <ul class="stack-list">${skillItems || '<li>Add at least two role-relevant impact bullets.</li>'}</ul>
+      <h4>Strength-led points</h4>
+      <ul class="stack-list">${strengthItems}</ul>
+      <h4>Gap response notes</h4>
+      <ul class="stack-list">${gapItems}</ul>
+    </article>
+  `;
+};
+
+const renderJobApplicationPanel = (
+  canonicalJobId: string,
+  application: ApplicationRecord | null,
+  feedReturnTo: string,
+): string => {
+  const jobReturnTo = `/jobs/${canonicalJobId}?returnTo=${encodeURIComponent(feedReturnTo)}`;
+
+  if (application) {
+    return `
+      <article class="panel">
+        <h3>Application workflow</h3>
+        <p class="application-meta muted">
+          <span>Application <span class="mono">${escapeHtml(application.applicationId.slice(0, 8))}</span></span>
+          <span>Updated ${escapeHtml(formatDateTime(application.updatedAt))}</span>
+        </p>
+        <form method="POST" action="/actions/applications/update" class="grid" data-pending-label>
+          <input type="hidden" name="applicationId" value="${escapeHtml(application.applicationId)}" />
+          <input type="hidden" name="returnTo" value="${escapeHtml(jobReturnTo)}" />
+          <label>
+            Status
+            <select name="status">
+              ${renderApplicationStatusOptions(application.status, false)}
+            </select>
+          </label>
+          <label>
+            Application URL
+            <input name="applicationUrl" value="${escapeHtml(application.applicationUrl ?? '')}" placeholder="https://company.example/jobs/123" />
+          </label>
+          <label>
+            Resume ID used
+            <input name="resumeIdUsed" value="${escapeHtml(application.resumeIdUsed ?? '')}" placeholder="resume UUID (optional)" />
+          </label>
+          <label>
+            Cover letter URI
+            <input name="coverLetterDocUri" value="${escapeHtml(application.coverLetterDocUri ?? '')}" placeholder="storage://cover-letters/entry.md" />
+          </label>
+          <label>
+            Notes
+            <textarea name="notes" placeholder="Capture interview prep notes, referrals, and follow-up context.">${escapeHtml(
+              application.notes ?? '',
+            )}</textarea>
+          </label>
+          <div class="sticky-tools">
+            <button type="submit" data-pending-label="Updating application...">Save application updates</button>
+            <a class="link-button secondary" href="/applications/${escapeHtml(
+              application.applicationId,
+            )}?returnTo=${encodeURIComponent(jobReturnTo)}">Open application page</a>
+          </div>
+        </form>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="panel">
+      <h3>Application workflow</h3>
+      <p class="muted">Start a tracked application record before submitting externally.</p>
+      <form method="POST" action="/actions/applications/create" class="grid" data-pending-label>
+        <input type="hidden" name="canonicalJobId" value="${escapeHtml(canonicalJobId)}" />
+        <input type="hidden" name="returnTo" value="${escapeHtml(jobReturnTo)}" />
+        <label>
+          Initial status
+          <select name="status">
+            ${renderApplicationStatusOptions('ready_to_apply', false)}
+          </select>
+        </label>
+        <label>
+          Application URL
+          <input name="applicationUrl" placeholder="https://company.example/jobs/123" />
+        </label>
+        <label>
+          Notes
+          <textarea name="notes" placeholder="Add a short plan for resume tailoring and outreach."></textarea>
+        </label>
+        <button type="submit" data-pending-label="Creating application...">Create application record</button>
+      </form>
+    </article>
+  `;
+};
+
 const renderDetailPage = (
   profile: UserProfile,
   detail: FeedDetailResponse | null,
+  application: ApplicationRecord | null,
   returnTo: string,
   errorCode: string | null,
 ): string => {
@@ -1594,6 +2021,10 @@ const renderDetailPage = (
           </ul>
         </article>
       </section>
+      <section class="detail-layout">
+        ${renderJobApplicationPanel(detail.canonical.job.canonicalJobId, application, returnTo)}
+        ${renderMaterialGuidance(detail)}
+      </section>
     `
     : `<section class="panel"><h2>Job detail unavailable</h2><p class="muted">This job could not be loaded at the moment.</p></section>`;
 
@@ -1619,6 +2050,222 @@ const renderDetailPage = (
   return renderPage('Job Hunter | Job detail', body);
 };
 
+const renderApplicationListPage = (
+  profile: UserProfile,
+  applications: ApplicationRecord[],
+  feedJobMap: Map<string, FeedJobCard['job']>,
+  query: ApplicationQueryState,
+  noticeCode: string | null,
+  errorCode: string | null,
+  feedReturnTo: string,
+): string => {
+  const notice = noticeCode ? noticeMessages[noticeCode] ?? humanizeToken(noticeCode) : null;
+  const error = errorCode ? feedErrorMessages[errorCode] ?? humanizeToken(errorCode) : null;
+
+  const flash = [
+    notice ? renderFlash(notice, 'notice') : '',
+    error ? renderFlash(error, 'error') : '',
+  ].join('');
+
+  const applicationsPath = buildApplicationReturnPath(query);
+  const sortedApplications = [...applications].sort(compareApplications);
+
+  const cards =
+    sortedApplications.length > 0
+      ? sortedApplications
+          .map((application) => {
+            const job = feedJobMap.get(application.canonicalJobId);
+            const jobTitle = job?.canonicalTitle ?? application.canonicalJobId;
+            const company = job?.canonicalCompanyName ?? 'Canonical job';
+            const detailHref = `/applications/${application.applicationId}?returnTo=${encodeURIComponent(
+              applicationsPath,
+            )}`;
+            const jobHref = `/jobs/${application.canonicalJobId}?returnTo=${encodeURIComponent(
+              applicationsPath,
+            )}`;
+
+            return `
+              <article class="panel">
+                <header>
+                  <h3>${escapeHtml(jobTitle)}</h3>
+                  <p class="muted">${escapeHtml(company)}</p>
+                </header>
+                <p class="application-meta muted">
+                  <span>Status: <strong>${escapeHtml(humanizeToken(application.status))}</strong></span>
+                  <span>Updated ${escapeHtml(formatDateTime(application.updatedAt))}</span>
+                </p>
+                <div class="sticky-tools">
+                  <a class="link-button" href="${escapeHtml(detailHref)}">Open application</a>
+                  <a class="link-button secondary" href="${escapeHtml(jobHref)}">Open job detail</a>
+                </div>
+                <form method="POST" action="/actions/applications/update" class="inline-form" data-pending-label>
+                  <input type="hidden" name="applicationId" value="${escapeHtml(
+                    application.applicationId,
+                  )}" />
+                  <input type="hidden" name="returnTo" value="${escapeHtml(applicationsPath)}" />
+                  <div class="inline-row">
+                    <label>
+                      Status
+                      <select name="status">
+                        ${renderApplicationStatusOptions(application.status, false)}
+                      </select>
+                    </label>
+                    <button class="inline-action" type="submit" data-pending-label="Updating...">Update status</button>
+                  </div>
+                </form>
+              </article>
+            `;
+          })
+          .join('')
+      : `<section class="panel empty">
+          <h3>No tracked applications yet</h3>
+          <p class="muted">Create one from a feed card or from a job detail page.</p>
+        </section>`;
+
+  const body = `
+    <header class="masthead">
+      <div class="brand">
+        <h1>Application tracker</h1>
+        <p>User <span class="mono">${escapeHtml(profile.userId.slice(0, 8))}</span></p>
+      </div>
+      <div class="actions">
+        <a class="link-button" href="${escapeHtml(feedReturnTo)}">Back to feed</a>
+        <form method="POST" action="/signout" data-pending-label>
+          <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
+        </form>
+      </div>
+    </header>
+    <main>
+      ${flash}
+      <section class="panel">
+        <form method="GET" action="/applications" class="inline-form" data-pending-label>
+          <input type="hidden" name="returnTo" value="${escapeHtml(feedReturnTo)}" />
+          <label>
+            Status filter
+            <select name="status">
+              ${renderApplicationStatusOptions(query.status, true)}
+            </select>
+          </label>
+          <button type="submit" data-pending-label="Filtering...">Apply filter</button>
+        </form>
+      </section>
+      <section class="panel summary-strip">
+        <p>Showing <strong>${sortedApplications.length}</strong> tracked applications</p>
+        <p class="muted">Tip: use job detail pages for richer material guidance.</p>
+      </section>
+      <section class="application-cards">
+        ${cards}
+      </section>
+    </main>
+  `;
+
+  return renderPage('Job Hunter | Applications', body);
+};
+
+const renderApplicationDetailPage = (
+  profile: UserProfile,
+  application: ApplicationRecord | null,
+  feedJob: FeedJobCard['job'] | null,
+  feedDetail: FeedDetailResponse | null,
+  returnTo: string,
+  noticeCode: string | null,
+  errorCode: string | null,
+): string => {
+  const notice = noticeCode ? noticeMessages[noticeCode] ?? humanizeToken(noticeCode) : null;
+  const error = errorCode ? feedErrorMessages[errorCode] ?? humanizeToken(errorCode) : null;
+
+  const flash = [
+    notice ? renderFlash(notice, 'notice') : '',
+    error ? renderFlash(error, 'error') : '',
+  ].join('');
+
+  const detailBody = !application
+    ? '<section class="panel"><h2>Application not found</h2><p class="muted">This application record could not be loaded.</p></section>'
+    : `
+      <section class="panel">
+        <h2>${escapeHtml(feedJob?.canonicalTitle ?? application.canonicalJobId)}</h2>
+        <p class="muted">${escapeHtml(feedJob?.canonicalCompanyName ?? 'Canonical job')}</p>
+        <p class="application-meta muted">
+          <span>Application ID <span class="mono">${escapeHtml(application.applicationId)}</span></span>
+          <span>Created ${escapeHtml(formatDateTime(application.createdAt))} | Updated ${escapeHtml(
+            formatDateTime(application.updatedAt),
+          )}</span>
+        </p>
+        <div class="chip-row">
+          <span class="chip">${escapeHtml(humanizeToken(application.status))}</span>
+          <span class="chip warn">Applied at: ${escapeHtml(
+            application.appliedAt ? formatDateTime(application.appliedAt) : 'not set',
+          )}</span>
+        </div>
+      </section>
+      <section class="detail-layout">
+        <article class="panel">
+          <h3>Update application</h3>
+          <form method="POST" action="/actions/applications/update" class="grid" data-pending-label>
+            <input type="hidden" name="applicationId" value="${escapeHtml(application.applicationId)}" />
+            <input type="hidden" name="returnTo" value="${escapeHtml(
+              `/applications/${application.applicationId}?returnTo=${encodeURIComponent(returnTo)}`,
+            )}" />
+            <label>
+              Status
+              <select name="status">
+                ${renderApplicationStatusOptions(application.status, false)}
+              </select>
+            </label>
+            <label>
+              Application URL
+              <input name="applicationUrl" value="${escapeHtml(application.applicationUrl ?? '')}" placeholder="https://company.example/jobs/123" />
+            </label>
+            <label>
+              Resume ID used
+              <input name="resumeIdUsed" value="${escapeHtml(application.resumeIdUsed ?? '')}" placeholder="resume UUID (optional)" />
+            </label>
+            <label>
+              Cover letter URI
+              <input name="coverLetterDocUri" value="${escapeHtml(application.coverLetterDocUri ?? '')}" placeholder="storage://cover-letters/entry.md" />
+            </label>
+            <label>
+              Notes
+              <textarea name="notes" placeholder="Capture follow-up timeline and interview prep context.">${escapeHtml(
+                application.notes ?? '',
+              )}</textarea>
+            </label>
+            <button type="submit" data-pending-label="Saving updates...">Save updates</button>
+          </form>
+        </article>
+        ${feedDetail
+          ? renderMaterialGuidance(feedDetail)
+          : '<article class="panel"><h3>Material guidance</h3><p class="muted">No feed detail is available for this job yet. Use your target skills and role requirements to tailor resume bullets before applying.</p></article>'}
+      </section>
+    `;
+
+  const body = `
+    <header class="masthead">
+      <div class="brand">
+        <h1>Application detail</h1>
+        <p>User <span class="mono">${escapeHtml(profile.userId.slice(0, 8))}</span></p>
+      </div>
+      <div class="actions">
+        <a class="link-button" href="${escapeHtml(returnTo)}">Back</a>
+        ${application
+          ? `<a class="link-button secondary" href="/jobs/${escapeHtml(
+              application.canonicalJobId,
+            )}?returnTo=${encodeURIComponent(returnTo)}">Open job detail</a>`
+          : ''}
+        <form method="POST" action="/signout" data-pending-label>
+          <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
+        </form>
+      </div>
+    </header>
+    <main>
+      ${flash}
+      ${detailBody}
+    </main>
+  `;
+
+  return renderPage('Job Hunter | Application detail', body);
+};
+
 const parsePathJobId = (pathname: string): string | null => {
   const prefix = '/jobs/';
   if (!pathname.startsWith(prefix)) {
@@ -1631,6 +2278,41 @@ const parsePathJobId = (pathname: string): string | null => {
   }
 
   return pathValue;
+};
+
+const parsePathApplicationId = (pathname: string): string | null => {
+  const prefix = '/applications/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const pathValue = pathname.slice(prefix.length);
+  if (!pathValue || pathValue.includes('/')) {
+    return null;
+  }
+
+  return pathValue;
+};
+
+const readNullableFormField = (
+  form: URLSearchParams,
+  key: string,
+): string | null | undefined => {
+  if (!form.has(key)) {
+    return undefined;
+  }
+
+  const rawValue = form.get(key);
+  if (rawValue === null) {
+    return null;
+  }
+
+  const normalized = rawValue.toString().trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  return normalized;
 };
 
 const signInWithMode = async (
@@ -1808,6 +2490,368 @@ const handleRebuildRoute = async (
   redirect(res, withQueryParam(returnTo, 'notice', 'rebuild_complete'));
 };
 
+const handleApplicationsRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const requestUrl = new URL(req.url ?? '/applications', 'http://localhost');
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const requestedReturnTo = normalizeReturnPath(requestUrl.searchParams.get('returnTo') ?? '/');
+
+  if (!accessToken) {
+    const authRedirect = withQueryParam('/', 'auth_error', 'missing_access_token');
+    redirect(
+      res,
+      withQueryParam(authRedirect, 'returnTo', `${requestUrl.pathname}${requestUrl.search}`),
+    );
+    return;
+  }
+
+  const profileResult = await fetchProfile(apiBaseUrl, accessToken);
+  if (!profileResult.ok) {
+    redirect(res, withQueryParam('/', 'auth_error', profileResult.error.code), [
+      clearAccessTokenCookie(),
+    ]);
+    return;
+  }
+
+  const query = parseApplicationQuery(requestUrl);
+  const statusFilter = query.status === 'all' ? undefined : query.status;
+
+  const [applicationResult, feedResult] = await Promise.all([
+    fetchApplications(apiBaseUrl, accessToken, {
+      status: statusFilter,
+      limit: 250,
+    }),
+    requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
+  ]);
+
+  const feedJobMap = buildFeedJobMap(feedResult.ok ? feedResult.data.items : []);
+
+  const routeErrorCode = requestUrl.searchParams.get('error');
+  const computedErrorCode = !applicationResult.ok
+    ? applicationResult.error.code
+    : !feedResult.ok
+      ? feedResult.error.code
+      : routeErrorCode;
+
+  sendHtml(
+    res,
+    200,
+    renderApplicationListPage(
+      profileResult.data,
+      applicationResult.ok ? applicationResult.data : [],
+      feedJobMap,
+      query,
+      requestUrl.searchParams.get('notice'),
+      computedErrorCode,
+      requestedReturnTo,
+    ),
+  );
+};
+
+const handleApplicationDetailRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const requestUrl = new URL(req.url ?? '/applications', 'http://localhost');
+  const pathApplicationId = parsePathApplicationId(requestUrl.pathname);
+
+  if (!pathApplicationId) {
+    sendHtml(
+      res,
+      404,
+      renderPage('Not found', '<main><section class="panel"><h2>Not found</h2></section></main>'),
+    );
+    return;
+  }
+
+  const parsedApplicationId = applicationIdSchema.safeParse(pathApplicationId);
+  if (!parsedApplicationId.success) {
+    sendHtml(
+      res,
+      400,
+      renderPage(
+        'Invalid application id',
+        '<main><section class="panel"><h2>Invalid application id</h2></section></main>',
+      ),
+    );
+    return;
+  }
+
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const returnTo = normalizeReturnPath(requestUrl.searchParams.get('returnTo') ?? '/applications');
+
+  if (!accessToken) {
+    const authRedirect = withQueryParam('/', 'auth_error', 'missing_access_token');
+    redirect(
+      res,
+      withQueryParam(authRedirect, 'returnTo', `${requestUrl.pathname}${requestUrl.search}`),
+    );
+    return;
+  }
+
+  const profileResult = await fetchProfile(apiBaseUrl, accessToken);
+  if (!profileResult.ok) {
+    redirect(res, withQueryParam('/', 'auth_error', profileResult.error.code), [
+      clearAccessTokenCookie(),
+    ]);
+    return;
+  }
+
+  const applicationResult = await fetchApplication(
+    apiBaseUrl,
+    accessToken,
+    parsedApplicationId.data,
+  );
+
+  if (!applicationResult.ok) {
+    sendHtml(
+      res,
+      applicationResult.error.code === 'application_not_found' ? 404 : 200,
+      renderApplicationDetailPage(
+        profileResult.data,
+        null,
+        null,
+        null,
+        returnTo,
+        requestUrl.searchParams.get('notice'),
+        applicationResult.error.code,
+      ),
+    );
+    return;
+  }
+
+  const [feedResult, feedDetailResult] = await Promise.all([
+    requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
+    requestApi(
+      apiBaseUrl,
+      `/v1/feed/${applicationResult.data.canonicalJobId}`,
+      {
+        method: 'GET',
+      },
+      feedDetailResponseSchema,
+      accessToken,
+    ),
+  ]);
+
+  const feedItem = feedResult.ok
+    ? feedResult.data.items.find(
+        (item) => item.job.canonicalJobId === applicationResult.data.canonicalJobId,
+      )
+    : null;
+
+  const routeErrorCode = requestUrl.searchParams.get('error');
+  const computedErrorCode = routeErrorCode
+    ? routeErrorCode
+    : !feedResult.ok
+      ? feedResult.error.code
+      : !feedDetailResult.ok &&
+          feedDetailResult.error.code !== 'canonical_job_not_found'
+        ? feedDetailResult.error.code
+        : null;
+
+  sendHtml(
+    res,
+    200,
+    renderApplicationDetailPage(
+      profileResult.data,
+      applicationResult.data,
+      feedItem?.job ?? null,
+      feedDetailResult.ok ? feedDetailResult.data : null,
+      returnTo,
+      requestUrl.searchParams.get('notice'),
+      computedErrorCode,
+    ),
+  );
+};
+
+const handleApplicationCreateRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const form = await readFormBody(req);
+  const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/');
+
+  if (!accessToken) {
+    redirect(res, withQueryParam('/', 'auth_error', 'missing_access_token'));
+    return;
+  }
+
+  const canonicalJobIdInput = (form.get('canonicalJobId') ?? '').toString().trim();
+  const parsedCanonicalJobId = canonicalJobIdSchema.safeParse(canonicalJobIdInput);
+
+  if (!parsedCanonicalJobId.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_canonical_job_id'));
+    return;
+  }
+
+  const rawStatus = (form.get('status') ?? 'ready_to_apply').toString().trim();
+  const parsedStatus = applicationStatusSchema.safeParse(rawStatus);
+
+  if (!parsedStatus.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_application_status_filter'));
+    return;
+  }
+
+  const payload: Record<string, unknown> = {
+    canonicalJobId: parsedCanonicalJobId.data,
+    status: parsedStatus.data,
+  };
+
+  const optionalFields = [
+    ['applicationUrl', readNullableFormField(form, 'applicationUrl')],
+    ['resumeIdUsed', readNullableFormField(form, 'resumeIdUsed')],
+    ['coverLetterDocUri', readNullableFormField(form, 'coverLetterDocUri')],
+    ['notes', readNullableFormField(form, 'notes')],
+  ] as const;
+
+  for (const [field, value] of optionalFields) {
+    if (value !== undefined) {
+      payload[field] = value;
+    }
+  }
+
+  const createResult = await requestApi(
+    apiBaseUrl,
+    '/v1/applications',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+    applicationResponseSchema,
+    accessToken,
+  );
+
+  if (!createResult.ok) {
+    if (createResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    if (createResult.error.code === 'application_already_exists_for_job') {
+      const existingResult = await fetchApplications(apiBaseUrl, accessToken, {
+        canonicalJobId: parsedCanonicalJobId.data,
+        limit: 1,
+      });
+
+      if (existingResult.ok && existingResult.data.length > 0) {
+        let existingLocation = `/applications/${existingResult.data[0].applicationId}`;
+        existingLocation = withQueryParam(existingLocation, 'returnTo', returnTo);
+        existingLocation = withQueryParam(existingLocation, 'notice', 'application_exists');
+        redirect(res, existingLocation);
+        return;
+      }
+
+      redirect(res, withQueryParam(returnTo, 'notice', 'application_exists'));
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', createResult.error.code));
+    return;
+  }
+
+  let location = `/applications/${createResult.data.application.applicationId}`;
+  location = withQueryParam(location, 'returnTo', returnTo);
+  location = withQueryParam(location, 'notice', 'application_created');
+  redirect(res, location);
+};
+
+const handleApplicationUpdateRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const form = await readFormBody(req);
+  const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/applications');
+
+  if (!accessToken) {
+    redirect(res, withQueryParam('/', 'auth_error', 'missing_access_token'));
+    return;
+  }
+
+  const applicationIdInput = (form.get('applicationId') ?? '').toString().trim();
+  const parsedApplicationId = applicationIdSchema.safeParse(applicationIdInput);
+
+  if (!parsedApplicationId.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_application_id'));
+    return;
+  }
+
+  const payload: Record<string, unknown> = {};
+  const statusInput = (form.get('status') ?? '').toString().trim();
+
+  if (statusInput.length > 0) {
+    const parsedStatus = applicationStatusSchema.safeParse(statusInput);
+    if (!parsedStatus.success) {
+      redirect(res, withQueryParam(returnTo, 'error', 'invalid_application_status_filter'));
+      return;
+    }
+
+    payload.status = parsedStatus.data;
+  }
+
+  const optionalFields = [
+    ['applicationUrl', readNullableFormField(form, 'applicationUrl')],
+    ['resumeIdUsed', readNullableFormField(form, 'resumeIdUsed')],
+    ['coverLetterDocUri', readNullableFormField(form, 'coverLetterDocUri')],
+    ['notes', readNullableFormField(form, 'notes')],
+  ] as const;
+
+  for (const [field, value] of optionalFields) {
+    if (value !== undefined) {
+      payload[field] = value;
+    }
+  }
+
+  if (Object.keys(payload).length === 0) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_request_body'));
+    return;
+  }
+
+  const updateResult = await requestApi(
+    apiBaseUrl,
+    `/v1/applications/${parsedApplicationId.data}`,
+    {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+    applicationResponseSchema,
+    accessToken,
+  );
+
+  if (!updateResult.ok) {
+    if (updateResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', updateResult.error.code));
+    return;
+  }
+
+  redirect(res, withQueryParam(returnTo, 'notice', 'application_updated'));
+};
+
 const handleFeedRoute = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -1828,10 +2872,11 @@ const handleFeedRoute = async (
     return;
   }
 
-  const [profileResult, preferencesResult, feedResult] = await Promise.all([
+  const [profileResult, preferencesResult, feedResult, applicationsResult] = await Promise.all([
     fetchProfile(apiBaseUrl, accessToken),
     fetchPreferences(apiBaseUrl, accessToken),
     requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
+    fetchApplications(apiBaseUrl, accessToken, { limit: 250 }),
   ]);
 
   if (!profileResult.ok) {
@@ -1859,11 +2904,16 @@ const handleFeedRoute = async (
 
   const allItems = feedResult.ok ? feedResult.data.items : [];
   const filteredItems = applyFeedFilters(allItems, query, preferences);
+  const applicationsByCanonicalJobId = mapApplicationsByCanonicalJobId(
+    applicationsResult.ok ? applicationsResult.data : [],
+  );
 
   const noticeCode = requestUrl.searchParams.get('notice');
   const routeErrorCode = requestUrl.searchParams.get('error');
   const computedErrorCode = !feedResult.ok
     ? feedResult.error.code
+    : !applicationsResult.ok
+      ? applicationsResult.error.code
     : !preferencesResult.ok
       ? preferencesResult.error.code
       : routeErrorCode;
@@ -1876,6 +2926,7 @@ const handleFeedRoute = async (
       preferences,
       allItems,
       filteredItems,
+      applicationsByCanonicalJobId,
       query,
       noticeCode,
       computedErrorCode,
@@ -1930,29 +2981,51 @@ const handleJobDetailRoute = async (
     return;
   }
 
-  const detailResult = await requestApi(
-    apiBaseUrl,
-    `/v1/feed/${parsedJobId.data}`,
-    {
-      method: 'GET',
-    },
-    feedDetailResponseSchema,
-    accessToken,
-  );
+  const [detailResult, applicationResult] = await Promise.all([
+    requestApi(
+      apiBaseUrl,
+      `/v1/feed/${parsedJobId.data}`,
+      {
+        method: 'GET',
+      },
+      feedDetailResponseSchema,
+      accessToken,
+    ),
+    fetchApplications(apiBaseUrl, accessToken, {
+      canonicalJobId: parsedJobId.data,
+      limit: 1,
+    }),
+  ]);
 
   if (!detailResult.ok) {
     sendHtml(
       res,
       detailResult.error.status === 404 ? 404 : 200,
-      renderDetailPage(profileResult.data, null, returnTo, detailResult.error.code),
+      renderDetailPage(profileResult.data, null, null, returnTo, detailResult.error.code),
     );
     return;
   }
 
+  const application = applicationResult.ok
+    ? findApplicationForCanonicalJob(applicationResult.data, parsedJobId.data)
+    : null;
+  const routeErrorCode = requestUrl.searchParams.get('error');
+  const computedErrorCode = routeErrorCode
+    ? routeErrorCode
+    : !applicationResult.ok
+      ? applicationResult.error.code
+      : null;
+
   sendHtml(
     res,
     200,
-    renderDetailPage(profileResult.data, detailResult.data, returnTo, null),
+    renderDetailPage(
+      profileResult.data,
+      detailResult.data,
+      application,
+      returnTo,
+      computedErrorCode,
+    ),
   );
 };
 
@@ -1972,6 +3045,16 @@ const handleRequest = async (
 
   if (method === 'GET' && pathname === '/') {
     await handleFeedRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/applications') {
+    await handleApplicationsRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'GET' && pathname.startsWith('/applications/')) {
+    await handleApplicationDetailRoute(req, res, apiBaseUrl);
     return;
   }
 
@@ -1997,6 +3080,16 @@ const handleRequest = async (
 
   if (method === 'POST' && pathname === '/actions/rebuild') {
     await handleRebuildRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/actions/applications/create') {
+    await handleApplicationCreateRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/actions/applications/update') {
+    await handleApplicationUpdateRoute(req, res, apiBaseUrl);
     return;
   }
 

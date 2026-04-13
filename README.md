@@ -22,7 +22,7 @@ This repository is a TypeScript monorepo with Steps 2 through 8 complete and Ste
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
-  web/      # Server-rendered feed/detail UI with auth, filters, and sync/rebuild controls
+  web/      # Server-rendered feed/detail + application tracker UI with auth, filters, sync/rebuild controls, and material guidance checklists
   worker/   # Background worker entrypoint stub
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
@@ -91,6 +91,7 @@ docs/
 - Tracker/reminder unit and integration tests for transition history, reminder lifecycle, and tracker-linked reminder side effects
 - Notification unit and integration tests for reminder-due dispatch and notification log listing
 - Application unit and integration tests for create/list/detail/update workflows and validation paths
+- Web integration tests for sign-in/feed/detail plus application create/list/detail/update workflows
 
 ## Suggested local commands
 

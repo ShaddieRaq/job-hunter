@@ -37,12 +37,12 @@ Owner: team
    - Evidence: tracker contracts (`packages/shared/src/contracts/tracker/v1.ts`), reminder contracts (`packages/shared/src/contracts/reminders/v1.ts`), notification contracts (`packages/shared/src/contracts/notifications/v1.ts`), API modules for tracker/reminder/notification workflows (`apps/api/src/modules/tracker`, `apps/api/src/modules/reminders`, `apps/api/src/modules/notifications`), authenticated routes (`/v1/tracker/jobs*`, `/v1/reminders*`, `/v1/notifications*`), tracker observer-driven auto-reminders for `applied`/`interview`, and migrations `0007_tracker_state_history.sql` + `0008_reminder_tasks.sql` + `0009_notification_logs.sql` with unit/integration coverage (`5169288`, `2a82afa`, `f99eb47`).
    - Remaining: none.
 9. 🟨 Resume/application support
-   - Evidence: shared application contracts (`packages/shared/src/contracts/applications/v1.ts`), API application module (`apps/api/src/modules/applications`) with authenticated create/list/detail/update routes (`/v1/applications*`), migration `0010_application_records.sql`, canonical/resume validation in domain service, and unit/integration coverage (`7dbdfae`).
-   - Remaining: resume tailoring suggestions, application checklist/material guidance flows, and application support UI integration.
+   - Evidence: shared application contracts (`packages/shared/src/contracts/applications/v1.ts`), API application module (`apps/api/src/modules/applications`) with authenticated create/list/detail/update routes (`/v1/applications*`), migration `0010_application_records.sql`, canonical/resume validation in domain service, API unit/integration coverage (`7dbdfae`), and web application workflow surfaces in `apps/web/src/index.ts` (feed create/update actions, `/applications` list/detail views, and material guidance checklists) with web integration coverage.
+   - Remaining: deeper resume tailoring suggestion generation (beyond checklist guidance) and richer material assistant workflows.
 
 ## Current focus
 - Active step: 9 (resume/application support)
-- Next PR target: add resume/application support UI surfaces and application-material guidance flows
+- Next PR target: add deeper resume-tailoring suggestion generation and structured material assistant flows
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## Recent evidence
@@ -58,6 +58,7 @@ Owner: team
 - 2026-04-12: Step 8 second slice landed with reminder task contracts/routes (`GET/POST /v1/reminders`, `GET /v1/reminders/:reminderId`, `PUT /v1/reminders/:reminderId/complete`), tracker transition observer hooks for auto-reminder creation on `applied` and `interview`, migration `0008_reminder_tasks.sql`, and reminder unit/integration coverage (`2a82afa`).
 - 2026-04-12: Step 8 final slice landed with notification log contracts/routes (`GET /v1/notifications`, `POST /v1/notifications/reminders/dispatch`), due-reminder dispatch workflow scaffolding, migration `0009_notification_logs.sql`, and notification unit/integration coverage (`f99eb47`).
 - 2026-04-12: Step 9 first slice landed with application contracts/routes (`GET/POST /v1/applications`, `GET/PUT /v1/applications/:applicationId`), canonical/resume validation, migration `0010_application_records.sql`, and application unit/integration coverage (`7dbdfae`).
+- 2026-04-12: Step 9 second slice landed with web application workflow support (feed card track/update actions, `/applications` list/detail pages, job/application material guidance checklists) and web integration coverage for create/list/detail/update flows.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

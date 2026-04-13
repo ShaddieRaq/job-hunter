@@ -170,6 +170,46 @@ const feedDetailResponse = {
   ],
 };
 
+const applicationStatuses = new Set([
+  'ready_to_apply',
+  'applied',
+  'interview',
+  'offer',
+  'rejected',
+  'archived',
+]);
+
+const parseApplicationPath = (pathname: string): string | null => {
+  const prefix = '/v1/applications/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const value = pathname.slice(prefix.length);
+  if (!value || value.includes('/')) {
+    return null;
+  }
+
+  return value;
+};
+
+const normalizeNullableText = (value: unknown): string | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 const readRequestBody = async (req: IncomingMessage): Promise<string> => {
   let body = '';
 
@@ -201,8 +241,33 @@ const sendJson = (
 const requireAuth = (req: IncomingMessage): boolean =>
   req.headers.authorization === `Bearer ${tokenValue}`;
 
-const createApiStubServer = (): Server =>
-  createServer(async (req, res) => {
+const createApiStubServer = (): Server => {
+  const applications = new Map<
+    string,
+    {
+      applicationId: string;
+      userId: string;
+      canonicalJobId: string;
+      status: string;
+      appliedAt: string | null;
+      applicationUrl: string | null;
+      resumeIdUsed: string | null;
+      coverLetterDocUri: string | null;
+      notes: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+  >();
+
+  let applicationCounter = 1;
+
+  const nextApplicationId = (): string => {
+    const suffix = applicationCounter.toString(16).padStart(12, '0');
+    applicationCounter += 1;
+    return `11111111-1111-4111-8111-${suffix}`;
+  };
+
+  return createServer(async (req, res) => {
     const method = req.method ?? 'GET';
     const requestUrl = new URL(req.url ?? '/', 'http://localhost');
     const pathname = requestUrl.pathname;
@@ -284,6 +349,186 @@ const createApiStubServer = (): Server =>
       return;
     }
 
+    if (method === 'GET' && pathname === '/v1/applications') {
+      const statusFilter = requestUrl.searchParams.get('status');
+      const canonicalJobIdFilter = requestUrl.searchParams.get('canonicalJobId');
+      const limitRaw = requestUrl.searchParams.get('limit');
+
+      const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 50;
+      const effectiveLimit = Number.isNaN(limit) ? 50 : limit;
+
+      const records = [...applications.values()]
+        .filter((record) => {
+          if (statusFilter && record.status !== statusFilter) {
+            return false;
+          }
+
+          if (canonicalJobIdFilter && record.canonicalJobId !== canonicalJobIdFilter) {
+            return false;
+          }
+
+          return true;
+        })
+        .slice(0, effectiveLimit);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        applications: records,
+      });
+      return;
+    }
+
+    if (method === 'POST' && pathname === '/v1/applications') {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body) as {
+        canonicalJobId?: string;
+        status?: string;
+        applicationUrl?: string | null;
+        resumeIdUsed?: string | null;
+        coverLetterDocUri?: string | null;
+        notes?: string | null;
+      };
+
+      const canonicalJobId = parsed.canonicalJobId;
+      if (!canonicalJobId) {
+        sendJson(res, 400, { error: 'invalid_request_body' });
+        return;
+      }
+
+      if (canonicalJobId !== visibleCanonicalJobId && canonicalJobId !== hiddenCanonicalJobId) {
+        sendJson(res, 404, { error: 'canonical_job_not_found' });
+        return;
+      }
+
+      const existing = [...applications.values()].find(
+        (record) => record.canonicalJobId === canonicalJobId,
+      );
+
+      if (existing) {
+        sendJson(res, 409, { error: 'application_already_exists_for_job' });
+        return;
+      }
+
+      const status = parsed.status ?? 'ready_to_apply';
+      if (!applicationStatuses.has(status)) {
+        sendJson(res, 400, { error: 'invalid_application_status_filter' });
+        return;
+      }
+
+      const nowIso = '2026-04-12T12:30:00.000Z';
+      const application = {
+        applicationId: nextApplicationId(),
+        userId,
+        canonicalJobId,
+        status,
+        appliedAt: status === 'ready_to_apply' ? null : nowIso,
+        applicationUrl: normalizeNullableText(parsed.applicationUrl) ?? null,
+        resumeIdUsed: normalizeNullableText(parsed.resumeIdUsed) ?? null,
+        coverLetterDocUri: normalizeNullableText(parsed.coverLetterDocUri) ?? null,
+        notes: normalizeNullableText(parsed.notes) ?? null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      applications.set(application.applicationId, application);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        application,
+      });
+      return;
+    }
+
+    if (method === 'GET') {
+      const applicationId = parseApplicationPath(pathname);
+      if (applicationId) {
+        const record = applications.get(applicationId);
+        if (!record) {
+          sendJson(res, 404, { error: 'application_not_found' });
+          return;
+        }
+
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          application: record,
+        });
+        return;
+      }
+    }
+
+    if (method === 'PUT') {
+      const applicationId = parseApplicationPath(pathname);
+      if (applicationId) {
+        const existing = applications.get(applicationId);
+        if (!existing) {
+          sendJson(res, 404, { error: 'application_not_found' });
+          return;
+        }
+
+        const body = await readRequestBody(req);
+        const parsed = JSON.parse(body) as {
+          status?: string;
+          applicationUrl?: string | null;
+          resumeIdUsed?: string | null;
+          coverLetterDocUri?: string | null;
+          notes?: string | null;
+        };
+
+        if (
+          parsed.status === undefined &&
+          parsed.applicationUrl === undefined &&
+          parsed.resumeIdUsed === undefined &&
+          parsed.coverLetterDocUri === undefined &&
+          parsed.notes === undefined
+        ) {
+          sendJson(res, 400, { error: 'invalid_request_body' });
+          return;
+        }
+
+        if (parsed.status !== undefined && !applicationStatuses.has(parsed.status)) {
+          sendJson(res, 400, { error: 'invalid_application_status_filter' });
+          return;
+        }
+
+        const nowIso = '2026-04-12T12:45:00.000Z';
+        const nextStatus = parsed.status ?? existing.status;
+
+        const updated = {
+          ...existing,
+          status: nextStatus,
+          appliedAt:
+            nextStatus === 'ready_to_apply'
+              ? existing.appliedAt
+              : existing.appliedAt ?? nowIso,
+          applicationUrl:
+            parsed.applicationUrl === undefined
+              ? existing.applicationUrl
+              : (normalizeNullableText(parsed.applicationUrl) ?? null),
+          resumeIdUsed:
+            parsed.resumeIdUsed === undefined
+              ? existing.resumeIdUsed
+              : (normalizeNullableText(parsed.resumeIdUsed) ?? null),
+          coverLetterDocUri:
+            parsed.coverLetterDocUri === undefined
+              ? existing.coverLetterDocUri
+              : (normalizeNullableText(parsed.coverLetterDocUri) ?? null),
+          notes:
+            parsed.notes === undefined
+              ? existing.notes
+              : (normalizeNullableText(parsed.notes) ?? null),
+          updatedAt: nowIso,
+        };
+
+        applications.set(applicationId, updated);
+
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          application: updated,
+        });
+        return;
+      }
+    }
+
     if (method === 'GET' && pathname === `/v1/feed/${visibleCanonicalJobId}`) {
       sendJson(res, 200, feedDetailResponse);
       return;
@@ -326,6 +571,7 @@ const createApiStubServer = (): Server =>
 
     sendJson(res, 404, { error: 'not_found' });
   });
+  };
 
 const startServer = async (
   server: Server,
@@ -474,6 +720,86 @@ test('job detail renders score and dedupe context; sync and rebuild actions redi
 
     assert.equal(rebuildResponse.status, 303);
     assert.equal(rebuildResponse.headers.get('location'), '/?notice=rebuild_complete');
+  } finally {
+    await web.close();
+    await api.close();
+  }
+});
+
+test('application workflow routes create, list, detail, and update through web actions', async () => {
+  const api = await startServer(createApiStubServer());
+  const web = await startServer(createWebServer({ apiBaseUrl: api.baseUrl }));
+
+  try {
+    const cookie = await signInAndGetCookie(web.baseUrl);
+
+    const createResponse = await fetch(`${web.baseUrl}/actions/applications/create`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: `canonicalJobId=${encodeURIComponent(visibleCanonicalJobId)}&status=ready_to_apply&returnTo=%2F`,
+      redirect: 'manual',
+    });
+
+    assert.equal(createResponse.status, 303);
+    const createLocation = createResponse.headers.get('location');
+    assert.ok(createLocation);
+    assert.match(createLocation, /^\/applications\/[0-9a-f-]{36}\?returnTo=%2F&notice=application_created$/);
+
+    const applicationIdMatch = createLocation.match(/^\/applications\/([0-9a-f-]{36})\?/);
+    assert.ok(applicationIdMatch);
+    const applicationId = applicationIdMatch[1];
+
+    const listResponse = await fetch(`${web.baseUrl}/applications?returnTo=%2F`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    assert.equal(listResponse.status, 200);
+    const listHtml = await listResponse.text();
+    assert.match(listHtml, /Application tracker/);
+    assert.match(listHtml, /Senior Platform Engineer/);
+    assert.match(listHtml, /Ready To Apply/);
+
+    const detailResponse = await fetch(`${web.baseUrl}${createLocation}`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    assert.equal(detailResponse.status, 200);
+    const detailHtml = await detailResponse.text();
+    assert.match(detailHtml, /Application detail/);
+    assert.match(detailHtml, /Material guidance/);
+
+    const updateResponse = await fetch(`${web.baseUrl}/actions/applications/update`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: `applicationId=${encodeURIComponent(applicationId)}&status=interview&notes=${encodeURIComponent(
+        'Panel loop scheduled',
+      )}&returnTo=%2Fapplications`,
+      redirect: 'manual',
+    });
+
+    assert.equal(updateResponse.status, 303);
+    assert.equal(updateResponse.headers.get('location'), '/applications?notice=application_updated');
+
+    const filteredResponse = await fetch(`${web.baseUrl}/applications?status=interview`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    assert.equal(filteredResponse.status, 200);
+    const filteredHtml = await filteredResponse.text();
+    assert.match(filteredHtml, /Interview/);
+    assert.match(filteredHtml, /Senior Platform Engineer/);
   } finally {
     await web.close();
     await api.close();
