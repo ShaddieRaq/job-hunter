@@ -17,7 +17,8 @@ The product is designed to help a user:
 
 ## Current repository status
 
-This repository is a TypeScript monorepo with Steps 2 through 9 complete:
+This repository is a TypeScript monorepo with Steps 2 through 9 complete,
+plus MVP remediation slices 1 and 2 delivered (scheduled ingestion + explicit discovery actions):
 
 ```text
 apps/

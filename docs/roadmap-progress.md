@@ -47,7 +47,7 @@ Owner: team
 
 ## MVP validation remediation checklist
 - Goal: move the gate from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
-- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 2).
+- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 2 in `c821fd7`).
 
 1. ✅ P0 - scheduled import jobs (`High` risk)
    - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff and health reporting.
@@ -98,7 +98,7 @@ Owner: team
 - 2026-04-13: Post-MVP stabilization hardening landed with web auth submit-mode fallback protection, connector sync response contract caps for large error batches, canonical rebuild payload-limit alignment in web actions, Greenhouse null-metadata compatibility handling, and expanded unit/integration/manual QA coverage.
 - 2026-04-13: External strict MVP validation audit merged (`643c2d1`) and identified five prioritized remediation gaps before final MVP gate sign-off.
 - 2026-04-13: MVP remediation slice 1 landed in commit `0c4f22f` with worker-based scheduled sync/rebuild orchestration, retry/backoff handling, worker job-health/status endpoints, and worker unit coverage for healthy/degraded cycle behavior.
-- 2026-04-13: MVP remediation slice 2 landed with explicit discovery save/shortlist/hide actions across shared contracts, API semantics, web feed/detail controls, and API/web test coverage.
+- 2026-04-13: MVP remediation slice 2 landed in commit `c821fd7` with explicit discovery save/shortlist/hide actions across shared contracts, API semantics, web feed/detail controls, and API/web test coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

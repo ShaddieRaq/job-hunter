@@ -3,7 +3,7 @@
 _Date:_ 2026-04-13  
 _Auditor mode:_ strict (docs treated as claims; code+tests/runtime required)
 
-_Revision:_ updated after MVP remediation slice 2 (scheduled ingestion + explicit discovery actions delivery evidence).
+_Revision:_ updated after MVP remediation slice 2 (`c821fd7`) (scheduled ingestion + explicit discovery actions delivery evidence).
 
 ## Executive Verdict
 
