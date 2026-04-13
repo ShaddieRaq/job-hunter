@@ -114,6 +114,7 @@ corepack pnpm -r typecheck
 - `docs/domain-model.md` - core data model and business rules
 - `docs/testing.md` - testing strategy and quality gates
 - `docs/roadmap-progress.md` - current roadmap status and next step tracker
+- `docs/mvp-validation-audit-2026-04-13.md` - strict MVP promise-versus-delivery audit and remediation priorities
 - `docs/ai-implementation-plan.md` - Phase A AI implementation checklist and contracts
 - `.github/copilot-instructions.md` - repo-wide Copilot guidance
 - `.github/instructions/*.instructions.md` - scoped instructions by area

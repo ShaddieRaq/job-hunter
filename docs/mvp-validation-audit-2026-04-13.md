@@ -3,9 +3,11 @@
 _Date:_ 2026-04-13  
 _Auditor mode:_ strict (docs treated as claims; code+tests/runtime required)
 
+_Revision:_ updated after MVP remediation slice 1 (`0c4f22f`) for scheduled ingestion delivery evidence.
+
 ## Executive Verdict
 
-The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferences, resume ingestion, connector ingestion, canonicalization/dedupe, explainable scoring artifacts, tracker/reminders/notifications, and application workflows), but it does **not** fully satisfy every documented MVP promise. Several commitments in `docs/mvp-scope.md` and `docs/architecture.md` remain missing or weakly evidenced (notably scheduled imports, saved searches, explicit hide/save/shortlist feed actions, and high-fit alerts/digests UX). **Overall confidence: 83%.**
+The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferences, resume ingestion, connector ingestion, canonicalization/dedupe, explainable scoring artifacts, tracker/reminders/notifications, scheduled ingestion orchestration, and application workflows), but it does **not** fully satisfy every documented MVP promise. Remaining commitments in `docs/mvp-scope.md` and `docs/architecture.md` are still missing or weakly evidenced (notably saved searches, explicit hide/save/shortlist feed actions, high-fit alerts/digests UX, and sensitive-data minimization proof). **Overall confidence: 87%.**
 
 ## Promise Coverage Table
 
@@ -15,7 +17,7 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 | 2 | User account + profile/preferences supported | `docs/mvp-scope.md` | Auth/profile/preferences routes and services exist. `apps/api/src/modules/auth-profile/routes.ts`, `apps/api/src/modules/auth-profile/service.ts`, `packages/shared/src/contracts/profile/v1.ts`, `packages/shared/src/contracts/preferences/v1.ts` | Integration + unit validation coverage present. `apps/api/test/integration/auth-profile.routes.test.ts`, `apps/api/test/unit/auth-profile.service.test.ts` | Delivered | Low |
 | 3 | Resume upload + structured extraction pipeline | `docs/mvp-scope.md` | Resume upload stores object URI + parses text + structured profile persistence. `apps/api/src/modules/resume/service.ts`, `apps/api/src/modules/resume/object-storage.ts`, `apps/api/migrations/0002_resume_pipeline.sql` | Resume unit + integration tests pass, including unsupported format handling. `apps/api/test/unit/resume.service.test.ts`, `apps/api/test/integration/resume.routes.test.ts` | Delivered | Low |
 | 4 | Official/public source connectors and ingestion | `docs/mvp-scope.md`; `docs/architecture.md` | Greenhouse public board connector + connector framework and health status implemented. `apps/api/src/modules/connectors/greenhouse-public-board-connector.ts`, `apps/api/src/modules/connectors/service.ts`, `apps/api/migrations/0004_connector_framework.sql` | Fixture-driven connector tests + integration route tests. `apps/api/test/unit/connectors.greenhouse-public-board.test.ts`, `apps/api/test/integration/connectors.routes.test.ts` | Delivered | Medium |
-| 5 | Scheduled import jobs | `docs/mvp-scope.md` | Worker is only a stub entrypoint; no scheduler/job orchestration implemented. `apps/worker/src/index.ts` | No scheduler tests found; no runtime scheduler command exists. | Not Delivered | High |
+| 5 | Scheduled import jobs | `docs/mvp-scope.md` | Worker scheduler now orchestrates connector sync + canonical rebuild with retry/backoff and health/status tracking. `apps/worker/src/index.ts`, `apps/worker/src/ingestion/client.ts`, `apps/worker/src/ingestion/scheduler.ts` | Worker unit coverage for healthy/degraded cycles and retry semantics plus runtime smoke checks for worker health/status/run endpoints. `apps/worker/test/unit/ingestion.scheduler.test.ts` | Delivered | High |
 | 6 | Raw source payload storage and normalized intermediate fields | `docs/mvp-scope.md`; `docs/domain-model.md`; domain rules in AGENTS | Source candidate includes `rawPayload`; repository + migration persist `raw_payload_json` with normalized fields. `apps/api/src/modules/connectors/types.ts`, `apps/api/src/modules/connectors/repository.ts`, `apps/api/migrations/0004_connector_framework.sql` | Connector parsing/idempotency tests exercise candidate normalization and persistence pathways. `apps/api/test/unit/connectors.service.test.ts` | Delivered | Medium |
 | 7 | Canonicalization + dedupe across sources | `docs/mvp-scope.md`; `docs/architecture.md` | Deterministic canonical clustering and source mappings with confidence/reason codes. `apps/api/src/modules/canonical-jobs/service.ts`, `apps/api/migrations/0005_canonical_jobs_dedupe_v1.sql` | Canonical service and integration tests for dedupe/idempotency. `apps/api/test/unit/canonical-jobs.service.test.ts`, `apps/api/test/integration/canonical-jobs.routes.test.ts` | Delivered | High |
 | 8 | Dedupe traceability and reversibility | `docs/domain-model.md` + AGENTS domain rules | Dedupe event model includes reversible flag and explicit link/unlink events. `apps/api/migrations/0006_canonical_dedupe_trace_events.sql`, `packages/shared/src/contracts/jobs/v1.ts`, `apps/api/src/modules/canonical-jobs/routes.ts` | Unit tests assert unlinked/link event history behavior. `apps/api/test/unit/canonical-jobs.service.test.ts` | Delivered | High |
@@ -30,11 +32,11 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 | 17 | Sensitive data handling (resumes/preferences/notes) and minimization | AGENTS, `.github/copilot-instructions.md`, `docs/domain-model.md` | Positive: resumes stored via object storage URI abstraction, not inline API response file blobs. `apps/api/src/modules/resume/service.ts`, `apps/api/src/modules/resume/object-storage.ts`.<br>Gap: no explicit data-minimization or redaction layer for outbound AI requests/logging policy enforcement visible in code. `apps/api/src/modules/ai/service.ts` | No explicit tests asserting sensitive-field redaction/minimization behavior. | Unproven | High |
 | 18 | Modular monolith boundaries (domain logic in services, not UI/controllers) | `docs/architecture.md`; AGENTS; `.github/copilot-instructions.md` | Route modules mostly delegate to services; domain rules live in service modules (tracker transitions, canonical dedupe, scoring). `apps/api/src/server.ts`, `apps/api/src/modules/*/routes.ts`, `apps/api/src/modules/*/service.ts` | Broad integration/unit suites validate service-driven behavior. | Delivered | Medium |
 | 19 | Required statuses include discovered → archived lifecycle | AGENTS domain rules; `docs/mvp-scope.md` | Tracker contract and transition logic include discovered/shortlisted/reviewing/ready_to_apply/applied/interview/offer/rejected/archived. `packages/shared/src/contracts/tracker/v1.ts`, `apps/api/src/modules/tracker/service.ts` | Tracker unit/integration tests cover transition validity and history. `apps/api/test/unit/tracker.service.test.ts`, `apps/api/test/integration/tracker.routes.test.ts` | Delivered | High |
-| 20 | Testing expectations: meaningful behavior covered by unit+integration and runnable checks | `docs/testing.md` | Strong API/web test inventory exists in repo. `apps/api/test/**`, `apps/web/test/**` | Runtime audit execution: `pnpm -r typecheck`, API tests, web tests all passed. | Delivered | Medium |
+| 20 | Testing expectations: meaningful behavior covered by unit+integration and runnable checks | `docs/testing.md` | Strong API/web/worker test inventory exists in repo. `apps/api/test/**`, `apps/web/test/**`, `apps/worker/test/**` | Runtime audit execution: `pnpm -r typecheck`, API tests, web tests, and worker tests all passed. | Delivered | Medium |
 
 ## Direct Validation of Core MVP Outcomes
 
-1. **Faster discovery of high-fit jobs** — **Partially Delivered**: Aggregated feed + scoring/recommendations exist, but scheduled ingestion automation is missing, weakening timeliness claims.  
+1. **Faster discovery of high-fit jobs** — **Delivered**: Aggregated feed + scoring/recommendations are now paired with scheduled ingestion automation for fresher discovery state.  
 2. **Reduced irrelevant job review burden** — **Partially Delivered**: Dedupe and explainable skip/review/apply signals exist; explicit save/hide/bookmark UX semantics are incomplete evidence.  
 3. **Application workflow organization** — **Delivered**: tracker states, reminders, notifications, and application CRUD/history pathways are implemented and tested.  
 4. **Explainable decision support for where to apply** — **Delivered**: decomposed scoring, strengths/gaps/deal-breakers, recommendation class, and feed/detail exposure are implemented and tested.  
@@ -42,11 +44,10 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 
 ## Undelivered or Weakly Delivered Promises (Prioritized)
 
-1. **Scheduled import jobs missing** (High) — worker process is a stub; this blocks always-fresh discovery and alert reliability.  
-2. **Saved searches missing** (Medium) — explicit discovery workflow commitment lacks API/DB/UI implementation.  
-3. **Explicit save/hide/bookmark discovery actions weakly evidenced** (High) — tracker transitions exist, but discovery action semantics are not first-class in tested feed behavior.  
-4. **High-fit alerts/digests only partially represented** (Medium) — reminder notification dispatch exists, but score-triggered high-fit digest workflows are not clearly present.  
-5. **Sensitive-data minimization controls unproven** (High) — no explicit testable redaction/minimization policy layer for AI/log outputs.
+1. **Explicit save/hide/bookmark discovery actions weakly evidenced** (High) — tracker transitions exist, but discovery action semantics are not first-class in tested feed behavior.  
+2. **Sensitive-data minimization controls unproven** (High) — no explicit testable redaction/minimization policy layer for AI/log outputs.  
+3. **Saved searches missing** (Medium) — explicit discovery workflow commitment lacks API/DB/UI implementation.  
+4. **High-fit alerts/digests only partially represented** (Medium) — reminder notification dispatch exists, but score-triggered high-fit digest workflows are not clearly present.
 
 ## Scope Violations
 
@@ -55,16 +56,16 @@ The current HEAD delivers a substantial **MVP backbone** (auth/profile/preferenc
 
 ## Minimal Remediation Plan
 
-1. **Implement scheduled ingestion orchestration in `apps/worker`** (2–4 days, High risk reduction).  
-   - Add cron/queue-driven sync + rebuild pipeline, retry/backoff, and health metrics.
-2. **Add saved-search model + API + web controls** (2–3 days, Medium reduction).  
-   - Persist user query presets and wire to feed filters.
-3. **Introduce explicit feed actions (save/hide/shortlist) backed by tracker endpoints** (1–2 days, High reduction).  
+1. **Introduce explicit feed actions (save/hide/shortlist) backed by tracker endpoints** (1–2 days, High reduction).
    - Add dedicated UI affordances and route/integration tests.
-4. **Add high-fit digest/alert workflow keyed to recommendation thresholds** (2–3 days, Medium reduction).  
-   - Reuse notification module with scored-job eligibility checks.
-5. **Add sensitive-data minimization guardrails and tests** (1–2 days, High reduction).  
+2. **Add sensitive-data minimization guardrails and tests** (1–2 days, High reduction).
    - Redact notes/resume text in logs and constrain provider payload fields.
+3. **Add saved-search model + API + web controls** (2–3 days, Medium reduction).
+   - Persist user query presets and wire to feed filters.
+4. **Add high-fit digest/alert workflow keyed to recommendation thresholds** (2–3 days, Medium reduction).
+   - Reuse notification module with scored-job eligibility checks.
+5. **Publish a refreshed strict audit revision after remediation slices 2+** (0.5 day, Medium reduction).
+   - Re-score confidence and verify each remaining promise has code + test/runtime proof.
 
 ## Final Gate Decision
 
