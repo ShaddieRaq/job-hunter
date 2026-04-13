@@ -117,3 +117,29 @@ test('openai provider surfaces provider_refusal when the model refuses', async (
       error instanceof AiProviderError && error.code === 'provider_refusal',
   );
 });
+
+test('openai provider http errors only expose status details', async () => {
+  const provider = createOpenAiAiProvider({
+    apiKey: 'test-key',
+    fetchImpl: createMockFetch(502, {
+      error: {
+        message: 'candidate@example.com profile payload rejected',
+      },
+    }),
+  });
+
+  await assert.rejects(
+    async () =>
+      provider.extractJob({
+        rawText: 'Senior backend engineer role.',
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof AiProviderError);
+      assert.equal(error.code, 'provider_http_error');
+      assert.deepEqual(error.details, {
+        status: 502,
+      });
+      return true;
+    },
+  );
+});

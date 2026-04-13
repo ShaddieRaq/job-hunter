@@ -4,7 +4,7 @@ This document describes the intended architecture for the Job Hunter MVP and rea
 
 ## Implementation status
 
-As of 2026-04-12, Steps 2 through 8 are implemented and Step 9 baseline is in progress:
+As of 2026-04-13, Steps 2 through 9 are implemented, plus MVP remediation slices 1 through 4:
 - shared v1 contracts for auth, profile, and preferences
 - API v1 routes for auth/profile/preferences
 - domain service validation for preference constraints
@@ -41,6 +41,10 @@ As of 2026-04-12, Steps 2 through 8 are implemented and Step 9 baseline is in pr
 - notification API slice with authenticated log listing and due-reminder dispatch workflows
 - application API slice with authenticated create/list/detail/update workflows and canonical/resume validation
 - tracker transition observer linkage for auto-created follow-up reminders on key workflow states
+- authenticated tracker discovery-action endpoint semantics for save/shortlist/hide workflows
+- worker scheduler orchestration for scheduled connector sync + canonical rebuild cycles with retry/backoff and health/status endpoints
+- explicit AI provider-boundary payload minimization/redaction guardrails with upstream provider error-detail minimization
+- saved-search persistence contracts plus authenticated API create/list/get/delete routes and web feed save/apply/delete controls
 - SQL migration for versioned match score artifacts
 - SQL migrations for tracker state history and reminder task lifecycle
 - SQL migration for notification log workflow scaffolding
@@ -148,13 +152,13 @@ Stores like/dislike/hide signals and later tuning inputs.
 7. notification eligibility is evaluated for affected users
 
 ### 3. Discovery flow
-1. frontend requests job feed or saved search
+1. frontend requests job feed using direct filters or a saved-search preset
 2. API queries canonical jobs plus user-specific score/state
-3. results are filtered and sorted
+3. results are filtered and sorted, with high-fit-first recommendation filtering applied by default when no explicit recommendation filter is provided
 4. explanation snippets are returned with the job card
 
 ### 4. Application workflow flow
-1. user saves or shortlists a job
+1. user saves, shortlists, or hides a job from discovery
 2. user moves it through tracker states
 3. notes, reminders, and documents are attached
 4. digests and follow-up reminders are generated

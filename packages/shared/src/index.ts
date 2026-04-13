@@ -128,6 +128,20 @@ export {
 } from './contracts/reminders/v1.js';
 
 export {
+  savedSearchCreateRequestSchema,
+  savedSearchDeleteResponseSchema,
+  savedSearchesContractVersion,
+  savedSearchIdSchema,
+  savedSearchListResponseSchema,
+  savedSearchQuerySchema,
+  savedSearchRecommendationFilterSchema,
+  savedSearchRemoteFilterSchema,
+  savedSearchResponseSchema,
+  savedSearchSchema,
+  savedSearchSortSchema,
+} from './contracts/saved-searches/v1.js';
+
+export {
   notificationChannelSchema,
   notificationDispatchRequestSchema,
   notificationDispatchResponseSchema,
@@ -262,6 +276,19 @@ export type {
   ReminderTask,
   ReminderTaskType,
 } from './contracts/reminders/v1.js';
+
+export type {
+  SavedSearch,
+  SavedSearchCreateRequest,
+  SavedSearchDeleteResponse,
+  SavedSearchId,
+  SavedSearchListResponse,
+  SavedSearchQuery,
+  SavedSearchRecommendationFilter,
+  SavedSearchRemoteFilter,
+  SavedSearchResponse,
+  SavedSearchSort,
+} from './contracts/saved-searches/v1.js';
 
 export type {
   NotificationChannel,

@@ -18,12 +18,12 @@ The product is designed to help a user:
 ## Current repository status
 
 This repository is a TypeScript monorepo with Steps 2 through 9 complete,
-plus MVP remediation slices 1 and 2 delivered (scheduled ingestion + explicit discovery actions):
+plus MVP remediation slices 1 through 4 delivered (scheduled ingestion + explicit discovery actions + AI sensitive-data minimization guardrails + saved searches):
 
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
-  web/      # Server-rendered feed/detail + application tracker UI with auth, filters, sync/rebuild controls, discovery actions (save/shortlist/hide), and material guidance checklists
+  web/      # Server-rendered feed/detail + application tracker UI with auth, high-fit-first filters, sync/rebuild controls, discovery actions (save/shortlist/hide), saved-search controls, and material guidance checklists
   worker/   # Background worker with scheduled sync+rebuild orchestration and job-status endpoints
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
@@ -61,6 +61,10 @@ docs/
 - PUT /v1/tracker/jobs/:canonicalJobId/state
 - POST /v1/tracker/jobs/:canonicalJobId/actions/:action
 - GET /v1/tracker/jobs/:canonicalJobId/history
+- GET /v1/saved-searches
+- POST /v1/saved-searches
+- GET /v1/saved-searches/:savedSearchId
+- DELETE /v1/saved-searches/:savedSearchId
 - GET /v1/reminders
 - POST /v1/reminders
 - GET /v1/reminders/:reminderId
@@ -98,6 +102,8 @@ docs/
 - Application material-guidance unit/integration coverage and web integration coverage for assistant rendering
 - Web integration tests for sign-in/feed/detail, tracker discovery action flows, plus application create/list/detail/update workflows
 - Worker unit tests for scheduled ingestion health outcomes, retry/backoff behavior, and scheduler status tracking
+- Saved-search API and web integration tests for create/list/get/delete and feed apply/delete flows
+- AI provider-boundary minimization regression tests for redacted payload handling and provider error-detail minimization
 
 ## Suggested local commands
 
@@ -116,6 +122,7 @@ corepack pnpm -r typecheck
 - `docs/architecture.md` - target architecture and module boundaries
 - `docs/domain-model.md` - core data model and business rules
 - `docs/testing.md` - testing strategy and quality gates
+- `docs/manual-e2e-test-plan.md` - browser-driven regression runbook for key user workflows
 - `docs/roadmap-progress.md` - current roadmap status and next step tracker
 - `docs/mvp-validation-audit-2026-04-13.md` - strict MVP promise-versus-delivery audit and remediation priorities
 - `docs/ai-implementation-plan.md` - Phase A AI implementation checklist and contracts

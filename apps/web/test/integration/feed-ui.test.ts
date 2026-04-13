@@ -266,6 +266,20 @@ const parseTrackerActionPath = (
   };
 };
 
+const parseSavedSearchPath = (pathname: string): string | null => {
+  const prefix = '/v1/saved-searches/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const value = pathname.slice(prefix.length);
+  if (!value || value.includes('/')) {
+    return null;
+  }
+
+  return value;
+};
+
 const normalizeNullableText = (value: unknown): string | null | undefined => {
   if (value === undefined) {
     return undefined;
@@ -344,8 +358,28 @@ const createApiStubServer = (): Server => {
     }
   >();
 
+  const savedSearches = new Map<
+    string,
+    {
+      savedSearchId: string;
+      userId: string;
+      name: string;
+      query: {
+        q: string;
+        recommendation: string;
+        remote: string;
+        sort: string;
+        includeHidden: boolean;
+      };
+      createdAt: string;
+      updatedAt: string;
+      lastUsedAt: string | null;
+    }
+  >();
+
   let applicationCounter = 1;
   let trackerEventCounter = 1;
+  let savedSearchCounter = 1;
 
   const nextApplicationId = (): string => {
     const suffix = applicationCounter.toString(16).padStart(12, '0');
@@ -357,6 +391,12 @@ const createApiStubServer = (): Server => {
     const suffix = trackerEventCounter.toString(16).padStart(12, '0');
     trackerEventCounter += 1;
     return `22222222-2222-4222-8222-${suffix}`;
+  };
+
+  const nextSavedSearchId = (): string => {
+    const suffix = savedSearchCounter.toString(16).padStart(12, '0');
+    savedSearchCounter += 1;
+    return `33333333-3333-4333-8333-${suffix}`;
   };
 
   return createServer(async (req, res) => {
@@ -431,6 +471,102 @@ const createApiStubServer = (): Server => {
         preferences: userPreferences,
       });
       return;
+    }
+
+    if (method === 'GET' && pathname === '/v1/saved-searches') {
+      const limitRaw = requestUrl.searchParams.get('limit');
+      const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 50;
+      const effectiveLimit = Number.isNaN(limit) ? 50 : limit;
+
+      const records = [...savedSearches.values()]
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        .slice(0, effectiveLimit);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        savedSearches: records,
+      });
+      return;
+    }
+
+    if (method === 'POST' && pathname === '/v1/saved-searches') {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body) as {
+        name?: string;
+        query?: {
+          q?: string;
+          recommendation?: string;
+          remote?: string;
+          sort?: string;
+          includeHidden?: boolean;
+        };
+      };
+
+      const name = parsed.name?.trim() ?? '';
+      if (!name || !parsed.query) {
+        sendJson(res, 400, { error: 'invalid_request_body' });
+        return;
+      }
+
+      const duplicate = [...savedSearches.values()].find(
+        (savedSearch) => savedSearch.name.toLowerCase() === name.toLowerCase(),
+      );
+
+      if (duplicate) {
+        sendJson(res, 409, { error: 'saved_search_name_exists' });
+        return;
+      }
+
+      const nowIso = '2026-04-12T12:05:00.000Z';
+      const savedSearch = {
+        savedSearchId: nextSavedSearchId(),
+        userId,
+        name,
+        query: {
+          q: (parsed.query.q ?? '').trim(),
+          recommendation: parsed.query.recommendation ?? 'high_fit',
+          remote: parsed.query.remote ?? 'aligned',
+          sort: parsed.query.sort ?? 'fit',
+          includeHidden: parsed.query.includeHidden ?? false,
+        },
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        lastUsedAt: null,
+      };
+
+      savedSearches.set(savedSearch.savedSearchId, savedSearch);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        savedSearch,
+      });
+      return;
+    }
+
+    if (method === 'GET' || method === 'DELETE') {
+      const savedSearchId = parseSavedSearchPath(pathname);
+      if (savedSearchId) {
+        const existing = savedSearches.get(savedSearchId);
+        if (!existing) {
+          sendJson(res, 404, { error: 'saved_search_not_found' });
+          return;
+        }
+
+        if (method === 'GET') {
+          sendJson(res, 200, {
+            contractVersion: 'v1',
+            savedSearch: existing,
+          });
+          return;
+        }
+
+        savedSearches.delete(savedSearchId);
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          deletedSavedSearchId: savedSearchId,
+        });
+        return;
+      }
     }
 
     if (method === 'GET' && pathname === '/v1/feed') {
@@ -944,7 +1080,7 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
     assert.match(html, /Showing <strong>1<\/strong> of <strong>2<\/strong>/);
 
     const includeHiddenResponse = await fetch(
-      `${web.baseUrl}/?includeHidden=1&remote=any`,
+      `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all`,
       {
       headers: {
         cookie,
@@ -954,6 +1090,73 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
 
     const includeHiddenHtml = await includeHiddenResponse.text();
     assert.match(includeHiddenHtml, /Hidden Corp/);
+  } finally {
+    await web.close();
+    await api.close();
+  }
+});
+
+test('feed saved-search actions create and delete reusable lead presets', async () => {
+  const api = await startServer(createApiStubServer());
+  const web = await startServer(createWebServer({ apiBaseUrl: api.baseUrl }));
+
+  try {
+    const cookie = await signInAndGetCookie(web.baseUrl);
+
+    const createResponse = await fetch(`${web.baseUrl}/actions/saved-searches/create`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: [
+        'name=Remote%20Backend%20Push',
+        'q=backend',
+        'recommendation=apply',
+        'remote=remote',
+        'sort=recent',
+        'includeHidden=0',
+        'returnTo=%2F',
+      ].join('&'),
+      redirect: 'manual',
+    });
+
+    assert.equal(createResponse.status, 303);
+    assert.equal(createResponse.headers.get('location'), '/?notice=saved_search_created');
+
+    const createdFeedResponse = await fetch(`${web.baseUrl}/?recommendation=all&remote=any`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    assert.equal(createdFeedResponse.status, 200);
+    const createdFeedHtml = await createdFeedResponse.text();
+    assert.match(createdFeedHtml, /Saved searches/);
+    assert.match(createdFeedHtml, /Remote Backend Push/);
+    assert.match(createdFeedHtml, /\/\?q=backend&amp;recommendation=apply&amp;remote=remote&amp;sort=recent/);
+
+    const deleteResponse = await fetch(`${web.baseUrl}/actions/saved-searches/delete`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: 'savedSearchId=33333333-3333-4333-8333-000000000001&returnTo=%2F',
+      redirect: 'manual',
+    });
+
+    assert.equal(deleteResponse.status, 303);
+    assert.equal(deleteResponse.headers.get('location'), '/?notice=saved_search_deleted');
+
+    const afterDeleteResponse = await fetch(`${web.baseUrl}/?recommendation=all&remote=any`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    const afterDeleteHtml = await afterDeleteResponse.text();
+    assert.doesNotMatch(afterDeleteHtml, /Remote Backend Push/);
   } finally {
     await web.close();
     await api.close();
@@ -1016,7 +1219,7 @@ test('feed tracker actions save, shortlist, and hide jobs from discovery', async
     assert.match(defaultFeedHtml, /No jobs match this filter set/);
 
     const includeHiddenResponse = await fetch(
-      `${web.baseUrl}/?includeHidden=1&remote=any`,
+      `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all`,
       {
         headers: {
           cookie,

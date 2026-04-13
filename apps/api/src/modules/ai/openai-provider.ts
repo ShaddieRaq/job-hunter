@@ -286,19 +286,11 @@ const invokeStructuredOutput = async <T>(
     );
 
     if (!response.ok) {
-      let errorBody: unknown = null;
-      try {
-        errorBody = await response.json();
-      } catch {
-        errorBody = null;
-      }
-
       throw new AiProviderError('provider_http_error', {
         providerId: openAiAiProviderId,
         message: 'provider returned non-success status',
         details: {
           status: response.status,
-          body: errorBody,
         },
       });
     }

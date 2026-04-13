@@ -15,6 +15,11 @@ import { createDeterministicAiProvider } from './deterministic-provider.js';
 import { createInMemoryMatchArtifactRepository } from './in-memory-match-artifact-repository.js';
 import type { MatchArtifactRepository } from './match-artifact-repository.js';
 import {
+  sanitizeJobExtractionPayloadForProvider,
+  sanitizeMatchExplanationRequestForProvider,
+  sanitizeResumeExtractionPayloadForProvider,
+} from './privacy.js';
+import {
   createFallbackAiProviderFromEnv,
   createPrimaryAiProviderFromEnv,
 } from './provider.js';
@@ -257,10 +262,12 @@ export const createAiService = ({
 
   return {
     async extractResume(userId, payload) {
+      const providerPayload = sanitizeResumeExtractionPayloadForProvider(payload);
+
       const result = await executeWithFallback(
         provider,
         resolvedFallbackProvider,
-        async (activeProvider) => activeProvider.extractResume(payload),
+        async (activeProvider) => activeProvider.extractResume(providerPayload),
       );
 
       return {
@@ -271,10 +278,12 @@ export const createAiService = ({
     },
 
     async extractJob(payload) {
+      const providerPayload = sanitizeJobExtractionPayloadForProvider(payload);
+
       const result = await executeWithFallback(
         provider,
         resolvedFallbackProvider,
-        async (activeProvider) => activeProvider.extractJob(payload),
+        async (activeProvider) => activeProvider.extractJob(providerPayload),
       );
 
       return {
@@ -284,10 +293,12 @@ export const createAiService = ({
     },
 
     async explainMatch(payload) {
+      const providerPayload = sanitizeMatchExplanationRequestForProvider(payload);
+
       const result = await executeWithFallback(
         provider,
         resolvedFallbackProvider,
-        async (activeProvider) => activeProvider.explainMatch(payload),
+        async (activeProvider) => activeProvider.explainMatch(providerPayload),
       );
 
       return {
@@ -312,6 +323,10 @@ export const createAiService = ({
         gaps: deterministicResult.gaps,
         dealBreakers: deterministicResult.dealBreakers,
       };
+
+      const providerExplanationRequest = sanitizeMatchExplanationRequestForProvider(
+        explanationRequest,
+      );
 
       let explanation: MatchExplanation | null = null;
       let explanationMetadata: ReturnType<typeof createMetadata> | null = null;
@@ -367,7 +382,8 @@ export const createAiService = ({
           const explanationResult = await executeWithFallback(
             provider,
             resolvedFallbackProvider,
-            async (activeProvider) => activeProvider.explainMatch(explanationRequest),
+            async (activeProvider) =>
+              activeProvider.explainMatch(providerExplanationRequest),
           );
 
           const candidateExplanation: MatchExplanation = {

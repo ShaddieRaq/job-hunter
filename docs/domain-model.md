@@ -24,7 +24,10 @@ The internal unified representation of one real-world opportunity, potentially l
 A per-user evaluation of how well a canonical job matches the user's goals, preferences, and constraints.
 
 ### User job state
-A per-user interaction state for a job, such as hidden, saved, shortlisted, or archived.
+A per-user workflow state for a job, such as discovered, shortlisted, reviewing, ready_to_apply, applied, interview, offer, rejected, or archived.
+
+### Saved search
+A per-user persisted feed query preset that stores recommendation, remote, sort, and text-query controls for fast discovery reuse.
 
 ### Application
 A user-managed record of an actual application workflow for a canonical job.
@@ -74,6 +77,22 @@ Suggested fields:
 - hidden_titles
 - stretch_preference_level
 - notification_preferences
+
+## SavedSearch
+Represents a user-defined feed query preset for repeatable discovery workflows.
+
+Suggested fields:
+- id
+- user_id
+- name
+- query_text
+- recommendation_filter          # high_fit | all | apply | review | skip | unscored
+- remote_filter                  # aligned | any | remote | hybrid | onsite
+- sort_mode                      # fit | recent | salary
+- include_hidden
+- created_at
+- updated_at
+- last_used_at
 
 ## Resume
 Represents an uploaded resume or variant.
@@ -227,7 +246,7 @@ Stores user-specific interaction state.
 Suggested fields:
 - user_id
 - canonical_job_id
-- state                     # hidden | saved | shortlisted | reviewing | archived
+- state                     # discovered | shortlisted | reviewing | ready_to_apply | applied | interview | offer | rejected | archived
 - not_relevant_reason
 - updated_at
 
@@ -304,6 +323,7 @@ Suggested fields:
 - one canonical job can have many requirements
 - one user can have one score per canonical job per scoring version
 - one user can have one state per canonical job
+- one user can have many saved-search presets
 - one user can have at most one active application record per canonical job in MVP workflows
 - one user can have zero or more reminders per canonical job
 - reminders may link to tracker transition events for traceable auto-created follow-ups
@@ -325,7 +345,13 @@ Any change to scoring logic should bump a scoring version so old scores can be r
 If a score cannot be explained from stored components, the implementation is incomplete.
 
 ### Rule: state and score are different concerns
-A user can hide or save a job without changing the underlying score.
+A user can move job workflow state without changing the underlying score.
+
+### Rule: discovery actions map to explicit workflow states
+Discovery actions should remain deterministic and auditable (for example, hide maps to archived in tracker state history).
+
+### Rule: saved searches are explicit query snapshots
+Persist the exact filter shape used by discovery (query text, recommendation filter, remote filter, sort mode, include-hidden) so reruns are reproducible.
 
 ### Rule: application records are user assertions
 Even if a source job disappears, the user's application history remains.
@@ -351,11 +377,14 @@ Examples:
 - unknown
 
 ### UserJobState
-- none
-- saved
-- hidden
+- discovered
 - shortlisted
 - reviewing
+- ready_to_apply
+- applied
+- interview
+- offer
+- rejected
 - archived
 
 ### ApplicationStatus

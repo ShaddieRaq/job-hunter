@@ -9,6 +9,7 @@ This plan gives a repeatable manual E2E flow for the current MVP implementation.
 It focuses on user-visible behavior, route wiring, and workflow correctness across:
 - auth and session flow
 - feed browsing and detail views
+- discovery actions and saved-search workflows
 - sync/rebuild actions
 - application tracking workflow
 - material assistant guidance rendering
@@ -52,10 +53,11 @@ Sample text inputs:
 Run in this sequence to reduce setup churn:
 1. Auth/session
 2. Feed and detail
-3. Sync/rebuild actions
-4. Application workflow
-5. Material assistant checks
-6. Negative/error checks
+3. Discovery actions and saved searches
+4. Sync/rebuild actions
+5. Application workflow
+6. Material assistant checks
+7. Negative/error checks
 
 ## Test Cases
 
@@ -136,6 +138,41 @@ Expected:
 1. Score rationale section is visible
 2. Source mappings and dedupe trace events are visible
 3. Back link returns to feed with preserved context
+
+### Discovery Actions and Saved Searches
+
+#### E2E-DISC-001 Save, shortlist, and hide from feed
+Steps:
+1. On feed cards, click Save for one job
+2. On another job, click Shortlist
+3. On another job, click Hide
+
+Expected:
+1. Each action redirects back to feed with success notice
+2. Saved/shortlisted jobs remain visible in expected state contexts
+3. Hidden job is removed from default feed view
+
+#### E2E-DISC-002 Saved-search create/apply/delete flow
+Steps:
+1. Set non-default filters (query, recommendation, remote, sort)
+2. Enter a saved-search name and create the saved search
+3. Click the saved-search apply control
+4. Delete the saved search
+
+Expected:
+1. Saved-search create shows success notice
+2. Applying saved-search updates feed query parameters and result set
+3. Deleting saved-search removes it from the saved-search panel with success notice
+
+#### E2E-DISC-003 High-fit default recommendation behavior
+Steps:
+1. Open feed with no explicit recommendation query parameter
+2. Observe default recommendation selection
+3. Switch recommendation to all and then back to high_fit
+
+Expected:
+1. Default recommendation is high_fit
+2. Explicit recommendation changes are respected without validation errors
 
 ### Sync and Rebuild Actions
 

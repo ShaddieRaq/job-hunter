@@ -19,6 +19,11 @@ import {
   connectorSyncResponseSchema,
   feedDetailResponseSchema,
   feedResponseSchema,
+  savedSearchCreateRequestSchema,
+  savedSearchDeleteResponseSchema,
+  savedSearchIdSchema,
+  savedSearchListResponseSchema,
+  savedSearchResponseSchema,
   trackerDiscoveryActionResponseSchema,
   trackerDiscoveryActionSchema,
   trackerJobListResponseSchema,
@@ -32,6 +37,7 @@ import {
   type FeedJobCard,
   type MatchScoreArtifact,
   type RemotePreference,
+  type SavedSearch,
   type TrackerDiscoveryAction,
   type TrackedJobState,
   type UserPreferences,
@@ -46,7 +52,13 @@ const formBodyLimitBytes = 32_000;
 const upstreamTimeoutMs = 10_000;
 
 type RemoteFilter = 'aligned' | 'any' | 'remote' | 'hybrid' | 'onsite';
-type RecommendationFilter = 'all' | 'apply' | 'review' | 'skip' | 'unscored';
+type RecommendationFilter =
+  | 'high_fit'
+  | 'all'
+  | 'apply'
+  | 'review'
+  | 'skip'
+  | 'unscored';
 type FeedSort = 'fit' | 'recent' | 'salary';
 type ApplicationStatusFilter = 'all' | ApplicationStatus;
 
@@ -103,7 +115,7 @@ interface AuthSessionEnvelope {
 
 const defaultFeedQueryState: FeedQueryState = {
   q: '',
-  recommendation: 'all',
+  recommendation: 'high_fit',
   remote: 'aligned',
   sort: 'fit',
   includeHidden: false,
@@ -163,6 +175,8 @@ const noticeMessages: Record<string, string> = {
   sync_complete: 'Source sync completed.',
   sync_partial: 'Source sync completed with one or more source errors.',
   rebuild_complete: 'Canonical catalog rebuild completed.',
+  saved_search_created: 'Saved search added.',
+  saved_search_deleted: 'Saved search removed.',
   tracker_saved: 'Job saved to your tracker.',
   tracker_shortlisted: 'Job moved to shortlisted.',
   tracker_hidden: 'Job hidden from your discovery feed.',
@@ -197,8 +211,12 @@ const feedErrorMessages: Record<string, string> = {
   application_already_exists_for_job: 'An application already exists for this job.',
   invalid_application_limit: 'Application limit filter is invalid.',
   invalid_application_status_filter: 'Application status filter is invalid.',
+  invalid_saved_search_id: 'Saved search id is invalid.',
+  invalid_saved_search_limit: 'Saved search limit is invalid.',
   invalid_tracker_discovery_action: 'Tracker action is invalid.',
   invalid_tracker_transition: 'Tracker action is not allowed from the current state.',
+  saved_search_name_exists: 'A saved search with this name already exists.',
+  saved_search_not_found: 'Saved search not found.',
   resume_not_found: 'The selected resume could not be found for this account.',
   upstream_timeout: 'The API timed out while loading data.',
   upstream_unreachable: 'API is unreachable. Confirm the API server is running.',
@@ -939,6 +957,8 @@ const parseFeedQuery = (requestUrl: URL): FeedQueryState => {
   return {
     q: (requestUrl.searchParams.get('q') ?? '').trim().slice(0, 120),
     recommendation:
+      recommendation === 'high_fit' ||
+      recommendation === 'all' ||
       recommendation === 'apply' ||
       recommendation === 'review' ||
       recommendation === 'skip' ||
@@ -956,6 +976,36 @@ const parseFeedQuery = (requestUrl: URL): FeedQueryState => {
     sort:
       sort === 'recent' || sort === 'salary' ? sort : defaultFeedQueryState.sort,
     includeHidden: requestUrl.searchParams.get('includeHidden') === '1',
+  };
+};
+
+const parseFeedQueryFromForm = (form: URLSearchParams): FeedQueryState => {
+  const recommendation = form.get('recommendation');
+  const remote = form.get('remote');
+  const sort = form.get('sort');
+
+  return {
+    q: (form.get('q') ?? '').toString().trim().slice(0, 120),
+    recommendation:
+      recommendation === 'high_fit' ||
+      recommendation === 'all' ||
+      recommendation === 'apply' ||
+      recommendation === 'review' ||
+      recommendation === 'skip' ||
+      recommendation === 'unscored'
+        ? recommendation
+        : defaultFeedQueryState.recommendation,
+    remote:
+      remote === 'aligned' ||
+      remote === 'any' ||
+      remote === 'remote' ||
+      remote === 'hybrid' ||
+      remote === 'onsite'
+        ? remote
+        : defaultFeedQueryState.remote,
+    sort:
+      sort === 'recent' || sort === 'salary' ? sort : defaultFeedQueryState.sort,
+    includeHidden: form.get('includeHidden') === '1',
   };
 };
 
@@ -1388,6 +1438,30 @@ const fetchTrackers = async (
   };
 };
 
+const fetchSavedSearches = async (
+  apiBaseUrl: string,
+  accessToken: string,
+): Promise<ApiResult<SavedSearch[]>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    '/v1/saved-searches?limit=100',
+    {
+      method: 'GET',
+    },
+    savedSearchListResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.savedSearches,
+  };
+};
+
 const fetchTrackerState = async (
   apiBaseUrl: string,
   accessToken: string,
@@ -1522,10 +1596,27 @@ const getRecommendation = (
   return artifact.recommendation;
 };
 
+const isHighFitRecommendation = (item: FeedJobCard): boolean => {
+  const artifact = item.latestScoreArtifact;
+  if (!artifact) {
+    return false;
+  }
+
+  return (
+    artifact.recommendation === 'apply' &&
+    artifact.scoreBreakdown.overallScore >= 75 &&
+    artifact.dealBreakers.length === 0
+  );
+};
+
 const matchesRecommendation = (
   item: FeedJobCard,
   filter: RecommendationFilter,
 ): boolean => {
+  if (filter === 'high_fit') {
+    return isHighFitRecommendation(item);
+  }
+
   if (filter === 'all') {
     return true;
   }
@@ -1880,6 +1971,70 @@ const renderJobCard = (
   `;
 };
 
+const renderSavedSearchPanel = (
+  savedSearches: SavedSearch[],
+  query: FeedQueryState,
+  returnTo: string,
+): string => {
+  const savedSearchRows =
+    savedSearches.length > 0
+      ? `<ul class="stack-list">${savedSearches
+          .map((savedSearch) => {
+            const applyQuery: FeedQueryState = {
+              q: savedSearch.query.q,
+              recommendation: savedSearch.query.recommendation,
+              remote: savedSearch.query.remote,
+              sort: savedSearch.query.sort,
+              includeHidden: savedSearch.query.includeHidden,
+            };
+
+            const applyHref = buildFeedReturnPath(applyQuery);
+            const querySummary = [
+              savedSearch.query.recommendation,
+              savedSearch.query.remote,
+              savedSearch.query.sort,
+            ].join(' | ');
+
+            return `<li>
+              <div class="sticky-tools">
+                <a class="link-button secondary" href="${escapeHtml(applyHref)}">${escapeHtml(
+                  savedSearch.name,
+                )}</a>
+                <form method="POST" action="/actions/saved-searches/delete" class="inline-form" data-pending-label>
+                  <input type="hidden" name="savedSearchId" value="${escapeHtml(
+                    savedSearch.savedSearchId,
+                  )}" />
+                  <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
+                  <button type="submit" class="ghost" data-pending-label="Removing...">Delete</button>
+                </form>
+              </div>
+              <p class="muted">${escapeHtml(querySummary)}${savedSearch.query.q.length > 0 ? ` | ${escapeHtml(savedSearch.query.q)}` : ''}</p>
+            </li>`;
+          })
+          .join('')}</ul>`
+      : '<p class="muted">No saved searches yet. Save your current filters to reuse your best lead views.</p>';
+
+  return `<section class="panel">
+      <h3>Saved searches</h3>
+      <form method="POST" action="/actions/saved-searches/create" class="inline-form" data-pending-label>
+        <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
+        <input type="hidden" name="q" value="${escapeHtml(query.q)}" />
+        <input type="hidden" name="recommendation" value="${escapeHtml(query.recommendation)}" />
+        <input type="hidden" name="remote" value="${escapeHtml(query.remote)}" />
+        <input type="hidden" name="sort" value="${escapeHtml(query.sort)}" />
+        <input type="hidden" name="includeHidden" value="${query.includeHidden ? '1' : '0'}" />
+        <div class="inline-row">
+          <label>
+            Name
+            <input name="name" placeholder="High-fit remote backend" maxlength="80" required />
+          </label>
+          <button class="inline-action" type="submit" data-pending-label="Saving...">Save current filters</button>
+        </div>
+      </form>
+      ${savedSearchRows}
+    </section>`;
+};
+
 const renderFeedPage = (
   profile: UserProfile,
   preferences: UserPreferences,
@@ -1888,6 +2043,7 @@ const renderFeedPage = (
   trackersByCanonicalJobId: Map<string, TrackedJobState>,
   applicationsByCanonicalJobId: Map<string, ApplicationRecord>,
   query: FeedQueryState,
+  savedSearches: SavedSearch[],
   noticeCode: string | null,
   errorCode: string | null,
   returnTo: string,
@@ -1954,6 +2110,7 @@ const renderFeedPage = (
           <label>
             Recommendation
             <select name="recommendation">
+              <option value="high_fit"${query.recommendation === 'high_fit' ? ' selected' : ''}>high fit</option>
               <option value="all"${query.recommendation === 'all' ? ' selected' : ''}>all</option>
               <option value="apply"${query.recommendation === 'apply' ? ' selected' : ''}>apply</option>
               <option value="review"${query.recommendation === 'review' ? ' selected' : ''}>review</option>
@@ -1988,11 +2145,13 @@ const renderFeedPage = (
           <button type="submit" class="full" data-pending-label="Refreshing feed...">Refresh feed</button>
         </form>
       </section>
+      ${renderSavedSearchPanel(savedSearches, query, returnTo)}
       <section class="panel summary-strip">
         <p>
           Showing <strong>${filteredItems.length}</strong> of <strong>${allItems.length}</strong> feed jobs
           ${query.includeHidden ? '' : ` | Hidden by preferences: ${hiddenCount}`}
           | Application records: ${applicationsByCanonicalJobId.size}
+          | Saved searches: ${savedSearches.length}
         </p>
         <p class="muted">Last refresh: ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
       </section>
@@ -2807,6 +2966,108 @@ const handleTrackerActionRoute = async (
   redirect(res, withQueryParam(returnTo, 'notice', noticeCode));
 };
 
+const handleSavedSearchCreateRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const form = await readFormBody(req);
+  const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/');
+
+  if (!accessToken) {
+    redirect(res, withQueryParam('/', 'auth_error', 'missing_access_token'));
+    return;
+  }
+
+  const payloadCandidate = {
+    name: (form.get('name') ?? '').toString(),
+    query: parseFeedQueryFromForm(form),
+  };
+
+  const parsedPayload = savedSearchCreateRequestSchema.safeParse(payloadCandidate);
+  if (!parsedPayload.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_request_body'));
+    return;
+  }
+
+  const createResult = await requestApi(
+    apiBaseUrl,
+    '/v1/saved-searches',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(parsedPayload.data),
+    },
+    savedSearchResponseSchema,
+    accessToken,
+  );
+
+  if (!createResult.ok) {
+    if (createResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', createResult.error.code));
+    return;
+  }
+
+  redirect(res, withQueryParam(returnTo, 'notice', 'saved_search_created'));
+};
+
+const handleSavedSearchDeleteRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const form = await readFormBody(req);
+  const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/');
+
+  if (!accessToken) {
+    redirect(res, withQueryParam('/', 'auth_error', 'missing_access_token'));
+    return;
+  }
+
+  const savedSearchIdInput = (form.get('savedSearchId') ?? '').toString().trim();
+  const parsedSavedSearchId = savedSearchIdSchema.safeParse(savedSearchIdInput);
+  if (!parsedSavedSearchId.success) {
+    redirect(res, withQueryParam(returnTo, 'error', 'invalid_saved_search_id'));
+    return;
+  }
+
+  const deleteResult = await requestApi(
+    apiBaseUrl,
+    `/v1/saved-searches/${parsedSavedSearchId.data}`,
+    {
+      method: 'DELETE',
+    },
+    savedSearchDeleteResponseSchema,
+    accessToken,
+  );
+
+  if (!deleteResult.ok) {
+    if (deleteResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', deleteResult.error.code));
+    return;
+  }
+
+  redirect(res, withQueryParam(returnTo, 'notice', 'saved_search_deleted'));
+};
+
 const handleApplicationsRoute = async (
   req: IncomingMessage,
   res: ServerResponse,
@@ -3209,12 +3470,14 @@ const handleFeedRoute = async (
     feedResult,
     applicationsResult,
     trackersResult,
+    savedSearchesResult,
   ] = await Promise.all([
     fetchProfile(apiBaseUrl, accessToken),
     fetchPreferences(apiBaseUrl, accessToken),
     requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
     fetchApplications(apiBaseUrl, accessToken, { limit: 250 }),
     fetchTrackers(apiBaseUrl, accessToken),
+    fetchSavedSearches(apiBaseUrl, accessToken),
   ]);
 
   if (!profileResult.ok) {
@@ -3253,6 +3516,7 @@ const handleFeedRoute = async (
   const applicationsByCanonicalJobId = mapApplicationsByCanonicalJobId(
     applicationsResult.ok ? applicationsResult.data : [],
   );
+  const savedSearches = savedSearchesResult.ok ? savedSearchesResult.data : [];
 
   const feedNoticeCode = noticeCode;
   const routeErrorCode = requestUrl.searchParams.get('error');
@@ -3262,6 +3526,8 @@ const handleFeedRoute = async (
       ? applicationsResult.error.code
     : !trackersResult.ok
       ? trackersResult.error.code
+    : !savedSearchesResult.ok
+      ? savedSearchesResult.error.code
     : !preferencesResult.ok
       ? preferencesResult.error.code
       : routeErrorCode;
@@ -3277,6 +3543,7 @@ const handleFeedRoute = async (
       trackersByCanonicalJobId,
       applicationsByCanonicalJobId,
       query,
+      savedSearches,
       feedNoticeCode,
       computedErrorCode,
       returnTo,
@@ -3460,6 +3727,16 @@ const handleRequest = async (
 
   if (method === 'POST' && pathname === '/actions/tracker') {
     await handleTrackerActionRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/actions/saved-searches/create') {
+    await handleSavedSearchCreateRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/actions/saved-searches/delete') {
+    await handleSavedSearchDeleteRoute(req, res, apiBaseUrl);
     return;
   }
 

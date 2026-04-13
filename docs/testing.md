@@ -43,6 +43,9 @@ Post-MVP hardening coverage currently includes:
 - Greenhouse connector parsing regression tests for null metadata payload compatibility
 - web integration regression tests for auth submit-mode fallback behavior and canonical rebuild payload-limit compatibility
 - web integration regression tests for explicit feed discovery actions (save/shortlist/hide) and tracker-driven hiding behavior
+- saved-search unit/integration tests for create/list/get/delete API behavior and web feed save/apply/delete flows
+- web feed regression tests for high-fit-first recommendation defaults and explicit recommendation filter parsing behavior
+- AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, retry/backoff behavior, and run-status tracking
 - manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
 
@@ -172,6 +175,8 @@ Detailed execution runbook:
 - filter by remote/location/salary/source
 - hide a job
 - save a job
+- create, apply, and delete a saved search preset
+- verify default recommendation view is high-fit and explicit all/apply/review/skip/unscored filters still work
 - confirm hidden jobs do not keep resurfacing incorrectly
 
 ### Job detail

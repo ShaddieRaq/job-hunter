@@ -2,10 +2,21 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 
-import type { MatchScoreRequest, UserPreferences } from '@job-hunter/shared';
+import type {
+  JobExtractionRequest,
+  MatchExplanationRequest,
+  MatchScoreRequest,
+  ResumeExtractionRequest,
+  UserPreferences,
+} from '@job-hunter/shared';
 
 import { createDeterministicAiProvider } from '../../src/modules/ai/deterministic-provider.js';
 import { AiProviderError } from '../../src/modules/ai/errors.js';
+import {
+  maxProviderRawTextLength,
+  providerScopedUserId,
+  redactionMarker,
+} from '../../src/modules/ai/privacy.js';
 import { createAiService } from '../../src/modules/ai/service.js';
 import type { AiProvider } from '../../src/modules/ai/types.js';
 
@@ -53,6 +64,42 @@ const createUnexpectedEvidenceProvider = (): AiProvider => ({
     };
   },
 });
+
+const createRecordingProvider = (): {
+  provider: AiProvider;
+  calls: {
+    resumePayload: ResumeExtractionRequest | null;
+    jobPayload: JobExtractionRequest | null;
+    explanationPayload: MatchExplanationRequest | null;
+  };
+} => {
+  const deterministicProvider = createDeterministicAiProvider();
+
+  const calls = {
+    resumePayload: null as ResumeExtractionRequest | null,
+    jobPayload: null as JobExtractionRequest | null,
+    explanationPayload: null as MatchExplanationRequest | null,
+  };
+
+  return {
+    provider: {
+      providerId: 'recording-provider',
+      async extractResume(payload) {
+        calls.resumePayload = payload;
+        return deterministicProvider.extractResume(payload);
+      },
+      async extractJob(payload) {
+        calls.jobPayload = payload;
+        return deterministicProvider.extractJob(payload);
+      },
+      async explainMatch(payload) {
+        calls.explanationPayload = payload;
+        return deterministicProvider.explainMatch(payload);
+      },
+    },
+    calls,
+  };
+};
 
 const createPreferences = (userId: string): UserPreferences => {
   const nowIso = new Date().toISOString();
@@ -139,6 +186,65 @@ test('extractResume returns structured deterministic fields', async () => {
   assert.equal(result.extraction.remotePreference, 'remote');
 });
 
+test('extractResume sanitizes sensitive text before provider call', async () => {
+  const recording = createRecordingProvider();
+  const service = createAiService({
+    provider: recording.provider,
+    fallbackProvider: null,
+  });
+
+  await service.extractResume(randomUUID(), {
+    rawText: [
+      'Email: candidate@example.com',
+      'Phone: +1 (415) 555-0199',
+      'Portfolio: https://portfolio.example.dev/candidate',
+      'SSN: 123-45-6789',
+      'Skills: TypeScript Node.js AWS',
+      'Notes:',
+      'TypeScript '.repeat(8_000),
+    ].join('\n'),
+    sourceFilename: 'Candidate_Resume_2026.pdf',
+  });
+
+  const payload = recording.calls.resumePayload;
+  assert.ok(payload);
+  assert.equal(payload?.sourceFilename, undefined);
+  assert.equal(
+    payload?.rawText.includes('candidate@example.com'),
+    false,
+  );
+  assert.equal(payload?.rawText.includes('+1 (415) 555-0199'), false);
+  assert.equal(payload?.rawText.includes('https://portfolio.example.dev/candidate'), false);
+  assert.equal(payload?.rawText.includes('123-45-6789'), false);
+  assert.ok(payload?.rawText.includes(redactionMarker));
+  assert.ok(
+    payload &&
+      payload.rawText.length <= maxProviderRawTextLength,
+  );
+});
+
+test('extractJob removes source job identifiers before provider call', async () => {
+  const recording = createRecordingProvider();
+  const service = createAiService({
+    provider: recording.provider,
+    fallbackProvider: null,
+  });
+
+  await service.extractJob({
+    rawText:
+      'Senior backend role. Contact jobs@example.com or +1 650 555 0100 for details.',
+    sourceJobId: 'gh_123456',
+    sourceName: 'greenhouse_public_board',
+  });
+
+  const payload = recording.calls.jobPayload;
+  assert.ok(payload);
+  assert.equal(payload?.sourceJobId, undefined);
+  assert.equal(payload?.sourceName, 'greenhouse_public_board');
+  assert.equal(payload?.rawText.includes('jobs@example.com'), false);
+  assert.equal(payload?.rawText.includes('+1 650 555 0100'), false);
+});
+
 test('explainMatch returns skip when deal breakers exist', async () => {
   const service = createAiService({
     provider: createDeterministicAiProvider(),
@@ -167,6 +273,40 @@ test('explainMatch returns skip when deal breakers exist', async () => {
 
   assert.equal(result.explanation.recommendation, 'skip');
   assert.equal(result.explanation.dealBreakers.length, 1);
+});
+
+test('explainMatch anonymizes user identity before provider call', async () => {
+  const recording = createRecordingProvider();
+  const service = createAiService({
+    provider: recording.provider,
+    fallbackProvider: null,
+  });
+
+  await service.explainMatch({
+    userId: randomUUID(),
+    canonicalJobId: randomUUID(),
+    scoreBreakdown: {
+      overallScore: 80,
+      titleScore: 80,
+      skillScore: 80,
+      seniorityScore: 80,
+      locationScore: 80,
+      compensationScore: 80,
+      domainScore: 80,
+      requirementScore: 80,
+      trajectoryScore: 80,
+      penaltyScore: 0,
+    },
+    strengths: ['Reference call with candidate@example.com'],
+    gaps: [],
+    dealBreakers: [],
+  });
+
+  const payload = recording.calls.explanationPayload;
+  assert.ok(payload);
+  assert.equal(payload?.userId, providerScopedUserId);
+  assert.equal(payload?.strengths[0]?.includes('candidate@example.com'), false);
+  assert.ok(payload?.strengths[0]?.includes(redactionMarker));
 });
 
 test('extractResume falls back to deterministic provider on schema failure', async () => {
@@ -277,6 +417,30 @@ test('scoreMatch applies guardrail fallback when explanation evidence is unsuppo
       result.artifact.strengths.includes(value),
     ),
   );
+});
+
+test('scoreMatch anonymizes provider explanation requests', async () => {
+  const recording = createRecordingProvider();
+  const service = createAiService({
+    provider: recording.provider,
+    fallbackProvider: null,
+    scoreExplanationMode: 'provider',
+    scoreExplanationRolloutPercent: 100,
+  });
+
+  const userId = randomUUID();
+  const canonicalJobId = randomUUID();
+
+  await service.scoreMatch(
+    userId,
+    createMatchScorePayload(canonicalJobId),
+    createPreferences(userId),
+  );
+
+  const payload = recording.calls.explanationPayload;
+  assert.ok(payload);
+  assert.equal(payload?.userId, providerScopedUserId);
+  assert.equal(payload?.canonicalJobId, canonicalJobId);
 });
 
 test('scoreMatch uses rollout guardrail when provider traffic is disabled', async () => {

@@ -41,6 +41,11 @@ import { createInMemoryResumeRepository } from './modules/resume/in-memory-repos
 import { createHeuristicResumeParser } from './modules/resume/parser.js';
 import { handleResumeRoutes } from './modules/resume/routes.js';
 import { createResumeService, type ResumeService } from './modules/resume/service.js';
+import { handleSavedSearchRoutes } from './modules/saved-searches/routes.js';
+import {
+  createSavedSearchService,
+  type SavedSearchService,
+} from './modules/saved-searches/service.js';
 import { handleReminderRoutes } from './modules/reminders/routes.js';
 import {
   createReminderService,
@@ -128,6 +133,8 @@ const defaultNotificationService = createNotificationService({
   reminderReader: defaultReminderService,
 });
 
+const defaultSavedSearchService = createSavedSearchService();
+
 const defaultTrackerService = createTrackerService({
   canonicalJobLookup: defaultCanonicalJobsService,
   transitionObservers: [defaultReminderService],
@@ -142,6 +149,7 @@ export interface CreateApiServerOptions {
   applicationService?: ApplicationService;
   reminderService?: ReminderService;
   notificationService?: NotificationService;
+  savedSearchService?: SavedSearchService;
   trackerService?: TrackerService;
 }
 
@@ -159,6 +167,7 @@ const handleRequest = async (
   applicationService: ApplicationService,
   reminderService: ReminderService,
   notificationService: NotificationService,
+  savedSearchService: SavedSearchService,
   trackerService: TrackerService,
 ): Promise<void> => {
   if (isHealthRequest(req)) {
@@ -229,6 +238,15 @@ const handleRequest = async (
     return;
   }
 
+  const savedSearchHandled = await handleSavedSearchRoutes(req, res, {
+    authProfileService,
+    savedSearchService,
+  });
+
+  if (savedSearchHandled) {
+    return;
+  }
+
   const reminderHandled = await handleReminderRoutes(req, res, {
     authProfileService,
     reminderService,
@@ -273,6 +291,7 @@ export const createApiServer = ({
   applicationService = defaultApplicationService,
   reminderService = defaultReminderService,
   notificationService = defaultNotificationService,
+  savedSearchService = defaultSavedSearchService,
   trackerService = defaultTrackerService,
 }: CreateApiServerOptions = {}): Server =>
   createServer((req, res) => {
@@ -287,6 +306,7 @@ export const createApiServer = ({
       applicationService,
       reminderService,
       notificationService,
+      savedSearchService,
       trackerService,
     ).catch((error: unknown) => {
       handleUnhandledError(res, error);

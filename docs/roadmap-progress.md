@@ -42,12 +42,12 @@ Owner: team
 
 ## Current focus
 - Active step: close MVP validation gaps identified in `docs/mvp-validation-audit-2026-04-13.md`
-- Next PR target: MVP validation remediation slice 3 (sensitive-data guardrails + saved-search foundations)
+- Next PR target: MVP validation remediation slice 5 (high-fit alerts/digests)
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
 - Goal: move the gate from "MVP Not Yet Validated" to "MVP Validated" using code + test/runtime evidence for each open promise.
-- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 2 in `c821fd7`).
+- Source audit: `docs/mvp-validation-audit-2026-04-13.md` (revised after remediation slice 4).
 
 1. ✅ P0 - scheduled import jobs (`High` risk)
    - Scope: implement worker orchestration for connector sync + canonical rebuild on a schedule, including retry/backoff and health reporting.
@@ -59,15 +59,15 @@ Owner: team
    - Delivery evidence: shared tracker action contracts (`packages/shared/src/contracts/tracker/v1.ts`), API tracker discovery-action endpoint (`POST /v1/tracker/jobs/:canonicalJobId/actions/:action` in `apps/api/src/modules/tracker/routes.ts`), service-level action mapping (`apps/api/src/modules/tracker/service.ts`), web discovery controls + action handler (`apps/web/src/index.ts`), and API/web regression coverage (`apps/api/test/integration/tracker.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts`).
    - Completion check: users can save, shortlist, and hide roles directly from discovery and see deterministic tracker state updates in feed/detail UI.
 
-3. ⬜ P1 - sensitive-data minimization guardrails (`High` risk)
+3. ✅ P1 - sensitive-data minimization guardrails (`High` risk)
    - Scope: add explicit redaction/minimization controls for AI-provider payload construction and sensitive logging boundaries.
-   - Delivery evidence required: service-level guardrail implementation + regression tests proving notes/resume text are not over-shared or logged.
-   - Completion check: privacy handling promises are proven rather than inferred.
+   - Delivery evidence: AI privacy guardrails module and service-level provider-boundary sanitization (`apps/api/src/modules/ai/privacy.ts`, `apps/api/src/modules/ai/service.ts`) plus provider error-detail minimization (`apps/api/src/modules/ai/openai-provider.ts`) and regression coverage (`apps/api/test/unit/ai.service.test.ts`, `apps/api/test/unit/ai.openai-provider.test.ts`).
+   - Completion check: outbound AI provider payloads are redacted/minimized and provider-side error bodies are not propagated through API error details.
 
-4. ⬜ P2 - saved searches (`Medium` risk)
+4. ✅ P2 - saved searches (`Medium` risk)
    - Scope: add saved-search persistence plus API/web flows for creating and reusing feed filter presets.
-   - Delivery evidence required: schema/contracts/routes/UI and integration tests for create/list/apply saved-search behavior.
-   - Completion check: users can store and re-run search presets in discovery workflows.
+   - Delivery evidence: shared saved-search contracts (`packages/shared/src/contracts/saved-searches/v1.ts` + `packages/shared/src/index.ts` exports), API saved-search module/routes (`apps/api/src/modules/saved-searches/*`, `apps/api/src/server.ts`), web saved-search feed actions/UI (`apps/web/src/index.ts`), and regression coverage (`apps/api/test/unit/saved-searches.service.test.ts`, `apps/api/test/integration/saved-searches.routes.test.ts`, `apps/web/test/integration/feed-ui.test.ts`).
+   - Completion check: users can store, re-apply, and delete search presets directly from discovery workflows.
 
 5. ⬜ P2 - high-fit alerts/digests (`Medium` risk)
    - Scope: extend notifications with recommendation-threshold-based high-fit alert/digest generation.
@@ -99,6 +99,8 @@ Owner: team
 - 2026-04-13: External strict MVP validation audit merged (`643c2d1`) and identified five prioritized remediation gaps before final MVP gate sign-off.
 - 2026-04-13: MVP remediation slice 1 landed in commit `0c4f22f` with worker-based scheduled sync/rebuild orchestration, retry/backoff handling, worker job-health/status endpoints, and worker unit coverage for healthy/degraded cycle behavior.
 - 2026-04-13: MVP remediation slice 2 landed in commit `c821fd7` with explicit discovery save/shortlist/hide actions across shared contracts, API semantics, web feed/detail controls, and API/web test coverage.
+- 2026-04-13: MVP remediation slice 3 landed with explicit AI provider-boundary payload minimization (resume/job/explanation sanitization + user-identity anonymization), upstream provider error-detail minimization, and AI regression coverage proving sensitive text is redacted before provider invocation.
+- 2026-04-13: MVP remediation slice 4 landed with saved-search contracts, authenticated API create/list/get/delete routes, and web feed save/apply/delete flows backed by API/web regression coverage.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
