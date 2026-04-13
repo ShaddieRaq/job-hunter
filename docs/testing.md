@@ -40,6 +40,7 @@ Post-MVP hardening coverage currently includes:
 - connector service contract-hardening tests that cap sync response error arrays while preserving true `failedCount`
 - Greenhouse connector parsing regression tests for null metadata payload compatibility
 - web integration regression tests for auth submit-mode fallback behavior and canonical rebuild payload-limit compatibility
+- worker unit tests for scheduled connector sync + canonical rebuild orchestration, retry/backoff behavior, and run-status tracking
 - manual browser-run E2E runbook for daily smoke and full flow validation (`docs/manual-e2e-test-plan.md`)
 
 ## Testing goals

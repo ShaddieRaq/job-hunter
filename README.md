@@ -23,7 +23,7 @@ This repository is a TypeScript monorepo with Steps 2 through 9 complete:
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
   web/      # Server-rendered feed/detail + application tracker UI with auth, filters, sync/rebuild controls, and material guidance checklists
-  worker/   # Background worker entrypoint stub
+  worker/   # Background worker with scheduled sync+rebuild orchestration and job-status endpoints
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)
 docs/
@@ -94,6 +94,7 @@ docs/
 - Application unit and integration tests for create/list/detail/update workflows and validation paths
 - Application material-guidance unit/integration coverage and web integration coverage for assistant rendering
 - Web integration tests for sign-in/feed/detail plus application create/list/detail/update workflows
+- Worker unit tests for scheduled ingestion health outcomes, retry/backoff behavior, and scheduler status tracking
 
 ## Suggested local commands
 
