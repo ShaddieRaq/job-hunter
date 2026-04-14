@@ -170,6 +170,18 @@ Suggested fields:
 - created_at
 - updated_at
 
+## AtsTargetVerificationEvent
+Represents one immutable verification attempt against an ATS target identifier.
+
+Suggested fields:
+- event_id
+- target_id
+- attempted_at
+- outcome_status
+- http_status
+- error_code
+- evidence_summary
+
 ## SourceJob
 Represents one fetched job posting from a source.
 
@@ -354,6 +366,7 @@ Suggested fields:
 - many source jobs can map to one canonical job
 - one company registry record can have many ATS target records
 - one ATS target record belongs to one company registry record
+- one ATS target record can have many verification event records
 - one canonical job can have many requirements
 - one user can have one score per canonical job per scoring version
 - one user can have one state per canonical job
@@ -371,6 +384,9 @@ Store updated fetches as updates to the source record with timestamps and checks
 
 ### Rule: runtime ATS targets must be verifiably backed
 Connector target materialization should come from verified ATS target registry records, not ad hoc identifier guesses.
+
+### Rule: verification events are append-only
+Each ATS verification attempt should persist as a separate immutable event for auditability and time-series quality tracking.
 
 ### Rule: canonical jobs are opinionated and user-facing
 Canonical jobs should be stable enough to drive search, ranking, and UI.

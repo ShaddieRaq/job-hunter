@@ -87,6 +87,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `migrations/0010_application_records.sql`
 	- `migrations/0011_workflow_persistence_and_notifications.sql`
 	- `migrations/0012_ats_target_registry_foundation.sql`
+	- `migrations/0013_ats_target_verification_events.sql`
 
 ## AI provider configuration
 
