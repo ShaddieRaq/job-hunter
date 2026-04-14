@@ -112,11 +112,40 @@ const createLeverCandidate = (sourceJobId: string): ConnectorJobCandidate => ({
   },
 });
 
+const createArbeitnowCandidate = (sourceJobId: string): ConnectorJobCandidate => ({
+  sourceJobId,
+  sourceCompanyId: 'acme-arbeitnow',
+  sourceStatus: 'open',
+  title: 'Senior Software Engineer',
+  companyName: 'Acme Arbeitnow',
+  fetchUrl: `https://www.arbeitnow.com/jobs/companies/acme-arbeitnow/${sourceJobId}`,
+  applicationUrl: `https://www.arbeitnow.com/jobs/companies/acme-arbeitnow/${sourceJobId}`,
+  locationText: 'Berlin',
+  remoteType: 'remote',
+  employmentType: 'full_time',
+  postedAt: '2026-04-12T00:00:00.000Z',
+  descriptionText: 'TypeScript and cloud role',
+  normalizedSkills: ['TypeScript', 'AWS'],
+  requiredSkills: ['TypeScript'],
+  preferredSkills: ['AWS'],
+  salaryMin: null,
+  salaryMax: null,
+  salaryCurrency: null,
+  salaryPeriod: null,
+  rawPayload: {
+    id: sourceJobId,
+  },
+});
+
 const createTestConnectorService = () => {
   const greenhouseCandidates = [createCandidate('1001'), createCandidate('1002')];
   const leverCandidates = [
     createLeverCandidate('lever-1001'),
     createLeverCandidate('lever-1002'),
+  ];
+  const arbeitnowCandidates = [
+    createArbeitnowCandidate('arbeitnow-1001'),
+    createArbeitnowCandidate('arbeitnow-1002'),
   ];
 
   const greenhouseConnector: SourceConnectorDefinition = {
@@ -147,9 +176,23 @@ const createTestConnectorService = () => {
     },
   };
 
+  const arbeitnowConnector: SourceConnectorDefinition = {
+    sourceName: 'arbeitnow_job_board',
+    displayName: 'Arbeitnow Job Board',
+    connectorVersion: 'arbeitnow-job-board-v1',
+    async sync(input) {
+      const maxRecords = input.maxRecords ?? arbeitnowCandidates.length;
+      return {
+        fetchedAt: '2026-04-12T00:00:00.000Z',
+        jobs: arbeitnowCandidates.slice(0, maxRecords),
+        errors: [],
+      };
+    },
+  };
+
   return createConnectorService({
     repository: createInMemoryConnectorRepository(),
-    connectors: [greenhouseConnector, leverConnector],
+    connectors: [greenhouseConnector, leverConnector, arbeitnowConnector],
     now: () => new Date('2026-04-12T12:00:00.000Z'),
   });
 };
@@ -178,7 +221,7 @@ test('connector routes sync and list source jobs with authenticated access', asy
     };
 
     assert.equal(beforeBody.contractVersion, 'v1');
-    assert.equal(beforeBody.connectors.length, 2);
+    assert.equal(beforeBody.connectors.length, 3);
     assert.ok(
       beforeBody.connectors.some(
         (connector) =>
@@ -190,6 +233,13 @@ test('connector routes sync and list source jobs with authenticated access', asy
       beforeBody.connectors.some(
         (connector) =>
           connector.sourceName === 'lever_public_board' &&
+          connector.healthStatus === 'unknown',
+      ),
+    );
+    assert.ok(
+      beforeBody.connectors.some(
+        (connector) =>
+          connector.sourceName === 'arbeitnow_job_board' &&
           connector.healthStatus === 'unknown',
       ),
     );
@@ -250,6 +300,33 @@ test('connector routes sync and list source jobs with authenticated access', asy
     assert.equal(leverSyncBody.failedCount, 0);
     assert.equal(leverSyncBody.healthStatus, 'healthy');
 
+    const arbeitnowSyncResponse = await fetch(
+      `${app.baseUrl}/v1/connectors/arbeitnow_job_board/sync`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          maxRecords: 1,
+        }),
+      },
+    );
+
+    assert.equal(arbeitnowSyncResponse.status, 200);
+    const arbeitnowSyncBody = (await arbeitnowSyncResponse.json()) as {
+      insertedCount: number;
+      failedCount: number;
+      healthStatus: string;
+      sourceName: string;
+    };
+
+    assert.equal(arbeitnowSyncBody.sourceName, 'arbeitnow_job_board');
+    assert.equal(arbeitnowSyncBody.insertedCount, 1);
+    assert.equal(arbeitnowSyncBody.failedCount, 0);
+    assert.equal(arbeitnowSyncBody.healthStatus, 'healthy');
+
     const sourceJobsResponse = await fetch(
       `${app.baseUrl}/v1/source-jobs?sourceName=greenhouse_public_board&limit=10`,
       {
@@ -269,6 +346,23 @@ test('connector routes sync and list source jobs with authenticated access', asy
     assert.equal(sourceJobsBody.sourceJobs.length, 1);
     assert.equal(sourceJobsBody.sourceJobs[0]?.sourceJobId, '1001');
 
+    const sourceJobDetailResponse = await fetch(
+      `${app.baseUrl}/v1/source-jobs/greenhouse_public_board/1001`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(sourceJobDetailResponse.status, 200);
+    const sourceJobDetailBody = (await sourceJobDetailResponse.json()) as {
+      sourceJob: { sourceJobId: string; descriptionText: string };
+    };
+
+    assert.equal(sourceJobDetailBody.sourceJob.sourceJobId, '1001');
+    assert.match(sourceJobDetailBody.sourceJob.descriptionText, /TypeScript/);
+
     const leverSourceJobsResponse = await fetch(
       `${app.baseUrl}/v1/source-jobs?sourceName=lever_public_board&limit=10`,
       {
@@ -285,6 +379,23 @@ test('connector routes sync and list source jobs with authenticated access', asy
 
     assert.equal(leverSourceJobsBody.sourceJobs.length, 1);
     assert.equal(leverSourceJobsBody.sourceJobs[0]?.sourceJobId, 'lever-1001');
+
+    const arbeitnowSourceJobsResponse = await fetch(
+      `${app.baseUrl}/v1/source-jobs?sourceName=arbeitnow_job_board&limit=10`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(arbeitnowSourceJobsResponse.status, 200);
+    const arbeitnowSourceJobsBody = (await arbeitnowSourceJobsResponse.json()) as {
+      sourceJobs: Array<{ sourceJobId: string }>;
+    };
+
+    assert.equal(arbeitnowSourceJobsBody.sourceJobs.length, 1);
+    assert.equal(arbeitnowSourceJobsBody.sourceJobs[0]?.sourceJobId, 'arbeitnow-1001');
   } finally {
     await app.close();
   }
@@ -321,6 +432,19 @@ test('connector routes validate source name and query limit', async () => {
     assert.equal(invalidLimit.status, 400);
     const invalidLimitBody = (await invalidLimit.json()) as { error: string };
     assert.equal(invalidLimitBody.error, 'invalid_source_job_limit');
+
+    const missingSourceJob = await fetch(
+      `${app.baseUrl}/v1/source-jobs/greenhouse_public_board/does-not-exist`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    assert.equal(missingSourceJob.status, 404);
+    const missingSourceJobBody = (await missingSourceJob.json()) as { error: string };
+    assert.equal(missingSourceJobBody.error, 'source_job_not_found');
   } finally {
     await app.close();
   }

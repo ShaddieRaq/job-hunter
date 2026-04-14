@@ -13,7 +13,6 @@ import {
 
 const defaultLeverSourceName = 'lever_public_board';
 const defaultConnectorVersion = 'lever-public-board-v1';
-const defaultMaxRecords = 100;
 const defaultEndpointBaseUrl = 'https://api.lever.co/v0/postings';
 
 const knownSkills: Array<{ skill: string; pattern: RegExp }> = [
@@ -390,7 +389,7 @@ export const createLeverPublicBoardConnector = ({
         });
       }
 
-      const maxRecords = input.maxRecords ?? defaultMaxRecords;
+      const maxRecords = input.maxRecords ?? Number.MAX_SAFE_INTEGER;
       const endpoint = new URL(
         `${endpointBaseUrl}/${encodeURIComponent(normalizedCompanyHandle)}`,
       );

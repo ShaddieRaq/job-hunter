@@ -14,15 +14,14 @@ import { HttpError } from '../../http/http-errors.js';
 import { createInMemoryReminderRepository } from './in-memory-repository.js';
 import type { ReminderRepository } from './repository.js';
 
-const defaultListLimit = 50;
-const maxListLimit = 500;
+const defaultListLimit = Number.MAX_SAFE_INTEGER;
 
 const normalizeLimit = (limit: number | undefined): number => {
   if (limit === undefined) {
     return defaultListLimit;
   }
 
-  return Math.max(1, Math.min(maxListLimit, limit));
+  return Math.max(1, limit);
 };
 
 const normalizeNote = (value: string | null | undefined): string | null => {

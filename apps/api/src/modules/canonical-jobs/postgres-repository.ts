@@ -393,8 +393,33 @@ export const createPostgresCanonicalJobRepository = (
     },
 
     async listCanonicalJobs(limit) {
-      const result = await pool.query<CanonicalJobRow>(
-        `SELECT
+      const result =
+        limit === undefined
+          ? await pool.query<CanonicalJobRow>(
+              `SELECT
+           canonical_job_id,
+           canonical_company_name,
+           canonical_title,
+           normalized_location,
+           remote_type,
+           employment_type,
+           salary_min,
+           salary_max,
+           salary_currency,
+           salary_period,
+           source_count,
+           source_names,
+           job_status,
+           top_skills,
+           first_seen_at::text,
+           last_seen_at::text,
+           created_at::text,
+           updated_at::text
+         FROM canonical_jobs
+         ORDER BY last_seen_at DESC, canonical_job_id ASC`,
+            )
+          : await pool.query<CanonicalJobRow>(
+              `SELECT
            canonical_job_id,
            canonical_company_name,
            canonical_title,
@@ -416,8 +441,8 @@ export const createPostgresCanonicalJobRepository = (
          FROM canonical_jobs
          ORDER BY last_seen_at DESC, canonical_job_id ASC
          LIMIT $1`,
-        [limit],
-      );
+              [limit],
+            );
 
       return result.rows.map(rowToCanonicalSummary);
     },

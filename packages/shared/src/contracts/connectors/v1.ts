@@ -84,6 +84,12 @@ export const sourceJobSummarySchema = z
   })
   .strict();
 
+export const sourceJobDetailSchema = sourceJobSummarySchema
+  .extend({
+    descriptionText: trimmedText(200_000),
+  })
+  .strict();
+
 export const connectorListResponseSchema = z
   .object({
     contractVersion: z.literal(connectorContractVersion),
@@ -93,7 +99,7 @@ export const connectorListResponseSchema = z
 
 export const connectorSyncRequestSchema = z
   .object({
-    maxRecords: z.number().int().min(1).max(500).optional(),
+    maxRecords: z.number().int().min(1).optional(),
   })
   .strict();
 
@@ -116,7 +122,14 @@ export const connectorSyncResponseSchema = z
 export const sourceJobListResponseSchema = z
   .object({
     contractVersion: z.literal(connectorContractVersion),
-    sourceJobs: z.array(sourceJobSummarySchema).max(500),
+    sourceJobs: z.array(sourceJobSummarySchema),
+  })
+  .strict();
+
+export const sourceJobDetailResponseSchema = z
+  .object({
+    contractVersion: z.literal(connectorContractVersion),
+    sourceJob: sourceJobDetailSchema,
   })
   .strict();
 
@@ -130,7 +143,9 @@ export type SourceJobStatus = z.infer<typeof sourceJobStatusSchema>;
 export type SourceSalaryPeriod = z.infer<typeof sourceSalaryPeriodSchema>;
 export type SourceConnector = z.infer<typeof sourceConnectorSchema>;
 export type SourceJobSummary = z.infer<typeof sourceJobSummarySchema>;
+export type SourceJobDetail = z.infer<typeof sourceJobDetailSchema>;
 export type ConnectorListResponse = z.infer<typeof connectorListResponseSchema>;
 export type ConnectorSyncRequest = z.infer<typeof connectorSyncRequestSchema>;
 export type ConnectorSyncResponse = z.infer<typeof connectorSyncResponseSchema>;
 export type SourceJobListResponse = z.infer<typeof sourceJobListResponseSchema>;
+export type SourceJobDetailResponse = z.infer<typeof sourceJobDetailResponseSchema>;

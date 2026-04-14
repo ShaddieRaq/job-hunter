@@ -5,7 +5,8 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 ## Current scope
 - Email sign-in/create-account flow backed by API auth routes
 - Feed view backed by `GET /v1/feed`
-- Job detail view backed by `GET /v1/feed/:canonicalJobId`, including source listing details (listing/apply URLs, posted date, location, and required/preferred skills)
+- Job detail view backed by `GET /v1/feed/:canonicalJobId`, including source listing details (listing/apply URLs, posted date, location, required/preferred skills, and full source descriptions via source-job detail lookups)
+- Profile and preferences editor page (`/profile`) for updating title/experience, skills, locations, salary targets, hidden lists, and digest/high-fit notification preferences
 - Feed cards and job detail include deterministic next-action cues based on tracker/application/reminder and score context
 - Feed-level Today priorities queue that ranks pending reminders, high-fit untouched roles, and shortlisted roles with stalled application progress
 - Source-aware feed filtering and source provenance chips on job cards
@@ -17,6 +18,8 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 - Structured material assistant rendering backed by `GET /v1/applications/:applicationId/material-guidance`
 - Preference-aligned filtering (recommendation/remote/source) and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
+	- Sync now posts uncapped payloads for `greenhouse_public_board` and `arbeitnow_job_board` (partial notice if one source fails)
+	- Rebuild now posts an uncapped payload (no fixed max-source-job cap)
 - Resume/application material guidance checklists in job and application detail views
 - Integration tests for sign-in, feed/detail tracker actions, saved-search and high-fit alert panel workflows, sync/rebuild actions, and application workflow routes
 

@@ -324,6 +324,31 @@ const parseSavedSearchPath = (pathname: string): string | null => {
   return value;
 };
 
+const parseSourceJobDetailPath = (
+  pathname: string,
+): { sourceName: string; sourceJobId: string } | null => {
+  const prefix = '/v1/source-jobs/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const remainder = pathname.slice(prefix.length);
+  const segments = remainder.split('/').filter((segment) => segment.length > 0);
+  if (segments.length !== 2) {
+    return null;
+  }
+
+  const [sourceName, sourceJobId] = segments;
+  if (!sourceName || !sourceJobId) {
+    return null;
+  }
+
+  return {
+    sourceName,
+    sourceJobId,
+  };
+};
+
 const normalizeNullableText = (value: unknown): string | null | undefined => {
   if (value === undefined) {
     return undefined;
@@ -373,6 +398,24 @@ const requireAuth = (req: IncomingMessage): boolean =>
   req.headers.authorization === `Bearer ${tokenValue}`;
 
 const createApiStubServer = (): Server => {
+  let mutableUserProfile = {
+    ...userProfile,
+  };
+
+  let mutableUserPreferences = {
+    ...userPreferences,
+    preferredTitles: [...userPreferences.preferredTitles],
+    preferredIndustries: [...userPreferences.preferredIndustries],
+    preferredSkills: [...userPreferences.preferredSkills],
+    preferredLocations: [...userPreferences.preferredLocations],
+    dealBreakers: [...userPreferences.dealBreakers],
+    hiddenCompanies: [...userPreferences.hiddenCompanies],
+    hiddenTitles: [...userPreferences.hiddenTitles],
+    notificationPreferences: {
+      ...userPreferences.notificationPreferences,
+    },
+  };
+
   const applications = new Map<
     string,
     {
@@ -588,7 +631,7 @@ const createApiStubServer = (): Server => {
     if (method === 'GET' && pathname === '/v1/profile') {
       sendJson(res, 200, {
         contractVersion: 'v1',
-        profile: userProfile,
+        profile: mutableUserProfile,
       });
       return;
     }
@@ -596,9 +639,159 @@ const createApiStubServer = (): Server => {
     if (method === 'GET' && pathname === '/v1/preferences') {
       sendJson(res, 200, {
         contractVersion: 'v1',
-        preferences: userPreferences,
+        preferences: mutableUserPreferences,
       });
       return;
+    }
+
+    if (method === 'PUT' && pathname === '/v1/profile') {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body) as {
+        currentTitle?: string | null;
+        yearsExperience?: number | null;
+        summary?: string | null;
+        workAuthorization?: string | null;
+        sponsorshipRequired?: boolean | null;
+        transitionNotes?: string | null;
+      };
+
+      mutableUserProfile = {
+        ...mutableUserProfile,
+        currentTitle: normalizeNullableText(parsed.currentTitle) ?? null,
+        yearsExperience:
+          typeof parsed.yearsExperience === 'number' ? parsed.yearsExperience : null,
+        summary: normalizeNullableText(parsed.summary) ?? null,
+        workAuthorization:
+          typeof parsed.workAuthorization === 'string'
+            ? parsed.workAuthorization
+            : null,
+        sponsorshipRequired:
+          typeof parsed.sponsorshipRequired === 'boolean'
+            ? parsed.sponsorshipRequired
+            : null,
+        transitionNotes: normalizeNullableText(parsed.transitionNotes) ?? null,
+        updatedAt: '2026-04-12T12:50:00.000Z',
+      };
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        profile: mutableUserProfile,
+      });
+      return;
+    }
+
+    if (method === 'PUT' && pathname === '/v1/preferences') {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body) as {
+        preferredTitles?: string[];
+        preferredIndustries?: string[];
+        preferredSkills?: string[];
+        preferredLocations?: string[];
+        remotePreference?: string;
+        targetSeniorityMin?: string | null;
+        targetSeniorityMax?: string | null;
+        salaryMin?: number | null;
+        salaryTarget?: number | null;
+        dealBreakers?: string[];
+        hiddenCompanies?: string[];
+        hiddenTitles?: string[];
+        stretchPreferenceLevel?: number;
+        notificationPreferences?: {
+          dailyDigest?: boolean;
+          weeklyDigest?: boolean;
+          instantHighFit?: boolean;
+        };
+      };
+
+      mutableUserPreferences = {
+        ...mutableUserPreferences,
+        preferredTitles: Array.isArray(parsed.preferredTitles)
+          ? parsed.preferredTitles
+          : mutableUserPreferences.preferredTitles,
+        preferredIndustries: Array.isArray(parsed.preferredIndustries)
+          ? parsed.preferredIndustries
+          : mutableUserPreferences.preferredIndustries,
+        preferredSkills: Array.isArray(parsed.preferredSkills)
+          ? parsed.preferredSkills
+          : mutableUserPreferences.preferredSkills,
+        preferredLocations: Array.isArray(parsed.preferredLocations)
+          ? parsed.preferredLocations
+          : mutableUserPreferences.preferredLocations,
+        remotePreference:
+          typeof parsed.remotePreference === 'string'
+            ? parsed.remotePreference
+            : mutableUserPreferences.remotePreference,
+        targetSeniorityMin:
+          parsed.targetSeniorityMin === undefined
+            ? mutableUserPreferences.targetSeniorityMin
+            : parsed.targetSeniorityMin,
+        targetSeniorityMax:
+          parsed.targetSeniorityMax === undefined
+            ? mutableUserPreferences.targetSeniorityMax
+            : parsed.targetSeniorityMax,
+        salaryMin:
+          typeof parsed.salaryMin === 'number' || parsed.salaryMin === null
+            ? parsed.salaryMin
+            : mutableUserPreferences.salaryMin,
+        salaryTarget:
+          typeof parsed.salaryTarget === 'number' || parsed.salaryTarget === null
+            ? parsed.salaryTarget
+            : mutableUserPreferences.salaryTarget,
+        dealBreakers: Array.isArray(parsed.dealBreakers)
+          ? parsed.dealBreakers
+          : mutableUserPreferences.dealBreakers,
+        hiddenCompanies: Array.isArray(parsed.hiddenCompanies)
+          ? parsed.hiddenCompanies
+          : mutableUserPreferences.hiddenCompanies,
+        hiddenTitles: Array.isArray(parsed.hiddenTitles)
+          ? parsed.hiddenTitles
+          : mutableUserPreferences.hiddenTitles,
+        stretchPreferenceLevel:
+          typeof parsed.stretchPreferenceLevel === 'number'
+            ? parsed.stretchPreferenceLevel
+            : mutableUserPreferences.stretchPreferenceLevel,
+        notificationPreferences: {
+          dailyDigest:
+            parsed.notificationPreferences?.dailyDigest ??
+            mutableUserPreferences.notificationPreferences.dailyDigest,
+          weeklyDigest:
+            parsed.notificationPreferences?.weeklyDigest ??
+            mutableUserPreferences.notificationPreferences.weeklyDigest,
+          instantHighFit:
+            parsed.notificationPreferences?.instantHighFit ??
+            mutableUserPreferences.notificationPreferences.instantHighFit,
+        },
+        updatedAt: '2026-04-12T12:50:00.000Z',
+      };
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        preferences: mutableUserPreferences,
+      });
+      return;
+    }
+
+    if (method === 'GET') {
+      const sourceJobDetailPath = parseSourceJobDetailPath(pathname);
+      if (sourceJobDetailPath) {
+        if (
+          sourceJobDetailPath.sourceName !== 'greenhouse_public_board' ||
+          sourceJobDetailPath.sourceJobId !== '1001'
+        ) {
+          sendJson(res, 404, { error: 'source_job_not_found' });
+          return;
+        }
+
+        sendJson(res, 200, {
+          contractVersion: 'v1',
+          sourceJob: {
+            ...feedDetailResponse.sourceJobs[0],
+            descriptionText:
+              'Visible Systems is hiring a Staff Platform Engineer to scale TypeScript APIs and PostgreSQL workloads.',
+          },
+        });
+        return;
+      }
     }
 
     if (method === 'GET' && pathname === '/v1/saved-searches') {
@@ -1122,15 +1315,47 @@ const createApiStubServer = (): Server => {
       return;
     }
 
+    if (method === 'POST' && pathname === '/v1/connectors/lever_public_board/sync') {
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        sourceName: 'lever_public_board',
+        startedAt: '2026-04-12T12:00:00.000Z',
+        completedAt: '2026-04-12T12:00:01.000Z',
+        fetchedCount: 0,
+        insertedCount: 0,
+        updatedCount: 0,
+        unchangedCount: 0,
+        failedCount: 0,
+        healthStatus: 'healthy',
+        errors: [],
+      });
+      return;
+    }
+
+    if (method === 'POST' && pathname === '/v1/connectors/arbeitnow_job_board/sync') {
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        sourceName: 'arbeitnow_job_board',
+        startedAt: '2026-04-12T12:00:00.000Z',
+        completedAt: '2026-04-12T12:00:01.000Z',
+        fetchedCount: 3,
+        insertedCount: 2,
+        updatedCount: 1,
+        unchangedCount: 0,
+        failedCount: 0,
+        healthStatus: 'healthy',
+        errors: [],
+      });
+      return;
+    }
+
     if (method === 'POST' && pathname === '/v1/canonical-jobs/rebuild') {
       const body = await readRequestBody(req);
       const parsed = JSON.parse(body) as { maxSourceJobs?: number };
 
       if (
-        typeof parsed.maxSourceJobs !== 'number' ||
-        !Number.isInteger(parsed.maxSourceJobs) ||
-        parsed.maxSourceJobs < 1 ||
-        parsed.maxSourceJobs > 500
+        parsed.maxSourceJobs !== undefined &&
+        (!Number.isInteger(parsed.maxSourceJobs) || parsed.maxSourceJobs < 1)
       ) {
         sendJson(res, 400, { error: 'invalid_source_job_limit' });
         return;
@@ -1294,6 +1519,64 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
     assert.match(sourceFilteredHtml, /Visible Systems/);
     assert.doesNotMatch(sourceFilteredHtml, /Hidden Corp/);
     assert.match(sourceFilteredHtml, /Source: Lever Public Board/);
+  } finally {
+    await web.close();
+    await api.close();
+  }
+});
+
+test('profile page saves editable profile and preference fields', async () => {
+  const api = await startServer(createApiStubServer());
+  const web = await startServer(createWebServer({ apiBaseUrl: api.baseUrl }));
+
+  try {
+    const cookie = await signInAndGetCookie(web.baseUrl);
+
+    const profileResponse = await fetch(`${web.baseUrl}/profile?returnTo=%2F`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    assert.equal(profileResponse.status, 200);
+    const profileHtml = await profileResponse.text();
+    assert.match(profileHtml, /Profile and preferences/);
+    assert.match(profileHtml, /TypeScript/);
+
+    const saveResponse = await fetch(`${web.baseUrl}/actions/profile/save`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: [
+        'returnTo=%2F',
+        'currentTitle=Principal+Platform+Engineer',
+        'preferredSkills=TypeScript%0ARust%0APostgreSQL',
+        'remotePreference=remote',
+      ].join('&'),
+      redirect: 'manual',
+    });
+
+    assert.equal(saveResponse.status, 303);
+    assert.match(
+      saveResponse.headers.get('location') ?? '',
+      /^\/profile\?returnTo=%2F&notice=profile_saved$/,
+    );
+
+    const refreshedProfileResponse = await fetch(
+      `${web.baseUrl}/profile?returnTo=%2F`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    assert.equal(refreshedProfileResponse.status, 200);
+    const refreshedProfileHtml = await refreshedProfileResponse.text();
+    assert.match(refreshedProfileHtml, /Principal Platform Engineer/);
+    assert.match(refreshedProfileHtml, /Rust/);
   } finally {
     await web.close();
     await api.close();
@@ -1535,6 +1818,8 @@ test('job detail renders score and dedupe context; sync and rebuild actions redi
     assert.match(detailHtml, /Next action/);
     assert.match(detailHtml, /Source listing details/);
     assert.match(detailHtml, /Open listing/);
+    assert.match(detailHtml, /Full description/);
+    assert.match(detailHtml, /scale TypeScript APIs and PostgreSQL workloads/);
 
     const syncResponse = await fetch(`${web.baseUrl}/actions/sync`, {
       method: 'POST',

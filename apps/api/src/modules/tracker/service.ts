@@ -13,10 +13,8 @@ import { HttpError } from '../../http/http-errors.js';
 import { createInMemoryTrackerRepository } from './in-memory-repository.js';
 import type { TrackerRepository } from './repository.js';
 
-const defaultListLimit = 50;
-const maxListLimit = 500;
-const defaultHistoryLimit = 50;
-const maxHistoryLimit = 500;
+const defaultListLimit = Number.MAX_SAFE_INTEGER;
+const defaultHistoryLimit = Number.MAX_SAFE_INTEGER;
 
 const normalizeNote = (value: string | null | undefined): string | null => {
   if (value === null || value === undefined) {
@@ -34,13 +32,12 @@ const normalizeNote = (value: string | null | undefined): string | null => {
 const normalizeLimit = (
   limit: number | undefined,
   fallback: number,
-  max: number,
 ): number => {
   if (limit === undefined) {
     return fallback;
   }
 
-  return Math.max(1, Math.min(max, limit));
+  return Math.max(1, limit);
 };
 
 const trackerTransitionRules: Record<TrackerState, Set<TrackerState>> = {
@@ -231,7 +228,7 @@ export const createTrackerService = ({
     state?: TrackerState;
     limit?: number;
   }): Promise<TrackedJobState[]> => {
-    const resolvedLimit = normalizeLimit(limit, defaultListLimit, maxListLimit);
+    const resolvedLimit = normalizeLimit(limit, defaultListLimit);
 
     return repository.listTrackedJobs({
       userId,
@@ -250,7 +247,7 @@ export const createTrackerService = ({
     canonicalJobId: CanonicalJobId;
     limit?: number;
   }): Promise<TrackerTransitionEvent[]> => {
-    const resolvedLimit = normalizeLimit(limit, defaultHistoryLimit, maxHistoryLimit);
+    const resolvedLimit = normalizeLimit(limit, defaultHistoryLimit);
 
     return repository.listTransitionEvents({
       userId,

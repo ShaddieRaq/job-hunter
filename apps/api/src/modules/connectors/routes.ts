@@ -91,6 +91,31 @@ const parseConnectorSyncPath = (pathname: string): string | null => {
   return sourceName;
 };
 
+const parseSourceJobDetailPath = (
+  pathname: string,
+): { sourceName: string; sourceJobId: string } | null => {
+  const prefix = '/v1/source-jobs/';
+  if (!pathname.startsWith(prefix)) {
+    return null;
+  }
+
+  const remainder = pathname.slice(prefix.length);
+  const segments = remainder.split('/').filter((segment) => segment.length > 0);
+  if (segments.length !== 2) {
+    return null;
+  }
+
+  const [sourceName, sourceJobId] = segments;
+  if (!sourceName || !sourceJobId) {
+    return null;
+  }
+
+  return {
+    sourceName,
+    sourceJobId,
+  };
+};
+
 const parseLimitQuery = (rawLimit: string | null): number | undefined => {
   if (rawLimit === null) {
     return undefined;
@@ -104,6 +129,12 @@ const parseLimitQuery = (rawLimit: string | null): number | undefined => {
 
   const limit = Number(rawLimit);
   if (!Number.isSafeInteger(limit)) {
+    throw new HttpError(400, 'invalid_source_job_limit', {
+      limit: rawLimit,
+    });
+  }
+
+  if (limit < 1) {
     throw new HttpError(400, 'invalid_source_job_limit', {
       limit: rawLimit,
     });
@@ -193,6 +224,42 @@ export const handleConnectorRoutes = async (
     sendJson(res, 200, {
       contractVersion: connectorContractVersion,
       sourceJobs,
+    });
+
+    return true;
+  }
+
+  if (method === 'GET') {
+    const detailPath = parseSourceJobDetailPath(pathname);
+    if (!detailPath) {
+      return false;
+    }
+
+    const parsedSourceName = sourceNameSchema.safeParse(detailPath.sourceName);
+    if (!parsedSourceName.success) {
+      throw new HttpError(400, 'invalid_source_name', {
+        sourceName: detailPath.sourceName,
+      });
+    }
+
+    const accessToken = requireAccessToken(req);
+    await authProfileService.authenticate(accessToken);
+
+    const sourceJob = await connectorService.getSourceJobDetail(
+      parsedSourceName.data,
+      detailPath.sourceJobId,
+    );
+
+    if (!sourceJob) {
+      throw new HttpError(404, 'source_job_not_found', {
+        sourceName: parsedSourceName.data,
+        sourceJobId: detailPath.sourceJobId,
+      });
+    }
+
+    sendJson(res, 200, {
+      contractVersion: connectorContractVersion,
+      sourceJob,
     });
 
     return true;

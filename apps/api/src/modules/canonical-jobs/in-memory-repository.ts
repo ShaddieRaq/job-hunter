@@ -134,7 +134,7 @@ export const createInMemoryCanonicalJobRepository = (): CanonicalJobRepository =
     },
 
     async listCanonicalJobs(limit) {
-      return [...recordStore.values()]
+      const sorted = [...recordStore.values()]
         .map((record) => cloneSummary(record.job))
         .sort((left, right) => {
           if (left.lastSeenAt === right.lastSeenAt) {
@@ -142,8 +142,9 @@ export const createInMemoryCanonicalJobRepository = (): CanonicalJobRepository =
           }
 
           return right.lastSeenAt.localeCompare(left.lastSeenAt);
-        })
-        .slice(0, limit);
+        });
+
+      return limit === undefined ? sorted : sorted.slice(0, limit);
     },
 
     async findCanonicalJobById(canonicalJobId) {

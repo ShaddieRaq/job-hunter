@@ -39,9 +39,6 @@ export interface CanonicalJobRoutesDependencies {
   reminderService: ReminderService;
 }
 
-const defaultFeedLimit = 50;
-const maxFeedSourceLimit = 500;
-
 const defaultFeedQuery: FeedQuery = {
   q: '',
   recommendation: 'all',
@@ -49,7 +46,7 @@ const defaultFeedQuery: FeedQuery = {
   source: 'any',
   sort: 'fit',
   includeHidden: true,
-  limit: defaultFeedLimit,
+  limit: undefined,
 };
 
 const mapValidationDetails = (
@@ -129,6 +126,12 @@ const parseLimitQuery = (rawLimit: string | null): number | undefined => {
     });
   }
 
+  if (limit < 1) {
+    throw new HttpError(400, 'invalid_canonical_job_limit', {
+      limit: rawLimit,
+    });
+  }
+
   return limit;
 };
 
@@ -188,12 +191,6 @@ const parseFeedQuery = (requestUrl: URL): FeedQuery => {
   const sort = feedSortSchema.safeParse(sortRaw);
 
   const parsedLimit = parseLimitQuery(requestUrl.searchParams.get('limit'));
-  if (parsedLimit !== undefined && parsedLimit > maxFeedSourceLimit) {
-    throw new HttpError(400, 'invalid_canonical_job_limit', {
-      limit: parsedLimit,
-    });
-  }
-
   return {
     q: (requestUrl.searchParams.get('q') ?? '').trim().slice(0, 120),
     recommendation: recommendation.success
@@ -208,7 +205,7 @@ const parseFeedQuery = (requestUrl: URL): FeedQuery => {
         : includeHiddenRaw === '0'
           ? false
           : defaultFeedQuery.includeHidden,
-    limit: parsedLimit ?? defaultFeedLimit,
+    limit: parsedLimit,
   };
 };
 
@@ -515,21 +512,23 @@ export const handleCanonicalJobRoutes = async (
 
     const feedQuery = parseFeedQuery(requestUrl);
 
-    const [preferences, trackers, jobs, applications, reminders] = await Promise.all([
+    const jobs = await canonicalJobsService.listCanonicalJobs();
+    const relatedRecordLimit = jobs.length > 0 ? jobs.length : undefined;
+
+    const [preferences, trackers, applications, reminders] = await Promise.all([
       authProfileService.getPreferences(user.userId),
       trackerService.listTrackedJobs({
         userId: user.userId,
-        limit: maxFeedSourceLimit,
+        limit: relatedRecordLimit,
       }),
-      canonicalJobsService.listCanonicalJobs(maxFeedSourceLimit),
       applicationService.listApplications({
         userId: user.userId,
-        limit: maxFeedSourceLimit,
+        limit: relatedRecordLimit,
       }),
       reminderService.listReminders({
         userId: user.userId,
         status: 'pending',
-        limit: maxFeedSourceLimit,
+        limit: relatedRecordLimit,
       }),
     ]);
 
@@ -569,11 +568,16 @@ export const handleCanonicalJobRoutes = async (
       feedQuery,
       preferences,
       trackerStateByCanonicalJobId,
-    ).slice(0, feedQuery.limit);
+    );
+
+    const boundedItems =
+      feedQuery.limit === undefined
+        ? filteredItems
+        : filteredItems.slice(0, feedQuery.limit);
 
     sendJson(res, 200, {
       contractVersion: jobsContractVersion,
-      items: filteredItems,
+      items: boundedItems,
     });
     return true;
   }

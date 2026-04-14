@@ -28,7 +28,7 @@ export interface ConnectorRepository {
   upsertSourceJob(input: UpsertSourceJobInput): Promise<UpsertSourceJobResult>;
   listSourceJobs(options: {
     sourceName?: SourceName;
-    limit: number;
+    limit?: number;
   }): Promise<SourceJobSummary[]>;
   findSourceJob(
     sourceName: SourceName,

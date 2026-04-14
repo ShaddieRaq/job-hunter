@@ -270,8 +270,42 @@ export const createPostgresConnectorRepository = (
   async listSourceJobs({ sourceName, limit }) {
     const hasSourceNameFilter = Boolean(sourceName);
 
-    const result = await pool.query<SourceJobRow>(
-      `SELECT
+    const result =
+      limit === undefined
+        ? await pool.query<SourceJobRow>(
+            `SELECT
+         source_name,
+         source_job_id,
+         source_company_id,
+         source_status,
+         title,
+         company_name,
+         fetch_url,
+         application_url,
+         location_text,
+         remote_type,
+         employment_type,
+         posted_at::text,
+         first_seen_at::text,
+         last_seen_at::text,
+         fetched_at::text,
+         checksum_sha256,
+         description_text,
+         normalized_skills,
+         required_skills,
+         preferred_skills,
+         salary_min,
+         salary_max,
+         salary_currency,
+         salary_period,
+         raw_payload_json
+       FROM source_jobs
+       WHERE ($1::text IS NULL OR source_name = $1)
+       ORDER BY last_seen_at DESC, source_name ASC, source_job_id ASC`,
+            [hasSourceNameFilter ? sourceName : null],
+          )
+        : await pool.query<SourceJobRow>(
+            `SELECT
          source_name,
          source_job_id,
          source_company_id,
@@ -301,8 +335,8 @@ export const createPostgresConnectorRepository = (
        WHERE ($1::text IS NULL OR source_name = $1)
        ORDER BY last_seen_at DESC, source_name ASC, source_job_id ASC
        LIMIT $2`,
-      [hasSourceNameFilter ? sourceName : null, limit],
-    );
+            [hasSourceNameFilter ? sourceName : null, limit],
+          );
 
     return result.rows.map(rowToSourceJobSummary);
   },

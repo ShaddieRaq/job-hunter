@@ -15,9 +15,6 @@ import { HttpError } from '../../http/http-errors.js';
 import type { CanonicalJobRepository, CanonicalJobDraft } from './repository.js';
 import { createInMemoryCanonicalJobRepository } from './in-memory-repository.js';
 
-const defaultListLimit = 50;
-const maxListLimit = 500;
-const defaultSourceJobLimit = 500;
 const defaultDedupeEventLimit = 50;
 const maxDedupeEventLimit = 500;
 const dedupeVersion = 'canonical-dedupe-v1';
@@ -553,7 +550,7 @@ export const createCanonicalJobsService = ({
     const startedAt = now().toISOString();
     const sourceJobs = await sourceJobReader.listSourceJobs({
       sourceName: request.sourceName,
-      limit: request.maxSourceJobs ?? defaultSourceJobLimit,
+      limit: request.maxSourceJobs,
     });
 
     const clusters = buildClusters(sourceJobs);
@@ -602,11 +599,10 @@ export const createCanonicalJobsService = ({
     };
   },
 
-  async listCanonicalJobs(limit = defaultListLimit) {
-    if (limit < 1 || limit > maxListLimit) {
+  async listCanonicalJobs(limit) {
+    if (limit !== undefined && limit < 1) {
       throw new HttpError(400, 'invalid_canonical_job_limit', {
         limit,
-        maxListLimit,
       });
     }
 

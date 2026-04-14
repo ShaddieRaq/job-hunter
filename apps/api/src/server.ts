@@ -25,6 +25,7 @@ import {
   createCanonicalJobsService,
   type CanonicalJobsService,
 } from './modules/canonical-jobs/service.js';
+import { createArbeitnowJobBoardConnector } from './modules/connectors/arbeitnow-job-board-connector.js';
 import { createGreenhousePublicBoardConnector } from './modules/connectors/greenhouse-public-board-connector.js';
 import { createLeverPublicBoardConnector } from './modules/connectors/lever-public-board-connector.js';
 import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
@@ -72,15 +73,15 @@ const apiRuntimeMode = (
 ).toLowerCase();
 
 const workflowRepositoryMode = (
-  process.env.WORKFLOW_REPOSITORY ?? 'in-memory'
+  process.env.WORKFLOW_REPOSITORY ?? (postgresPool ? 'postgres' : 'in-memory')
 ).toLowerCase();
 
 const connectorRepositoryMode = (
-  process.env.CONNECTOR_REPOSITORY ?? 'in-memory'
+  process.env.CONNECTOR_REPOSITORY ?? (postgresPool ? 'postgres' : 'in-memory')
 ).toLowerCase();
 
 const canonicalRepositoryMode = (
-  process.env.CANONICAL_JOBS_REPOSITORY ?? 'in-memory'
+  process.env.CANONICAL_JOBS_REPOSITORY ?? (postgresPool ? 'postgres' : 'in-memory')
 ).toLowerCase();
 
 const resolvePostgresPool = (requiredBy: string) => {
@@ -235,6 +236,12 @@ const defaultConnectorService = createConnectorService({
       companyHandle: process.env.LEVER_COMPANY_HANDLE ?? 'netflix',
       sourceName: 'lever_public_board',
       displayName: 'Lever Public Board',
+    }),
+    createArbeitnowJobBoardConnector({
+      sourceName: 'arbeitnow_job_board',
+      displayName: 'Arbeitnow Job Board',
+      endpointBaseUrl:
+        process.env.ARBEITNOW_API_BASE_URL ?? 'https://www.arbeitnow.com/api/job-board-api',
     }),
   ],
 });

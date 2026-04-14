@@ -33,7 +33,7 @@ export interface CanonicalJobRepository {
     sourceMappings: CanonicalSourceMapping[];
     nowIso: string;
   }): Promise<UpsertCanonicalJobResult>;
-  listCanonicalJobs(limit: number): Promise<CanonicalJobSummary[]>;
+  listCanonicalJobs(limit?: number): Promise<CanonicalJobSummary[]>;
   findCanonicalJobById(canonicalJobId: CanonicalJobId): Promise<CanonicalJobRecord | null>;
   upsertDedupeTraceEvents(events: CanonicalDedupeTraceEvent[]): Promise<void>;
   listDedupeTraceEvents(

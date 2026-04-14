@@ -90,7 +90,7 @@ export const canonicalJobDetailSchema = z
 export const canonicalRebuildRequestSchema = z
   .object({
     sourceName: sourceNameSchema.optional(),
-    maxSourceJobs: z.number().int().min(1).max(2_000).optional(),
+    maxSourceJobs: z.number().int().min(1).optional(),
   })
   .strict();
 
@@ -109,7 +109,7 @@ export const canonicalRebuildResponseSchema = z
 export const canonicalJobListResponseSchema = z
   .object({
     contractVersion: z.literal(jobsContractVersion),
-    jobs: z.array(canonicalJobSummarySchema).max(2_000),
+    jobs: z.array(canonicalJobSummarySchema),
   })
   .strict();
 
@@ -160,7 +160,7 @@ export const feedQuerySchema = z
     source: feedSourceFilterSchema,
     sort: feedSortSchema,
     includeHidden: z.boolean(),
-    limit: z.number().int().min(1).max(500),
+    limit: z.number().int().min(1).optional(),
   })
   .strict();
 
@@ -191,7 +191,7 @@ export const feedJobCardSchema = z
 export const feedResponseSchema = z
   .object({
     contractVersion: z.literal(jobsContractVersion),
-    items: z.array(feedJobCardSchema).max(500),
+    items: z.array(feedJobCardSchema),
   })
   .strict();
 

@@ -13,7 +13,6 @@ import {
 
 const defaultGreenhouseSourceName = 'greenhouse_public_board';
 const defaultConnectorVersion = 'greenhouse-public-board-v1';
-const defaultMaxRecords = 100;
 const defaultEndpointBaseUrl = 'https://boards-api.greenhouse.io/v1';
 
 const knownSkills: Array<{ skill: string; pattern: RegExp }> = [
@@ -424,7 +423,7 @@ export const createGreenhousePublicBoardConnector = ({
         });
       }
 
-      const maxRecords = input.maxRecords ?? defaultMaxRecords;
+      const maxRecords = input.maxRecords ?? Number.MAX_SAFE_INTEGER;
       const endpoint = new URL(
         `${endpointBaseUrl}/boards/${encodeURIComponent(normalizedBoardToken)}/jobs`,
       );

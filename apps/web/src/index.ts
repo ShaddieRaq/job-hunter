@@ -26,6 +26,7 @@ import {
   savedSearchIdSchema,
   savedSearchListResponseSchema,
   savedSearchResponseSchema,
+  sourceJobDetailResponseSchema,
   sourceNameSchema,
   trackerDiscoveryActionResponseSchema,
   trackerDiscoveryActionSchema,
@@ -43,11 +44,14 @@ import {
   type ReminderTask,
   type RemotePreference,
   type SavedSearch,
+  type Seniority,
+  type SourceJobDetail,
   type SourceName,
   type TrackerDiscoveryAction,
   type TrackedJobState,
   type UserPreferences,
   type UserProfile,
+  type WorkAuthorization,
 } from '@job-hunter/shared';
 
 const defaultWebPort = Number(process.env.WEB_PORT ?? 3000);
@@ -143,6 +147,29 @@ const defaultFeedQueryState: FeedQueryState = {
   includeHidden: false,
 };
 
+const remotePreferenceOptions: RemotePreference[] = [
+  'remote',
+  'hybrid',
+  'onsite',
+  'flexible',
+];
+
+const seniorityOptions: Seniority[] = [
+  'intern',
+  'junior',
+  'mid',
+  'senior',
+  'staff',
+  'principal',
+];
+
+const workAuthorizationOptions: WorkAuthorization[] = [
+  'citizen',
+  'permanent_resident',
+  'visa',
+  'other',
+];
+
 const defaultApplicationQueryState: ApplicationQueryState = {
   status: 'all',
 };
@@ -212,6 +239,7 @@ const noticeMessages: Record<string, string> = {
   tracker_hidden: 'Job hidden from your discovery feed.',
   application_created: 'Application record created.',
   application_updated: 'Application status updated.',
+  profile_saved: 'Profile and preferences saved.',
   application_exists: 'An application already exists for this job.',
 };
 
@@ -242,6 +270,7 @@ const feedErrorMessages: Record<string, string> = {
   invalid_application_limit: 'Application limit filter is invalid.',
   invalid_application_status_filter: 'Application status filter is invalid.',
   invalid_saved_search_id: 'Saved search id is invalid.',
+  source_job_not_found: 'Source listing details are unavailable for this mapping.',
   invalid_saved_search_limit: 'Saved search limit is invalid.',
   invalid_notification_limit: 'Notification limit is invalid.',
   invalid_notification_status_filter: 'Notification status filter is invalid.',
@@ -592,6 +621,24 @@ button[disabled] {
 
 .muted {
   color: var(--muted);
+}
+
+.field-hint {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.description-copy {
+  white-space: pre-wrap;
+  line-height: 1.45;
+  margin-top: 0.5rem;
+  max-height: 26rem;
+  overflow: auto;
+  border: 1px solid rgba(20, 68, 65, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.65rem;
 }
 
 .skill-list,
@@ -1108,10 +1155,12 @@ const buildFeedReturnPath = (query: FeedQueryState): string => {
   return queryString.length > 0 ? `/?${queryString}` : '/';
 };
 
-const buildFeedApiPath = (query: FeedQueryState, limit: number): string => {
+const buildFeedApiPath = (query: FeedQueryState, limit?: number): string => {
   const params = new URLSearchParams();
 
-  params.set('limit', limit.toString());
+  if (limit !== undefined) {
+    params.set('limit', limit.toString());
+  }
   params.set('recommendation', query.recommendation);
   params.set('remote', query.remote);
   params.set('source', query.source);
@@ -1391,6 +1440,32 @@ const fetchPreferences = async (
   };
 };
 
+const fetchSourceJobDetail = async (
+  apiBaseUrl: string,
+  accessToken: string,
+  sourceName: SourceName,
+  sourceJobId: string,
+): Promise<ApiResult<SourceJobDetail>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    `/v1/source-jobs/${encodeURIComponent(sourceName)}/${encodeURIComponent(sourceJobId)}`,
+    {
+      method: 'GET',
+    },
+    sourceJobDetailResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.sourceJob,
+  };
+};
+
 const fetchApplications = async (
   apiBaseUrl: string,
   accessToken: string,
@@ -1492,7 +1567,7 @@ const fetchTrackers = async (
 ): Promise<ApiResult<TrackedJobState[]>> => {
   const response = await requestApi(
     apiBaseUrl,
-    '/v1/tracker/jobs?limit=250',
+    '/v1/tracker/jobs',
     {
       method: 'GET',
     },
@@ -1564,7 +1639,7 @@ const fetchReminders = async (
 ): Promise<ApiResult<ReminderTask[]>> => {
   const response = await requestApi(
     apiBaseUrl,
-    '/v1/reminders?status=pending&limit=100',
+    '/v1/reminders?status=pending',
     {
       method: 'GET',
     },
@@ -2434,6 +2509,238 @@ const renderTodayPrioritiesPanel = (
     </section>`;
 };
 
+const serializeListForTextarea = (values: string[]): string => values.join('\n');
+
+const renderProfilePage = (
+  profile: UserProfile,
+  preferences: UserPreferences,
+  returnTo: string,
+  noticeCode: string | null,
+  errorCode: string | null,
+): string => {
+  const notice = noticeCode ? noticeMessages[noticeCode] ?? humanizeToken(noticeCode) : null;
+  const error = errorCode ? feedErrorMessages[errorCode] ?? humanizeToken(errorCode) : null;
+
+  const flash = [
+    notice ? renderFlash(notice, 'notice') : '',
+    error ? renderFlash(error, 'error') : '',
+  ].join('');
+
+  const workAuthorizationValue = profile.workAuthorization ?? '';
+  const sponsorshipValue =
+    profile.sponsorshipRequired === null
+      ? ''
+      : profile.sponsorshipRequired
+        ? 'true'
+        : 'false';
+
+  const body = `
+    <header class="masthead">
+      <div class="brand">
+        <h1>Profile and preferences</h1>
+        <p>Set your search intent so recommendations and sorting actually reflect your goals.</p>
+      </div>
+      <div class="actions">
+        <a class="link-button" href="${escapeHtml(returnTo)}">Back to feed</a>
+        <form method="POST" action="/signout" data-pending-label>
+          <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
+        </form>
+      </div>
+    </header>
+    <main>
+      ${flash}
+      <section class="panel">
+        <h3>Career profile</h3>
+        <form method="POST" action="/actions/profile/save" class="grid" data-pending-label>
+          <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
+          <label>
+            Current title
+            <input name="currentTitle" value="${escapeHtml(profile.currentTitle ?? '')}" placeholder="Senior Backend Engineer" />
+          </label>
+          <label>
+            Years of experience
+            <input type="number" min="0" max="60" name="yearsExperience" value="${escapeHtml(
+              profile.yearsExperience === null ? '' : String(profile.yearsExperience),
+            )}" />
+          </label>
+          <label>
+            Work authorization
+            <select name="workAuthorization">
+              <option value=""${workAuthorizationValue === '' ? ' selected' : ''}>not set</option>
+              ${workAuthorizationOptions
+                .map(
+                  (option) =>
+                    `<option value="${escapeHtml(option)}"${
+                      workAuthorizationValue === option ? ' selected' : ''
+                    }>${escapeHtml(humanizeToken(option))}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <label>
+            Sponsorship required
+            <select name="sponsorshipRequired">
+              <option value=""${sponsorshipValue === '' ? ' selected' : ''}>not set</option>
+              <option value="true"${sponsorshipValue === 'true' ? ' selected' : ''}>yes</option>
+              <option value="false"${sponsorshipValue === 'false' ? ' selected' : ''}>no</option>
+            </select>
+          </label>
+          <label class="wide">
+            Summary
+            <textarea name="summary" placeholder="Describe your strongest scope and impact.">${escapeHtml(
+              profile.summary ?? '',
+            )}</textarea>
+          </label>
+          <label class="wide">
+            Transition notes
+            <textarea name="transitionNotes" placeholder="Role constraints, timing, or motivation.">${escapeHtml(
+              profile.transitionNotes ?? '',
+            )}</textarea>
+          </label>
+
+          <h3>Search preferences</h3>
+          <label class="wide">
+            Preferred skills (comma or newline separated)
+            <textarea name="preferredSkills" placeholder="TypeScript\nNode.js\nPostgreSQL">${escapeHtml(
+              serializeListForTextarea(preferences.preferredSkills),
+            )}</textarea>
+          </label>
+          <label>
+            Preferred titles
+            <textarea name="preferredTitles" placeholder="Senior Backend Engineer">${escapeHtml(
+              serializeListForTextarea(preferences.preferredTitles),
+            )}</textarea>
+          </label>
+          <label>
+            Preferred locations
+            <textarea name="preferredLocations" placeholder="United States\nEurope">${escapeHtml(
+              serializeListForTextarea(preferences.preferredLocations),
+            )}</textarea>
+          </label>
+          <label>
+            Preferred industries
+            <textarea name="preferredIndustries" placeholder="Software\nFintech">${escapeHtml(
+              serializeListForTextarea(preferences.preferredIndustries),
+            )}</textarea>
+          </label>
+          <label>
+            Remote preference
+            <select name="remotePreference">
+              ${remotePreferenceOptions
+                .map(
+                  (option) =>
+                    `<option value="${escapeHtml(option)}"${
+                      preferences.remotePreference === option ? ' selected' : ''
+                    }>${escapeHtml(humanizeToken(option))}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <label>
+            Target seniority min
+            <select name="targetSeniorityMin">
+              <option value=""${preferences.targetSeniorityMin === null ? ' selected' : ''}>not set</option>
+              ${seniorityOptions
+                .map(
+                  (option) =>
+                    `<option value="${escapeHtml(option)}"${
+                      preferences.targetSeniorityMin === option ? ' selected' : ''
+                    }>${escapeHtml(humanizeToken(option))}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <label>
+            Target seniority max
+            <select name="targetSeniorityMax">
+              <option value=""${preferences.targetSeniorityMax === null ? ' selected' : ''}>not set</option>
+              ${seniorityOptions
+                .map(
+                  (option) =>
+                    `<option value="${escapeHtml(option)}"${
+                      preferences.targetSeniorityMax === option ? ' selected' : ''
+                    }>${escapeHtml(humanizeToken(option))}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <label>
+            Salary minimum
+            <input type="number" min="0" name="salaryMin" value="${escapeHtml(
+              preferences.salaryMin === null ? '' : String(preferences.salaryMin),
+            )}" />
+          </label>
+          <label>
+            Salary target
+            <input type="number" min="0" name="salaryTarget" value="${escapeHtml(
+              preferences.salaryTarget === null ? '' : String(preferences.salaryTarget),
+            )}" />
+          </label>
+          <label>
+            Stretch preference (1-5)
+            <select name="stretchPreferenceLevel">
+              ${[1, 2, 3, 4, 5]
+                .map(
+                  (value) =>
+                    `<option value="${value}"${
+                      preferences.stretchPreferenceLevel === value ? ' selected' : ''
+                    }>${value}</option>`,
+                )
+                .join('')}
+            </select>
+          </label>
+          <label class="wide">
+            Deal breakers (comma or newline separated)
+            <textarea name="dealBreakers" placeholder="No sponsorship\nNo on-call">${escapeHtml(
+              serializeListForTextarea(preferences.dealBreakers),
+            )}</textarea>
+          </label>
+          <label>
+            Hidden companies
+            <textarea name="hiddenCompanies" placeholder="Company names to hide">${escapeHtml(
+              serializeListForTextarea(preferences.hiddenCompanies),
+            )}</textarea>
+          </label>
+          <label>
+            Hidden titles
+            <textarea name="hiddenTitles" placeholder="Role titles to hide">${escapeHtml(
+              serializeListForTextarea(preferences.hiddenTitles),
+            )}</textarea>
+          </label>
+          <label class="full">
+            <span>
+              <input type="checkbox" name="dailyDigest" value="1"${
+                preferences.notificationPreferences.dailyDigest ? ' checked' : ''
+              } />
+              Daily digest
+            </span>
+          </label>
+          <label class="full">
+            <span>
+              <input type="checkbox" name="weeklyDigest" value="1"${
+                preferences.notificationPreferences.weeklyDigest ? ' checked' : ''
+              } />
+              Weekly digest
+            </span>
+          </label>
+          <label class="full">
+            <span>
+              <input type="checkbox" name="instantHighFit" value="1"${
+                preferences.notificationPreferences.instantHighFit ? ' checked' : ''
+              } />
+              Instant high-fit alerts
+            </span>
+          </label>
+          <p class="field-hint">Persistence requires API repositories configured for Postgres storage.</p>
+          <button type="submit" class="full" data-pending-label="Saving profile...">Save profile and preferences</button>
+        </form>
+      </section>
+    </main>
+  `;
+
+  return renderPage('Job Hunter | Profile', body);
+};
+
 const renderFeedPage = (
   profile: UserProfile,
   preferences: UserPreferences,
@@ -2502,6 +2809,9 @@ const renderFeedPage = (
           <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}" />
           <button type="submit" class="secondary" data-pending-label="Rebuilding catalog...">Rebuild catalog</button>
         </form>
+        <a class="link-button secondary" href="/profile?returnTo=${encodeURIComponent(
+          returnTo,
+        )}">Profile</a>
         <a class="link-button secondary" href="/applications">Applications</a>
         <form method="POST" action="/signout" data-pending-label>
           <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
@@ -2713,7 +3023,10 @@ const renderStructuredMaterialGuidance = (
 const toSourceListingKey = (sourceName: string, sourceJobId: string): string =>
   `${sourceName}:${sourceJobId}`;
 
-const renderSourceListingDetails = (detail: FeedDetailResponse): string => {
+const renderSourceListingDetails = (
+  detail: FeedDetailResponse,
+  sourceJobDetailsByKey: Map<string, SourceJobDetail> = new Map(),
+): string => {
   const sourceJobByKey = new Map(
     detail.sourceJobs.map((sourceJob) => [
       toSourceListingKey(sourceJob.sourceName, sourceJob.sourceJobId),
@@ -2723,9 +3036,9 @@ const renderSourceListingDetails = (detail: FeedDetailResponse): string => {
 
   const rows = detail.canonical.sourceMappings
     .map((mapping) => {
-      const sourceJob = sourceJobByKey.get(
-        toSourceListingKey(mapping.sourceName, mapping.sourceJobId),
-      );
+      const sourceJobKey = toSourceListingKey(mapping.sourceName, mapping.sourceJobId);
+      const detailedSourceJob = sourceJobDetailsByKey.get(sourceJobKey);
+      const sourceJob = detailedSourceJob ?? sourceJobByKey.get(sourceJobKey);
 
       if (!sourceJob) {
         return `<li>
@@ -2752,6 +3065,16 @@ const renderSourceListingDetails = (detail: FeedDetailResponse): string => {
       const postedAt = sourceJob.postedAt
         ? formatDateTime(sourceJob.postedAt)
         : 'Unknown';
+      const descriptionText =
+        detailedSourceJob?.descriptionText && detailedSourceJob.descriptionText.trim().length > 0
+          ? detailedSourceJob.descriptionText
+          : null;
+      const descriptionSection = descriptionText
+        ? `<details>
+            <summary>Full description</summary>
+            <p class="description-copy">${escapeHtml(descriptionText)}</p>
+          </details>`
+        : '<p class="muted">Full description unavailable for this source listing.</p>';
 
       const applyLink = sourceJob.applicationUrl
         ? `<a href="${escapeHtml(sourceJob.applicationUrl)}" target="_blank" rel="noreferrer noopener">Apply link</a>`
@@ -2769,6 +3092,7 @@ const renderSourceListingDetails = (detail: FeedDetailResponse): string => {
         <p><a href="${escapeHtml(sourceJob.fetchUrl)}" target="_blank" rel="noreferrer noopener">Open listing</a> | ${applyLink}</p>
         <p class="muted">Required skills: ${requiredSkillsText}</p>
         <p class="muted">Preferred skills: ${preferredSkillsText}</p>
+        ${descriptionSection}
       </li>`;
     })
     .join('');
@@ -2866,6 +3190,7 @@ const renderDetailPage = (
   tracker: TrackedJobState | null,
   application: ApplicationRecord | null,
   materialGuidance: ApplicationMaterialGuidance | null,
+  sourceJobDetailsByKey: Map<string, SourceJobDetail>,
   returnTo: string,
   errorCode: string | null,
 ): string => {
@@ -2923,7 +3248,7 @@ const renderDetailPage = (
         ${renderNextActionPanel(detail.nextAction)}
       </section>
       <section class="detail-layout">
-        ${renderSourceListingDetails(detail)}
+        ${renderSourceListingDetails(detail, sourceJobDetailsByKey)}
       </section>
       <section class="detail-layout">
         ${renderTrackerDiscoveryPanel(
@@ -2947,6 +3272,9 @@ const renderDetailPage = (
       </div>
       <div class="actions">
         <a class="link-button" href="${escapeHtml(returnTo)}">Back to feed</a>
+        <a class="link-button secondary" href="/profile?returnTo=${encodeURIComponent(
+          returnTo,
+        )}">Profile</a>
         <form method="POST" action="/signout" data-pending-label>
           <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
         </form>
@@ -3041,6 +3369,9 @@ const renderApplicationListPage = (
       </div>
       <div class="actions">
         <a class="link-button" href="${escapeHtml(feedReturnTo)}">Back to feed</a>
+        <a class="link-button secondary" href="/profile?returnTo=${encodeURIComponent(
+          feedReturnTo,
+        )}">Profile</a>
         <form method="POST" action="/signout" data-pending-label>
           <button type="submit" class="ghost" data-pending-label="Signing out...">Sign out</button>
         </form>
@@ -3161,6 +3492,9 @@ const renderApplicationDetailPage = (
       </div>
       <div class="actions">
         <a class="link-button" href="${escapeHtml(returnTo)}">Back</a>
+        <a class="link-button secondary" href="/profile?returnTo=${encodeURIComponent(
+          returnTo,
+        )}">Profile</a>
         ${application
           ? `<a class="link-button secondary" href="/jobs/${escapeHtml(
               application.canonicalJobId,
@@ -3227,6 +3561,89 @@ const readNullableFormField = (
   }
 
   return normalized;
+};
+
+const normalizeListInput = (rawValue: string, maxItems: number): string[] => {
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+
+  for (const part of rawValue.split(/[\n,]/)) {
+    const value = part.trim();
+    if (!value) {
+      continue;
+    }
+
+    const normalized = value.toLowerCase();
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    deduped.push(value);
+
+    if (deduped.length >= maxItems) {
+      break;
+    }
+  }
+
+  return deduped;
+};
+
+const parseNullableIntegerInput = (
+  rawValue: string,
+  options: {
+    min: number;
+    max: number;
+  },
+): number | null => {
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!/^-?\d+$/.test(trimmed)) {
+    throw new Error('invalid_number');
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < options.min || parsed > options.max) {
+    throw new Error('invalid_number');
+  }
+
+  return parsed;
+};
+
+const parseNullableEnumInput = <T extends string>(
+  rawValue: string,
+  options: readonly T[],
+): T | null => {
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!options.includes(trimmed as T)) {
+    throw new Error('invalid_enum');
+  }
+
+  return trimmed as T;
+};
+
+const parseNullableBooleanInput = (rawValue: string): boolean | null => {
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed === 'true') {
+    return true;
+  }
+
+  if (trimmed === 'false') {
+    return false;
+  }
+
+  throw new Error('invalid_boolean');
 };
 
 const signInWithMode = async (
@@ -3332,33 +3749,52 @@ const handleSyncRoute = async (
     return;
   }
 
-  const result = await requestApi(
-    apiBaseUrl,
-    '/v1/connectors/greenhouse_public_board/sync',
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ maxRecords: 200 }),
-    },
-    connectorSyncResponseSchema,
-    accessToken,
+  const sourceNames = ['greenhouse_public_board', 'arbeitnow_job_board'];
+
+  const results = await Promise.all(
+    sourceNames.map((sourceName) =>
+      requestApi(
+        apiBaseUrl,
+        `/v1/connectors/${sourceName}/sync`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        },
+        connectorSyncResponseSchema,
+        accessToken,
+      ),
+    ),
   );
 
-  if (!result.ok) {
-    if (result.error.code === 'invalid_access_token') {
-      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
-        clearAccessTokenCookie(),
-      ]);
-      return;
-    }
-
-    redirect(res, withQueryParam(returnTo, 'error', result.error.code));
+  if (results.some((result) => !result.ok && result.error.code === 'invalid_access_token')) {
+    redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+      clearAccessTokenCookie(),
+    ]);
     return;
   }
 
-  const noticeCode = result.data.failedCount > 0 ? 'sync_partial' : 'sync_complete';
+  const successful = results.filter((result) => result.ok);
+
+  if (successful.length === 0) {
+    const firstError = results.find((result) => !result.ok);
+    if (firstError && !firstError.ok) {
+      redirect(res, withQueryParam(returnTo, 'error', firstError.error.code));
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', 'upstream_unreachable'));
+    return;
+  }
+
+  const hasFailedRecords = successful.some(
+    (result) => result.ok && result.data.failedCount > 0,
+  );
+  const hasRequestErrors = results.some((result) => !result.ok);
+
+  const noticeCode = hasFailedRecords || hasRequestErrors ? 'sync_partial' : 'sync_complete';
   redirect(res, withQueryParam(returnTo, 'notice', noticeCode));
 };
 
@@ -3385,7 +3821,7 @@ const handleRebuildRoute = async (
       headers: {
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ maxSourceJobs: 500 }),
+      body: JSON.stringify({}),
     },
     canonicalRebuildResponseSchema,
     accessToken,
@@ -3404,6 +3840,297 @@ const handleRebuildRoute = async (
   }
 
   redirect(res, withQueryParam(returnTo, 'notice', 'rebuild_complete'));
+};
+
+const handleProfileRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const requestUrl = new URL(req.url ?? '/profile', 'http://localhost');
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const returnTo = normalizeReturnPath(requestUrl.searchParams.get('returnTo') ?? '/');
+  const noticeCode = requestUrl.searchParams.get('notice');
+  const routeErrorCode = requestUrl.searchParams.get('error');
+
+  if (!accessToken) {
+    const authRedirect = withQueryParam('/', 'auth_error', 'missing_access_token');
+    redirect(
+      res,
+      withQueryParam(authRedirect, 'returnTo', `${requestUrl.pathname}${requestUrl.search}`),
+    );
+    return;
+  }
+
+  const [profileResult, preferencesResult] = await Promise.all([
+    fetchProfile(apiBaseUrl, accessToken),
+    fetchPreferences(apiBaseUrl, accessToken),
+  ]);
+
+  if (!profileResult.ok) {
+    if (profileResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(
+      res,
+      withQueryParam(
+        withQueryParam('/profile', 'returnTo', returnTo),
+        'error',
+        profileResult.error.code,
+      ),
+    );
+    return;
+  }
+
+  const preferences = preferencesResult.ok
+    ? preferencesResult.data
+    : buildFallbackPreferences(profileResult.data);
+
+  const computedErrorCode = preferencesResult.ok
+    ? routeErrorCode
+    : (routeErrorCode ?? preferencesResult.error.code);
+
+  sendHtml(
+    res,
+    200,
+    renderProfilePage(
+      profileResult.data,
+      preferences,
+      returnTo,
+      noticeCode,
+      computedErrorCode,
+    ),
+  );
+};
+
+const handleProfileSaveRoute = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiBaseUrl: string,
+): Promise<void> => {
+  const cookies = parseCookies(req);
+  const accessToken = cookies[accessTokenCookieName];
+  const form = await readFormBody(req);
+  const returnTo = normalizeReturnPath(form.get('returnTo')?.toString() ?? '/');
+  const profilePath = withQueryParam('/profile', 'returnTo', returnTo);
+
+  if (!accessToken) {
+    redirect(res, withQueryParam('/', 'auth_error', 'missing_access_token'));
+    return;
+  }
+
+  const [profileResult, preferencesResult] = await Promise.all([
+    fetchProfile(apiBaseUrl, accessToken),
+    fetchPreferences(apiBaseUrl, accessToken),
+  ]);
+
+  if (!profileResult.ok) {
+    if (profileResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(profilePath, 'error', profileResult.error.code));
+    return;
+  }
+
+  const existingPreferences = preferencesResult.ok
+    ? preferencesResult.data
+    : buildFallbackPreferences(profileResult.data);
+
+  let profilePayload: {
+    currentTitle: string | null;
+    yearsExperience: number | null;
+    summary: string | null;
+    workAuthorization: WorkAuthorization | null;
+    sponsorshipRequired: boolean | null;
+    transitionNotes: string | null;
+  };
+  let preferencesPayload: {
+    preferredTitles: string[];
+    preferredIndustries: string[];
+    preferredSkills: string[];
+    preferredLocations: string[];
+    remotePreference: RemotePreference;
+    targetSeniorityMin: Seniority | null;
+    targetSeniorityMax: Seniority | null;
+    salaryMin: number | null;
+    salaryTarget: number | null;
+    dealBreakers: string[];
+    hiddenCompanies: string[];
+    hiddenTitles: string[];
+    stretchPreferenceLevel: number;
+    notificationPreferences: {
+      dailyDigest: boolean;
+      weeklyDigest: boolean;
+      instantHighFit: boolean;
+    };
+  };
+
+  try {
+    const yearsExperienceRaw = (form.get('yearsExperience') ?? '').toString();
+    const workAuthorizationRaw = (form.get('workAuthorization') ?? '').toString();
+    const sponsorshipRequiredRaw = (form.get('sponsorshipRequired') ?? '').toString();
+    const remotePreferenceRaw = (form.get('remotePreference') ?? '').toString();
+    const targetSeniorityMinRaw = (form.get('targetSeniorityMin') ?? '').toString();
+    const targetSeniorityMaxRaw = (form.get('targetSeniorityMax') ?? '').toString();
+    const salaryMinRaw = (form.get('salaryMin') ?? '').toString();
+    const salaryTargetRaw = (form.get('salaryTarget') ?? '').toString();
+    const stretchPreferenceLevelRaw =
+      (form.get('stretchPreferenceLevel') ?? '').toString();
+
+    profilePayload = {
+      currentTitle: readNullableFormField(form, 'currentTitle') ?? null,
+      yearsExperience: parseNullableIntegerInput(yearsExperienceRaw, {
+        min: 0,
+        max: 60,
+      }),
+      summary: readNullableFormField(form, 'summary') ?? null,
+      workAuthorization: parseNullableEnumInput(
+        workAuthorizationRaw,
+        workAuthorizationOptions,
+      ),
+      sponsorshipRequired: parseNullableBooleanInput(sponsorshipRequiredRaw),
+      transitionNotes: readNullableFormField(form, 'transitionNotes') ?? null,
+    };
+
+    const parsedRemotePreference = parseNullableEnumInput(
+      remotePreferenceRaw,
+      remotePreferenceOptions,
+    );
+
+    preferencesPayload = {
+      preferredTitles: normalizeListInput(
+        (form.get('preferredTitles') ?? '').toString(),
+        20,
+      ),
+      preferredIndustries: normalizeListInput(
+        (form.get('preferredIndustries') ?? '').toString(),
+        20,
+      ),
+      preferredSkills: normalizeListInput(
+        (form.get('preferredSkills') ?? '').toString(),
+        100,
+      ),
+      preferredLocations: normalizeListInput(
+        (form.get('preferredLocations') ?? '').toString(),
+        20,
+      ),
+      remotePreference: parsedRemotePreference ?? existingPreferences.remotePreference,
+      targetSeniorityMin: parseNullableEnumInput(
+        targetSeniorityMinRaw,
+        seniorityOptions,
+      ),
+      targetSeniorityMax: parseNullableEnumInput(
+        targetSeniorityMaxRaw,
+        seniorityOptions,
+      ),
+      salaryMin: parseNullableIntegerInput(salaryMinRaw, {
+        min: 0,
+        max: 10_000_000,
+      }),
+      salaryTarget: parseNullableIntegerInput(salaryTargetRaw, {
+        min: 0,
+        max: 10_000_000,
+      }),
+      dealBreakers: normalizeListInput(
+        (form.get('dealBreakers') ?? '').toString(),
+        20,
+      ),
+      hiddenCompanies: normalizeListInput(
+        (form.get('hiddenCompanies') ?? '').toString(),
+        50,
+      ),
+      hiddenTitles: normalizeListInput(
+        (form.get('hiddenTitles') ?? '').toString(),
+        50,
+      ),
+      stretchPreferenceLevel:
+        parseNullableIntegerInput(stretchPreferenceLevelRaw, {
+          min: 1,
+          max: 5,
+        }) ?? existingPreferences.stretchPreferenceLevel,
+      notificationPreferences: {
+        dailyDigest: form.get('dailyDigest') === '1',
+        weeklyDigest: form.get('weeklyDigest') === '1',
+        instantHighFit: form.get('instantHighFit') === '1',
+      },
+    };
+  } catch {
+    redirect(res, withQueryParam(profilePath, 'error', 'invalid_request_body'));
+    return;
+  }
+
+  const profileUpdateResult = await requestApi<unknown>(
+    apiBaseUrl,
+    '/v1/profile',
+    {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(profilePayload),
+    },
+    null,
+    accessToken,
+  );
+
+  if (!profileUpdateResult.ok) {
+    if (profileUpdateResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(profilePath, 'error', profileUpdateResult.error.code));
+    return;
+  }
+
+  if (!parseProfileEnvelope(profileUpdateResult.data)) {
+    redirect(res, withQueryParam(profilePath, 'error', 'invalid_api_contract'));
+    return;
+  }
+
+  const preferencesUpdateResult = await requestApi<unknown>(
+    apiBaseUrl,
+    '/v1/preferences',
+    {
+      method: 'PUT',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(preferencesPayload),
+    },
+    null,
+    accessToken,
+  );
+
+  if (!preferencesUpdateResult.ok) {
+    if (preferencesUpdateResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(profilePath, 'error', preferencesUpdateResult.error.code));
+    return;
+  }
+
+  if (!parsePreferencesEnvelope(preferencesUpdateResult.data)) {
+    redirect(res, withQueryParam(profilePath, 'error', 'invalid_api_contract'));
+    return;
+  }
+
+  redirect(res, withQueryParam(profilePath, 'notice', 'profile_saved'));
 };
 
 const handleTrackerActionRoute = async (
@@ -3603,9 +4330,8 @@ const handleApplicationsRoute = async (
   const [applicationResult, feedResult] = await Promise.all([
     fetchApplications(apiBaseUrl, accessToken, {
       status: statusFilter,
-      limit: 250,
     }),
-    requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
+    requestApi(apiBaseUrl, '/v1/feed', { method: 'GET' }, feedResponseSchema, accessToken),
   ]);
 
   const feedJobMap = buildFeedJobMap(feedResult.ok ? feedResult.data.items : []);
@@ -3708,7 +4434,7 @@ const handleApplicationDetailRoute = async (
   }
 
   const [feedResult, feedDetailResult, materialGuidanceResult] = await Promise.all([
-    requestApi(apiBaseUrl, '/v1/feed?limit=250', { method: 'GET' }, feedResponseSchema, accessToken),
+    requestApi(apiBaseUrl, '/v1/feed', { method: 'GET' }, feedResponseSchema, accessToken),
     requestApi(
       apiBaseUrl,
       `/v1/feed/${applicationResult.data.canonicalJobId}`,
@@ -3972,7 +4698,6 @@ const handleFeedRoute = async (
       sort: 'fit',
       includeHidden: true,
     },
-    250,
   );
 
   if (!accessToken) {
@@ -3996,12 +4721,12 @@ const handleFeedRoute = async (
     requestApi(apiBaseUrl, unfilteredFeedApiPath, { method: 'GET' }, feedResponseSchema, accessToken),
     requestApi(
       apiBaseUrl,
-      buildFeedApiPath(query, 250),
+      buildFeedApiPath(query),
       { method: 'GET' },
       feedResponseSchema,
       accessToken,
     ),
-    fetchApplications(apiBaseUrl, accessToken, { limit: 250 }),
+    fetchApplications(apiBaseUrl, accessToken),
     fetchTrackers(apiBaseUrl, accessToken),
     fetchSavedSearches(apiBaseUrl, accessToken),
     fetchNotifications(apiBaseUrl, accessToken),
@@ -4174,11 +4899,55 @@ const handleJobDetailRoute = async (
         null,
         null,
         null,
+        new Map(),
         returnTo,
         detailResult.error.code,
       ),
     );
     return;
+  }
+
+  const sourceJobDetailsByKey = new Map<string, SourceJobDetail>();
+  let sourceJobDetailsErrorCode: string | null = null;
+  const sourceJobDetailResults = await Promise.all(
+    detailResult.data.canonical.sourceMappings.map(async (mapping) => ({
+      sourceName: mapping.sourceName,
+      sourceJobId: mapping.sourceJobId,
+      result: await fetchSourceJobDetail(
+        apiBaseUrl,
+        accessToken,
+        mapping.sourceName,
+        mapping.sourceJobId,
+      ),
+    })),
+  );
+
+  for (const sourceJobDetailResult of sourceJobDetailResults) {
+    if (sourceJobDetailResult.result.ok) {
+      sourceJobDetailsByKey.set(
+        toSourceListingKey(
+          sourceJobDetailResult.sourceName,
+          sourceJobDetailResult.sourceJobId,
+        ),
+        sourceJobDetailResult.result.data,
+      );
+      continue;
+    }
+
+    if (sourceJobDetailResult.result.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    if (sourceJobDetailResult.result.error.code === 'source_job_not_found') {
+      continue;
+    }
+
+    if (!sourceJobDetailsErrorCode) {
+      sourceJobDetailsErrorCode = sourceJobDetailResult.result.error.code;
+    }
   }
 
   const application = applicationResult.ok
@@ -4204,6 +4973,8 @@ const handleJobDetailRoute = async (
       ? trackerResult.error.code
       : materialGuidanceResult && !materialGuidanceResult.ok
         ? materialGuidanceResult.error.code
+      : sourceJobDetailsErrorCode
+        ? sourceJobDetailsErrorCode
       : null;
 
   sendHtml(
@@ -4215,6 +4986,7 @@ const handleJobDetailRoute = async (
       tracker,
       application,
       materialGuidance,
+      sourceJobDetailsByKey,
       returnTo,
       computedErrorCode,
     ),
@@ -4245,6 +5017,11 @@ const handleRequest = async (
     return;
   }
 
+  if (method === 'GET' && pathname === '/profile') {
+    await handleProfileRoute(req, res, apiBaseUrl);
+    return;
+  }
+
   if (method === 'GET' && pathname.startsWith('/applications/')) {
     await handleApplicationDetailRoute(req, res, apiBaseUrl);
     return;
@@ -4272,6 +5049,11 @@ const handleRequest = async (
 
   if (method === 'POST' && pathname === '/actions/rebuild') {
     await handleRebuildRoute(req, res, apiBaseUrl);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/actions/profile/save') {
+    await handleProfileSaveRoute(req, res, apiBaseUrl);
     return;
   }
 

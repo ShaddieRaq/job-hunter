@@ -15,8 +15,7 @@ import { HttpError, isHttpError } from '../../http/http-errors.js';
 import { createInMemoryApplicationRepository } from './in-memory-repository.js';
 import type { ApplicationRepository } from './repository.js';
 
-const defaultListLimit = 50;
-const maxListLimit = 500;
+const defaultListLimit = Number.MAX_SAFE_INTEGER;
 
 const statusNeedsAppliedAt = new Set<ApplicationStatus>([
   'applied',
@@ -31,7 +30,7 @@ const normalizeLimit = (limit: number | undefined): number => {
     return defaultListLimit;
   }
 
-  return Math.max(1, Math.min(maxListLimit, limit));
+  return Math.max(1, limit);
 };
 
 const normalizeNullableText = (

@@ -121,7 +121,7 @@ export const createInMemoryConnectorRepository = (): ConnectorRepository => {
     upsertSourceJob,
 
     async listSourceJobs({ sourceName, limit }) {
-      const jobs = [...sourceJobStore.values()]
+      const sortedJobs = [...sourceJobStore.values()]
         .filter((record) => !sourceName || record.sourceName === sourceName)
         .sort((left, right) => {
           if (left.lastSeenAt === right.lastSeenAt) {
@@ -133,9 +133,11 @@ export const createInMemoryConnectorRepository = (): ConnectorRepository => {
           }
 
           return right.lastSeenAt.localeCompare(left.lastSeenAt);
-        })
-        .slice(0, limit)
-        .map(cloneSourceJobSummary);
+        });
+
+      const jobs = (limit === undefined ? sortedJobs : sortedJobs.slice(0, limit)).map(
+        cloneSourceJobSummary,
+      );
 
       return jobs;
     },

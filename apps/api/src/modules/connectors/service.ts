@@ -5,6 +5,7 @@ import type {
   ConnectorSyncResponse,
   SourceConnector,
   SourceConnectorHealthStatus,
+  SourceJobDetail,
   SourceJobSummary,
   SourceName,
 } from '@job-hunter/shared';
@@ -18,8 +19,6 @@ import type {
 } from './repository.js';
 import { connectorJobCandidateSchema, type SourceConnectorDefinition } from './types.js';
 
-const defaultSourceJobLimit = 50;
-const maxSourceJobLimit = 500;
 const maxSyncErrorsInResponse = 200;
 const maxSyncErrorLength = 240;
 
@@ -112,8 +111,16 @@ const upsertResultCounts = (
 };
 
 const toSourceJobSummary = (record: SourceJobRecord): SourceJobSummary => {
-  const { descriptionText: _descriptionText, rawPayload: _rawPayload, ...summary } = record;
+  const { descriptionText, rawPayload, ...summary } = record;
+  void descriptionText;
+  void rawPayload;
   return summary;
+};
+
+const toSourceJobDetail = (record: SourceJobRecord): SourceJobDetail => {
+  const { rawPayload, ...detail } = record;
+  void rawPayload;
+  return detail;
 };
 
 export interface ConnectorService {
@@ -126,6 +133,10 @@ export interface ConnectorService {
     sourceName: SourceName,
     sourceJobId: string,
   ): Promise<SourceJobSummary | null>;
+  getSourceJobDetail(
+    sourceName: SourceName,
+    sourceJobId: string,
+  ): Promise<SourceJobDetail | null>;
   listSourceJobs(options?: {
     sourceName?: SourceName;
     limit?: number;
@@ -309,11 +320,10 @@ export const createConnectorService = ({
     sourceName?: SourceName;
     limit?: number;
   }): Promise<SourceJobSummary[]> => {
-    const limit = options?.limit ?? defaultSourceJobLimit;
-    if (limit < 1 || limit > maxSourceJobLimit) {
+    const limit = options?.limit;
+    if (limit !== undefined && limit < 1) {
       throw new HttpError(400, 'invalid_source_job_limit', {
         limit,
-        maxSourceJobLimit,
       });
     }
 
@@ -342,10 +352,25 @@ export const createConnectorService = ({
     return toSourceJobSummary(sourceJob);
   };
 
+  const getSourceJobDetail = async (
+    sourceName: SourceName,
+    sourceJobId: string,
+  ): Promise<SourceJobDetail | null> => {
+    getConnectorOrThrow(sourceName);
+
+    const sourceJob = await repository.findSourceJob(sourceName, sourceJobId);
+    if (!sourceJob) {
+      return null;
+    }
+
+    return toSourceJobDetail(sourceJob);
+  };
+
   return {
     listConnectors,
     syncConnector,
     getSourceJob,
+    getSourceJobDetail,
     listSourceJobs,
   };
 };

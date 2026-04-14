@@ -19,6 +19,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/connectors`
 	- `POST /v1/connectors/:sourceName/sync`
 	- `GET /v1/source-jobs`
+	- `GET /v1/source-jobs/:sourceName/:sourceJobId`
 - Canonical catalog v1 endpoints:
 	- `POST /v1/canonical-jobs/rebuild`
 	- `GET /v1/canonical-jobs`
@@ -26,6 +27,7 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/canonical-jobs/:canonicalJobId/dedupe-events`
 	- `GET /v1/feed`
 	  - supports server-side query filters: `q`, `recommendation`, `remote`, `source`, `sort`, `includeHidden`, `limit`
+	  - when `limit` is omitted, feed results are not route-capped by a fixed hard maximum
 	  - includes deterministic `nextAction` cues derived from tracker/application/reminder + score context
 	- `GET /v1/feed/:canonicalJobId`
 	  - includes canonical mappings, dedupe trace, latest score artifact, and source listing summaries for detail UX
@@ -100,15 +102,17 @@ Structured Node.js API for the Job Hunter modular monolith.
 
 - `GREENHOUSE_BOARD_TOKEN`: Greenhouse board token used by the default public-board connector instance (default: `stripe` for local/dev bootstrap)
 - `LEVER_COMPANY_HANDLE`: Lever company handle used by the default public-board connector instance (default: `netflix` for local/dev bootstrap)
-- `CONNECTOR_REPOSITORY`: repository mode for connector source state (`in-memory` default, `postgres` optional)
+	- Lever currently returns `0` postings for `netflix` from `https://api.lever.co/v0/postings/netflix?mode=json`; set this env var to an org handle with an active Lever public board if you want Lever ingestion volume
+- `ARBEITNOW_API_BASE_URL`: optional endpoint override for the default Arbeitnow job-board connector (default: `https://www.arbeitnow.com/api/job-board-api`)
+- `CONNECTOR_REPOSITORY`: repository mode for connector source state (`in-memory` default, `postgres` optional; when omitted the API auto-selects `postgres` if `DATABASE_URL` is set)
 
 ## Canonical catalog repository configuration
 
-- `CANONICAL_JOBS_REPOSITORY`: repository mode for canonical jobs (`in-memory` default, `postgres` optional)
+- `CANONICAL_JOBS_REPOSITORY`: repository mode for canonical jobs (`in-memory` default, `postgres` optional; when omitted the API auto-selects `postgres` if `DATABASE_URL` is set)
 
 ## Workflow repository configuration
 
-- `WORKFLOW_REPOSITORY`: repository mode for auth/profile/resume/tracker/reminder/notification/application/saved-search modules (`in-memory` default, `postgres` optional)
+- `WORKFLOW_REPOSITORY`: repository mode for auth/profile/resume/tracker/reminder/notification/application/saved-search modules (`in-memory` default, `postgres` optional; when omitted the API auto-selects `postgres` if `DATABASE_URL` is set)
 - `RESUME_OBJECT_STORAGE_DIR`: filesystem directory used for resume uploads when `WORKFLOW_REPOSITORY=postgres` (default: `.data/resumes`)
 - `API_RUNTIME_MODE`: `development` (default), `validation`, or `production`
 

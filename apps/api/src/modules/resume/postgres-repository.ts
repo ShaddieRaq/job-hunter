@@ -4,7 +4,7 @@ import type {
 } from '@job-hunter/shared';
 
 import type { PostgresPool } from '../../db/postgres.js';
-import type { ResumeRecord, ResumeRepository } from './repository.js';
+import type { ResumeRepository } from './repository.js';
 import type { ResumeRow, ResumeStructuredProfileRow } from './persistence-model.js';
 
 const rowToResumeMetadata = (row: ResumeRow): ResumeMetadata => ({
