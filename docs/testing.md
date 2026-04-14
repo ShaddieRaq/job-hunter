@@ -52,6 +52,7 @@ Post-MVP hardening coverage currently includes:
 - web feed regression tests for high-fit-first recommendation defaults and explicit recommendation/source filter parsing behavior
 - web job-detail regression tests for source listing details rendering (listing links + required/preferred skills visibility)
 - web job-detail regression tests for deterministic next-action cue rendering
+- web feed regression tests for Today priorities queue ordering (pending reminders before high-fit untouched and shortlisted follow-through items)
 - AI service/provider regression tests for sensitive-data minimization guardrails (provider-boundary payload redaction/minimization and provider error-detail minimization)
 - notifications regression tests for `/v1/notifications/high-fit/dispatch` score-threshold gating + duplicate suppression and `/v1/notifications/high-fit/dispatch-all` aggregate partial-failure reporting
 - worker unit tests for scheduled connector sync + canonical rebuild orchestration, post-rebuild high-fit dispatch-all cadence behavior, retry/backoff behavior, and run-status tracking
@@ -185,6 +186,7 @@ Detailed execution runbook:
 - save a job
 - create, apply, and delete a saved search preset
 - verify default recommendation view is high-fit and explicit all/apply/review/skip/unscored filters still work
+- verify Today priorities queue ordering prefers pending reminders, then untouched high-fit jobs, then shortlisted jobs without application progress
 - confirm hidden jobs do not keep resurfacing incorrectly
 
 ### Job detail

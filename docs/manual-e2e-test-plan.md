@@ -11,6 +11,7 @@ It focuses on user-visible behavior, route wiring, and workflow correctness acro
 - feed browsing and detail views
 - discovery actions and saved-search workflows
 - sync/rebuild actions
+- feed priorities queue ordering
 - application tracking workflow
 - material assistant guidance rendering
 
@@ -151,6 +152,18 @@ Expected:
 1. Panel shows one or more high-fit alert messages when sent alerts exist
 2. Alert rows include score metadata and sent date context
 3. Jump to job opens the matching job detail page
+
+#### E2E-FEED-006 Today priorities queue ordering
+Steps:
+1. Open feed with includeHidden enabled (`includeHidden=1`) so hidden-role reminders can surface
+2. Locate Today priorities panel
+3. Confirm queue ordering and category labels
+4. Shortlist a visible high-fit job and refresh feed
+
+Expected:
+1. Pending reminder entries appear before high-fit untouched entries
+2. After shortlisting, shortlisted follow-through entry appears for that role when application progress is missing
+3. Queue remains deterministic across refreshes for unchanged data
 
 ### Discovery Actions and Saved Searches
 

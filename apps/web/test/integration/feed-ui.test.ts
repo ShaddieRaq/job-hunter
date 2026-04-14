@@ -475,6 +475,36 @@ const createApiStubServer = (): Server => {
     },
   ];
 
+  const reminders: Array<{
+    reminderId: string;
+    userId: string;
+    canonicalJobId: string;
+    taskType: 'application_follow_up' | 'interview_prep' | 'custom';
+    title: string;
+    note: string | null;
+    dueAt: string;
+    status: 'pending' | 'completed';
+    linkedTrackerEventId: string | null;
+    createdAt: string;
+    updatedAt: string;
+    completedAt: string | null;
+  }> = [
+    {
+      reminderId: '55555555-5555-4555-8555-000000000001',
+      userId,
+      canonicalJobId: hiddenCanonicalJobId,
+      taskType: 'application_follow_up',
+      title: 'Follow up on hidden role.',
+      note: 'Decide whether to keep this archived role hidden or close it out.',
+      dueAt: '2026-04-12T09:00:00.000Z',
+      status: 'pending',
+      linkedTrackerEventId: null,
+      createdAt: '2026-04-12T08:00:00.000Z',
+      updatedAt: '2026-04-12T08:00:00.000Z',
+      completedAt: null,
+    },
+  ];
+
   let applicationCounter = 1;
   let trackerEventCounter = 1;
   let savedSearchCounter = 1;
@@ -607,6 +637,35 @@ const createApiStubServer = (): Server => {
       sendJson(res, 200, {
         contractVersion: 'v1',
         notifications: records,
+      });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/v1/reminders') {
+      const statusFilter = requestUrl.searchParams.get('status');
+      const canonicalJobIdFilter = requestUrl.searchParams.get('canonicalJobId');
+      const limitRaw = requestUrl.searchParams.get('limit');
+
+      const limit = limitRaw ? Number.parseInt(limitRaw, 10) : 50;
+      const effectiveLimit = Number.isNaN(limit) ? 50 : limit;
+
+      const records = reminders
+        .filter((reminder) => {
+          if (statusFilter && reminder.status !== statusFilter) {
+            return false;
+          }
+
+          if (canonicalJobIdFilter && reminder.canonicalJobId !== canonicalJobIdFilter) {
+            return false;
+          }
+
+          return true;
+        })
+        .slice(0, effectiveLimit);
+
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        reminders: records,
       });
       return;
     }
@@ -1205,6 +1264,8 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
     assert.match(html, /High-fit alerts/);
     assert.match(html, /High-fit alert: Senior Platform Engineer at Visible Systems scored 88\.0\./);
     assert.match(html, /Jump to job/);
+    assert.match(html, /Today priorities/);
+    assert.match(html, /High-fit opportunity/);
     assert.match(html, /<select name="source">/);
     assert.match(html, /Lever Public Board/);
 
@@ -1233,6 +1294,73 @@ test('authenticated feed hides preference-hidden jobs by default', async () => {
     assert.match(sourceFilteredHtml, /Visible Systems/);
     assert.doesNotMatch(sourceFilteredHtml, /Hidden Corp/);
     assert.match(sourceFilteredHtml, /Source: Lever Public Board/);
+  } finally {
+    await web.close();
+    await api.close();
+  }
+});
+
+test('feed priorities queue reminders before high-fit and shortlisted follow-through', async () => {
+  const api = await startServer(createApiStubServer());
+  const web = await startServer(createWebServer({ apiBaseUrl: api.baseUrl }));
+
+  try {
+    const cookie = await signInAndGetCookie(web.baseUrl);
+
+    const initialResponse = await fetch(
+      `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    assert.equal(initialResponse.status, 200);
+    const initialHtml = await initialResponse.text();
+    assert.match(initialHtml, /Today priorities/);
+    assert.match(initialHtml, /Pending reminder/);
+    assert.match(initialHtml, /High-fit opportunity/);
+
+    const reminderIndex = initialHtml.indexOf('Pending reminder');
+    const highFitIndex = initialHtml.indexOf('High-fit opportunity');
+    assert.ok(reminderIndex >= 0);
+    assert.ok(highFitIndex >= 0);
+    assert.ok(reminderIndex < highFitIndex);
+
+    const shortlistResponse = await fetch(`${web.baseUrl}/actions/tracker`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        cookie,
+      },
+      body: `canonicalJobId=${encodeURIComponent(visibleCanonicalJobId)}&action=shortlist&returnTo=%2F`,
+      redirect: 'manual',
+    });
+
+    assert.equal(shortlistResponse.status, 303);
+    assert.equal(shortlistResponse.headers.get('location'), '/?notice=tracker_shortlisted');
+
+    const afterShortlistResponse = await fetch(
+      `${web.baseUrl}/?includeHidden=1&remote=any&recommendation=all`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    assert.equal(afterShortlistResponse.status, 200);
+    const afterShortlistHtml = await afterShortlistResponse.text();
+    assert.match(afterShortlistHtml, /Pending reminder/);
+    assert.match(afterShortlistHtml, /Shortlisted follow-through/);
+    assert.doesNotMatch(afterShortlistHtml, /High-fit opportunity/);
+
+    const shortlistedIndex = afterShortlistHtml.indexOf('Shortlisted follow-through');
+    const queuedReminderIndex = afterShortlistHtml.indexOf('Pending reminder');
+    assert.ok(queuedReminderIndex >= 0);
+    assert.ok(shortlistedIndex >= 0);
+    assert.ok(queuedReminderIndex < shortlistedIndex);
   } finally {
     await web.close();
     await api.close();

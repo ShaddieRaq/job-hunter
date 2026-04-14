@@ -20,6 +20,7 @@ import {
   feedDetailResponseSchema,
   feedResponseSchema,
   notificationListResponseSchema,
+  reminderListResponseSchema,
   savedSearchCreateRequestSchema,
   savedSearchDeleteResponseSchema,
   savedSearchIdSchema,
@@ -39,6 +40,7 @@ import {
   type FeedJobCard,
   type MatchScoreArtifact,
   type NotificationLog,
+  type ReminderTask,
   type RemotePreference,
   type SavedSearch,
   type SourceName,
@@ -78,6 +80,19 @@ interface FeedQueryState {
 
 interface ApplicationQueryState {
   status: ApplicationStatusFilter;
+}
+
+type DailyPriorityCategory =
+  | 'pending_reminder'
+  | 'high_fit_unactioned'
+  | 'shortlisted_without_progress';
+
+interface DailyPriorityItem {
+  canonicalJobId: string;
+  category: DailyPriorityCategory;
+  actionTitle: string;
+  rationale: string;
+  dueAt: string | null;
 }
 
 interface CreateWebServerOptions {
@@ -176,6 +191,14 @@ const trackerActionNoticeCodeByAction: Record<TrackerDiscoveryAction, string> = 
   hide: 'tracker_hidden',
 };
 
+const maxDailyPriorities = 6;
+
+const dailyPriorityCategoryLabel: Record<DailyPriorityCategory, string> = {
+  pending_reminder: 'Pending reminder',
+  high_fit_unactioned: 'High-fit opportunity',
+  shortlisted_without_progress: 'Shortlisted follow-through',
+};
+
 const noticeMessages: Record<string, string> = {
   signed_in: 'Signed in successfully.',
   account_created: 'Account created. You are now signed in.',
@@ -222,6 +245,8 @@ const feedErrorMessages: Record<string, string> = {
   invalid_saved_search_limit: 'Saved search limit is invalid.',
   invalid_notification_limit: 'Notification limit is invalid.',
   invalid_notification_status_filter: 'Notification status filter is invalid.',
+  invalid_reminder_limit: 'Reminder limit is invalid.',
+  invalid_reminder_status_filter: 'Reminder status filter is invalid.',
   invalid_tracker_discovery_action: 'Tracker action is invalid.',
   invalid_tracker_transition: 'Tracker action is not allowed from the current state.',
   saved_search_name_exists: 'A saved search with this name already exists.',
@@ -1533,6 +1558,30 @@ const fetchNotifications = async (
   };
 };
 
+const fetchReminders = async (
+  apiBaseUrl: string,
+  accessToken: string,
+): Promise<ApiResult<ReminderTask[]>> => {
+  const response = await requestApi(
+    apiBaseUrl,
+    '/v1/reminders?status=pending&limit=100',
+    {
+      method: 'GET',
+    },
+    reminderListResponseSchema,
+    accessToken,
+  );
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    data: response.data.reminders,
+  };
+};
+
 const fetchTrackerState = async (
   apiBaseUrl: string,
   accessToken: string,
@@ -1730,6 +1779,12 @@ const compareIsoDatesDesc = (leftIso: string, rightIso: string): number => {
   return right - left;
 };
 
+const compareIsoDatesAsc = (leftIso: string, rightIso: string): number => {
+  const left = Date.parse(leftIso);
+  const right = Date.parse(rightIso);
+  return left - right;
+};
+
 const compareFeedByFit = (left: FeedJobCard, right: FeedJobCard): number => {
   const leftRec = getRecommendation(left.latestScoreArtifact);
   const rightRec = getRecommendation(right.latestScoreArtifact);
@@ -1821,6 +1876,120 @@ const countHiddenItemsWithTracker = (
 
 const isHighFitAlertNotification = (notification: NotificationLog): boolean =>
   notification.notificationType === 'high_fit_alert';
+
+const buildTodayPriorities = (
+  items: FeedJobCard[],
+  trackersByCanonicalJobId: Map<string, TrackedJobState>,
+  applicationsByCanonicalJobId: Map<string, ApplicationRecord>,
+  reminders: ReminderTask[],
+  preferences: UserPreferences,
+  includeHidden: boolean,
+): DailyPriorityItem[] => {
+  const feedItemByCanonicalJobId = new Map(
+    items.map((item) => [item.job.canonicalJobId, item] as const),
+  );
+
+  const isVisibleForQueue = (item: FeedJobCard): boolean => {
+    if (includeHidden) {
+      return true;
+    }
+
+    if (isHiddenByPreferences(item, preferences)) {
+      return false;
+    }
+
+    return !isHiddenByTracker(trackersByCanonicalJobId.get(item.job.canonicalJobId));
+  };
+
+  const prioritiesByCanonicalJobId = new Map<string, DailyPriorityItem>();
+
+  const enqueue = (priority: DailyPriorityItem): void => {
+    if (!prioritiesByCanonicalJobId.has(priority.canonicalJobId)) {
+      prioritiesByCanonicalJobId.set(priority.canonicalJobId, priority);
+    }
+  };
+
+  const pendingReminders = reminders
+    .filter((reminder) => reminder.status === 'pending')
+    .sort((left, right) => compareIsoDatesAsc(left.dueAt, right.dueAt));
+
+  for (const reminder of pendingReminders) {
+    const feedItem = feedItemByCanonicalJobId.get(reminder.canonicalJobId);
+    if (!feedItem || !isVisibleForQueue(feedItem)) {
+      continue;
+    }
+
+    enqueue({
+      canonicalJobId: reminder.canonicalJobId,
+      category: 'pending_reminder',
+      actionTitle: reminder.title,
+      rationale:
+        reminder.note ??
+        'A reminder for this role is pending. Complete it before the window slips.',
+      dueAt: reminder.dueAt,
+    });
+  }
+
+  const highFitUnactedItems = items
+    .filter((item) => {
+      if (!isVisibleForQueue(item)) {
+        return false;
+      }
+
+      if (!isHighFitRecommendation(item)) {
+        return false;
+      }
+
+      const tracker = trackersByCanonicalJobId.get(item.job.canonicalJobId);
+      const trackerIsUntouched = !tracker || tracker.state === 'discovered';
+      if (!trackerIsUntouched) {
+        return false;
+      }
+
+      return !applicationsByCanonicalJobId.has(item.job.canonicalJobId);
+    })
+    .sort(compareFeedByFit);
+
+  for (const item of highFitUnactedItems) {
+    enqueue({
+      canonicalJobId: item.job.canonicalJobId,
+      category: 'high_fit_unactioned',
+      actionTitle: item.nextAction.title,
+      rationale: item.nextAction.rationale,
+      dueAt: null,
+    });
+  }
+
+  const shortlistedTrackers = [...trackersByCanonicalJobId.values()]
+    .filter((tracker) => tracker.state === 'shortlisted')
+    .sort((left, right) => compareIsoDatesAsc(left.updatedAt, right.updatedAt));
+
+  for (const tracker of shortlistedTrackers) {
+    const feedItem = feedItemByCanonicalJobId.get(tracker.canonicalJobId);
+    if (!feedItem || !isVisibleForQueue(feedItem)) {
+      continue;
+    }
+
+    const application = applicationsByCanonicalJobId.get(tracker.canonicalJobId);
+    if (application && application.status !== 'ready_to_apply') {
+      continue;
+    }
+
+    enqueue({
+      canonicalJobId: tracker.canonicalJobId,
+      category: 'shortlisted_without_progress',
+      actionTitle: application
+        ? 'Submit your tracked application'
+        : 'Create your application record',
+      rationale: application
+        ? 'You already have a tracked application in ready_to_apply. Submit externally, then move status forward.'
+        : 'This role is shortlisted but has no application record yet. Create one to move into execution mode.',
+      dueAt: null,
+    });
+  }
+
+  return [...prioritiesByCanonicalJobId.values()].slice(0, maxDailyPriorities);
+};
 
 const listAvailableSourceFilters = (items: FeedJobCard[]): SourceName[] => {
   const sourceNames = new Set<SourceName>();
@@ -2212,6 +2381,59 @@ const renderHighFitAlertsPanel = (
     </section>`;
 };
 
+const renderTodayPrioritiesPanel = (
+  priorities: DailyPriorityItem[],
+  items: FeedJobCard[],
+  returnTo: string,
+): string => {
+  const feedItemByCanonicalJobId = new Map(
+    items.map((item) => [item.job.canonicalJobId, item] as const),
+  );
+
+  const rows = priorities
+    .map((priority) => {
+      const item = feedItemByCanonicalJobId.get(priority.canonicalJobId);
+      if (!item) {
+        return '';
+      }
+
+      const detailHref = `/jobs/${priority.canonicalJobId}?returnTo=${encodeURIComponent(
+        returnTo,
+      )}`;
+      const score = item.latestScoreArtifact?.scoreBreakdown.overallScore;
+
+      return `<li>
+        <p><strong>${escapeHtml(item.job.canonicalTitle)}</strong> <span class="muted">at ${escapeHtml(item.job.canonicalCompanyName)}</span></p>
+        <div class="chip-row">
+          <span class="chip">${escapeHtml(dailyPriorityCategoryLabel[priority.category])}</span>
+          <span class="chip">${escapeHtml(humanizeToken(item.job.remoteType))}</span>
+          ${score === undefined ? '' : `<span class="chip">Score: ${escapeHtml(score.toFixed(1))}</span>`}
+          ${
+            priority.dueAt
+              ? `<span class="chip warn">Due: ${escapeHtml(formatDateTime(priority.dueAt))}</span>`
+              : ''
+          }
+        </div>
+        <p><span class="mono">${escapeHtml(priority.actionTitle)}</span></p>
+        <p class="muted">${escapeHtml(priority.rationale)}</p>
+        <a class="link-button secondary" href="${escapeHtml(detailHref)}">Open job</a>
+      </li>`;
+    })
+    .filter((row) => row.length > 0)
+    .join('');
+
+  const content =
+    rows.length > 0
+      ? `<ol class="stack-list">${rows}</ol>`
+      : '<p class="muted">No urgent queue items right now. Keep syncing sources and reviewing new high-fit roles.</p>';
+
+  return `<section class="panel">
+      <h3>Today priorities</h3>
+      <p class="muted">Queue ordered by urgency: pending reminders, high-fit roles without action, then shortlisted roles with stalled application progress.</p>
+      ${content}
+    </section>`;
+};
+
 const renderFeedPage = (
   profile: UserProfile,
   preferences: UserPreferences,
@@ -2223,6 +2445,7 @@ const renderFeedPage = (
   availableSourceFilters: SourceName[],
   savedSearches: SavedSearch[],
   notifications: NotificationLog[],
+  todayPriorities: DailyPriorityItem[],
   noticeCode: string | null,
   errorCode: string | null,
   returnTo: string,
@@ -2346,6 +2569,7 @@ const renderFeedPage = (
       </section>
       ${renderSavedSearchPanel(savedSearches, query, returnTo)}
       ${renderHighFitAlertsPanel(notifications, returnTo)}
+      ${renderTodayPrioritiesPanel(todayPriorities, filteredItems, returnTo)}
       <section class="panel summary-strip">
         <p>
           Showing <strong>${filteredItems.length}</strong> of <strong>${allItems.length}</strong> feed jobs
@@ -3765,6 +3989,7 @@ const handleFeedRoute = async (
     trackersResult,
     savedSearchesResult,
     notificationsResult,
+    remindersResult,
   ] = await Promise.all([
     fetchProfile(apiBaseUrl, accessToken),
     fetchPreferences(apiBaseUrl, accessToken),
@@ -3780,6 +4005,7 @@ const handleFeedRoute = async (
     fetchTrackers(apiBaseUrl, accessToken),
     fetchSavedSearches(apiBaseUrl, accessToken),
     fetchNotifications(apiBaseUrl, accessToken),
+    fetchReminders(apiBaseUrl, accessToken),
   ]);
 
   if (!profileResult.ok) {
@@ -3823,6 +4049,15 @@ const handleFeedRoute = async (
   );
   const savedSearches = savedSearchesResult.ok ? savedSearchesResult.data : [];
   const notifications = notificationsResult.ok ? notificationsResult.data : [];
+  const reminders = remindersResult.ok ? remindersResult.data : [];
+  const todayPriorities = buildTodayPriorities(
+    filteredItems,
+    trackersByCanonicalJobId,
+    applicationsByCanonicalJobId,
+    reminders,
+    preferences,
+    query.includeHidden,
+  );
 
   const feedNoticeCode = noticeCode;
   const routeErrorCode = requestUrl.searchParams.get('error');
@@ -3838,6 +4073,8 @@ const handleFeedRoute = async (
       ? savedSearchesResult.error.code
     : !notificationsResult.ok
       ? notificationsResult.error.code
+    : !remindersResult.ok
+      ? remindersResult.error.code
     : !preferencesResult.ok
       ? preferencesResult.error.code
       : routeErrorCode;
@@ -3856,6 +4093,7 @@ const handleFeedRoute = async (
       availableSourceFilters,
       savedSearches,
       notifications,
+      todayPriorities,
       feedNoticeCode,
       computedErrorCode,
       returnTo,
