@@ -122,6 +122,7 @@ Owner: team
 - 2026-04-14: Continued ATS Milestone 0 + 1 implementation with migration `0013_ats_target_verification_events.sql` adding immutable verification-event persistence, plus ATS verification event repository scaffolding (`apps/api/src/modules/ats-target-registry/*`) and regression coverage for schema/repository pagination + filtering behavior.
 - 2026-04-14: Implemented deterministic ATS candidate generation service for Greenhouse/Lever (`apps/api/src/modules/ats-target-registry/candidate-generation.ts`) with stable ordering, edge-case normalization (diacritics/corporate suffixes/domain fallback), and unit coverage in `apps/api/test/unit/ats-target-candidate-generation.test.ts`.
 - 2026-04-14: Implemented Greenhouse verification adapter (`apps/api/src/modules/ats-target-registry/greenhouse-verifier.ts`) with deterministic status/reason outputs, explicit retry classification (`none`, `transient`, `rate_limited`), and regression coverage for verified/failure/transient/invalid-payload scenarios in `apps/api/test/unit/ats-target-greenhouse-verifier.test.ts`.
+- 2026-04-14: Implemented Lever verification adapter (`apps/api/src/modules/ats-target-registry/lever-verifier.ts`) with contract parity to Greenhouse (deterministic status/reason outputs and retry classification), plus regression coverage for verified/missing-handle/transient/invalid-payload scenarios in `apps/api/test/unit/ats-target-lever-verifier.test.ts`.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
