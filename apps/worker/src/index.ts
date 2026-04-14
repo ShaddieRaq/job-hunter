@@ -1,5 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
+import {
+  createAtsVerificationScheduler,
+  createNoopAtsVerificationClient,
+} from './ats-verification/scheduler.js';
 import { createIngestionApiClient } from './ingestion/client.js';
 import { createIngestionScheduler } from './ingestion/scheduler.js';
 
@@ -12,6 +16,20 @@ const parsePositiveIntegerEnv = (name: string, fallback: number): number => {
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`${name} must be a positive integer`);
+  }
+
+  return parsed;
+};
+
+const parseNonNegativeIntegerEnv = (name: string, fallback: number): number => {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a non-negative integer`);
   }
 
   return parsed;
@@ -62,6 +80,38 @@ const rebuildMaxSourceJobs = parsePositiveIntegerEnv(
 );
 const retryMaxAttempts = parsePositiveIntegerEnv('WORKER_RETRY_MAX_ATTEMPTS', 3);
 const retryBackoffMs = parsePositiveIntegerEnv('WORKER_RETRY_BACKOFF_MS', 1000);
+const atsVerificationEnabled = parseBooleanEnv(
+  'WORKER_ATS_VERIFICATION_ENABLED',
+  false,
+);
+const atsVerificationIntervalMs = parsePositiveIntegerEnv(
+  'WORKER_ATS_VERIFICATION_INTERVAL_MS',
+  15 * 60 * 1000,
+);
+const atsVerificationRunOnStart = parseBooleanEnv(
+  'WORKER_ATS_VERIFICATION_RUN_ON_START',
+  false,
+);
+const atsVerificationBatchLimit = parsePositiveIntegerEnv(
+  'WORKER_ATS_VERIFICATION_BATCH_LIMIT',
+  100,
+);
+const atsVerificationConcurrencyLimit = parsePositiveIntegerEnv(
+  'WORKER_ATS_VERIFICATION_CONCURRENCY_LIMIT',
+  4,
+);
+const atsVerificationIdempotencyWindowMs = parsePositiveIntegerEnv(
+  'WORKER_ATS_VERIFICATION_IDEMPOTENCY_WINDOW_MS',
+  6 * 60 * 60 * 1000,
+);
+const atsVerificationRetryBudgetPerTarget = parseNonNegativeIntegerEnv(
+  'WORKER_ATS_VERIFICATION_RETRY_BUDGET_PER_TARGET',
+  1,
+);
+const atsVerificationRetryBackoffMs = parsePositiveIntegerEnv(
+  'WORKER_ATS_VERIFICATION_RETRY_BACKOFF_MS',
+  1000,
+);
 
 const ingestionApiClient = createIngestionApiClient({
   apiBaseUrl: workerApiBaseUrl,
@@ -78,20 +128,42 @@ const ingestionScheduler = createIngestionScheduler({
   retryBackoffMs,
 });
 
+const atsVerificationScheduler = createAtsVerificationScheduler({
+  client: createNoopAtsVerificationClient(),
+  verifiers: {},
+  intervalMs: atsVerificationIntervalMs,
+  runOnStart: atsVerificationRunOnStart,
+  batchLimit: atsVerificationBatchLimit,
+  concurrencyLimit: atsVerificationConcurrencyLimit,
+  idempotencyWindowMs: atsVerificationIdempotencyWindowMs,
+  retryBudgetPerTarget: atsVerificationRetryBudgetPerTarget,
+  retryBackoffMs: atsVerificationRetryBackoffMs,
+});
+
 ingestionScheduler.start();
+if (atsVerificationEnabled) {
+  atsVerificationScheduler.start();
+}
 
 const server = createServer((req, res) => {
   const method = req.method ?? 'GET';
   const pathname = getPathname(req);
 
   if (method === 'GET' && pathname === '/health') {
-    const status = ingestionScheduler.getStatus();
-    const isHealthy = status.state !== 'unhealthy';
+    const ingestionStatus = ingestionScheduler.getStatus();
+    const atsVerificationStatus = atsVerificationScheduler.getStatus();
+    const atsVerificationHealthy =
+      !atsVerificationEnabled || atsVerificationStatus.state !== 'unhealthy';
+    const isHealthy = ingestionStatus.state !== 'unhealthy' && atsVerificationHealthy;
 
     sendJson(res, isHealthy ? 200 : 503, {
       status: isHealthy ? 'ok' : 'degraded',
       service: 'worker',
-      ingestion: status,
+      ingestion: ingestionStatus,
+      atsVerification: {
+        enabled: atsVerificationEnabled,
+        job: atsVerificationStatus,
+      },
     });
     return;
   }
@@ -120,6 +192,38 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (method === 'GET' && pathname === '/v1/worker/jobs/ats-verification/status') {
+    sendJson(res, 200, {
+      enabled: atsVerificationEnabled,
+      job: atsVerificationScheduler.getStatus(),
+    });
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/v1/worker/jobs/ats-verification/run') {
+    if (!atsVerificationEnabled) {
+      sendJson(res, 409, {
+        error: 'ats_verification_disabled',
+      });
+      return;
+    }
+
+    void atsVerificationScheduler
+      .triggerNow()
+      .then((summary) => {
+        sendJson(res, 200, {
+          summary,
+        });
+      })
+      .catch((error: unknown) => {
+        sendJson(res, 500, {
+          error: 'ats_verification_run_failed',
+          details: error instanceof Error ? error.message : 'unknown_error',
+        });
+      });
+    return;
+  }
+
   sendJson(res, 404, {
     error: 'not_found',
   });
@@ -130,11 +234,15 @@ server.listen(workerPort, () => {
   console.log(
     `Worker ingestion schedule: interval=${ingestionIntervalMs}ms runOnStart=${runOnStart} api=${workerApiBaseUrl}`,
   );
+  console.log(
+    `Worker ATS verification schedule: enabled=${atsVerificationEnabled} interval=${atsVerificationIntervalMs}ms runOnStart=${atsVerificationRunOnStart}`,
+  );
 });
 
 const shutdown = (signal: NodeJS.Signals): void => {
   console.log(`Worker shutdown signal received: ${signal}`);
   ingestionScheduler.stop();
+  atsVerificationScheduler.stop();
   server.close(() => {
     process.exit(0);
   });
