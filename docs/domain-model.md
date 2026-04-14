@@ -140,6 +140,36 @@ Suggested fields:
 - health_status
 - last_sync_at
 
+## CompanyRegistry
+Represents canonical company identity used for ATS target lifecycle management.
+
+Suggested fields:
+- company_id
+- canonical_name
+- normalized_name
+- website_domain
+- source_provenance
+- created_at
+- updated_at
+
+## AtsTargetRegistry
+Represents verifiable ATS tenant identifiers linked to canonical companies.
+
+Suggested fields:
+- target_id
+- company_id
+- ats_vendor                 # greenhouse | lever | workable | ashby | smartrecruiters | recruitee
+- identifier_type            # board_token | handle | subdomain | slug
+- identifier_value
+- verification_status        # verified | failed | pending | stale
+- verification_confidence    # 0..1, nullable when pending
+- verification_reason
+- last_verified_at
+- next_verification_at
+- source_provenance
+- created_at
+- updated_at
+
 ## SourceJob
 Represents one fetched job posting from a source.
 
@@ -322,6 +352,8 @@ Suggested fields:
 - one resume can have one or more structured extraction snapshots
 - one source can have many source jobs
 - many source jobs can map to one canonical job
+- one company registry record can have many ATS target records
+- one ATS target record belongs to one company registry record
 - one canonical job can have many requirements
 - one user can have one score per canonical job per scoring version
 - one user can have one state per canonical job
@@ -336,6 +368,9 @@ Suggested fields:
 ### Rule: source jobs are immutable records of fetched data
 Do not overwrite the meaning of the original source job.
 Store updated fetches as updates to the source record with timestamps and checksums.
+
+### Rule: runtime ATS targets must be verifiably backed
+Connector target materialization should come from verified ATS target registry records, not ad hoc identifier guesses.
 
 ### Rule: canonical jobs are opinionated and user-facing
 Canonical jobs should be stable enough to drive search, ranking, and UI.
