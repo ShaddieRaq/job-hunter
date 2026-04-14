@@ -23,7 +23,7 @@ plus MVP remediation slices 1 through 5 delivered (scheduled ingestion + explici
 ```text
 apps/
   api/      # Node API with health + auth/profile/preferences/resume + connector ingestion + canonical/feed + AI + tracker/reminder/notification/application v1 endpoints
-  web/      # Server-rendered feed/detail + application tracker UI with auth, profile/preferences editor flows, high-fit-first filters (including source filter), source provenance chips, sync/rebuild controls (no fixed sync/rebuild payload caps), discovery actions (save/shortlist/hide), source-aware saved-search controls, feed-integrated high-fit alert panel links, source listing detail panel with full source descriptions, deterministic next-action cues, feed daily-priority queue, and material guidance checklists
+  web/      # Server-rendered feed/detail + application tracker UI with auth, profile/preferences editor flows, high-fit-first filters (including source filter), source provenance chips, sync/rebuild controls (no fixed sync/rebuild payload caps, sync applies to all configured connectors), discovery actions (save/shortlist/hide), source-aware saved-search controls, feed-integrated high-fit alert panel links, source listing detail panel with full source descriptions, deterministic next-action cues, feed daily-priority queue, and material guidance checklists
   worker/   # Background worker with scheduled sync+rebuild orchestration, post-rebuild high-fit dispatch cadence, and job-status endpoints
 packages/
   shared/   # Shared types and runtime-validated contracts (Zod)

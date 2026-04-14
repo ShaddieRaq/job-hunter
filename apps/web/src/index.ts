@@ -16,6 +16,7 @@ import {
   authSessionSchema,
   canonicalJobIdSchema,
   canonicalRebuildResponseSchema,
+  connectorListResponseSchema,
   connectorSyncResponseSchema,
   feedDetailResponseSchema,
   feedResponseSchema,
@@ -3749,7 +3750,36 @@ const handleSyncRoute = async (
     return;
   }
 
-  const sourceNames = ['greenhouse_public_board', 'arbeitnow_job_board'];
+  const connectorListResult = await requestApi(
+    apiBaseUrl,
+    '/v1/connectors',
+    {
+      method: 'GET',
+    },
+    connectorListResponseSchema,
+    accessToken,
+  );
+
+  if (!connectorListResult.ok) {
+    if (connectorListResult.error.code === 'invalid_access_token') {
+      redirect(res, withQueryParam('/', 'auth_error', 'invalid_access_token'), [
+        clearAccessTokenCookie(),
+      ]);
+      return;
+    }
+
+    redirect(res, withQueryParam(returnTo, 'error', connectorListResult.error.code));
+    return;
+  }
+
+  const sourceNames = connectorListResult.data.connectors.map(
+    (connector) => connector.sourceName,
+  );
+
+  if (sourceNames.length === 0) {
+    redirect(res, withQueryParam(returnTo, 'notice', 'sync_complete'));
+    return;
+  }
 
   const results = await Promise.all(
     sourceNames.map((sourceName) =>

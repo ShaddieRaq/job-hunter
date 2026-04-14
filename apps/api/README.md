@@ -100,7 +100,8 @@ Structured Node.js API for the Job Hunter modular monolith.
 
 ## Connector configuration
 
-- `GREENHOUSE_BOARD_TOKEN`: Greenhouse board token used by the default public-board connector instance (default: `stripe` for local/dev bootstrap)
+- `GREENHOUSE_BOARD_TOKEN`: fallback Greenhouse board token used when `GREENHOUSE_BOARD_TOKENS` is not set (default: `stripe` for local/dev bootstrap)
+- `GREENHOUSE_BOARD_TOKENS`: optional comma-separated Greenhouse board tokens; when set, API registers one connector per token using source names like `greenhouse_public_board_<token>`
 - `LEVER_COMPANY_HANDLE`: Lever company handle used by the default public-board connector instance (default: `netflix` for local/dev bootstrap)
 	- Lever currently returns `0` postings for `netflix` from `https://api.lever.co/v0/postings/netflix?mode=json`; set this env var to an org handle with an active Lever public board if you want Lever ingestion volume
 - `ARBEITNOW_API_BASE_URL`: optional endpoint override for the default Arbeitnow job-board connector (default: `https://www.arbeitnow.com/api/job-board-api`)

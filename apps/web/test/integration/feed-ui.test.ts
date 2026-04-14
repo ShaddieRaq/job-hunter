@@ -1315,6 +1315,45 @@ const createApiStubServer = (): Server => {
       return;
     }
 
+    if (method === 'GET' && pathname === '/v1/connectors') {
+      sendJson(res, 200, {
+        contractVersion: 'v1',
+        connectors: [
+          {
+            sourceName: 'greenhouse_public_board',
+            displayName: 'Greenhouse Public Board',
+            connectorVersion: 'greenhouse-public-board-v1',
+            healthStatus: 'healthy',
+            lastSyncAt: '2026-04-12T12:00:00.000Z',
+            lastSuccessAt: '2026-04-12T12:00:00.000Z',
+            lastFailureAt: null,
+            lastErrorCode: null,
+          },
+          {
+            sourceName: 'arbeitnow_job_board',
+            displayName: 'Arbeitnow Job Board',
+            connectorVersion: 'arbeitnow-job-board-v1',
+            healthStatus: 'healthy',
+            lastSyncAt: '2026-04-12T12:00:00.000Z',
+            lastSuccessAt: '2026-04-12T12:00:00.000Z',
+            lastFailureAt: null,
+            lastErrorCode: null,
+          },
+          {
+            sourceName: 'lever_public_board',
+            displayName: 'Lever Public Board',
+            connectorVersion: 'lever-public-board-v1',
+            healthStatus: 'healthy',
+            lastSyncAt: '2026-04-12T12:00:00.000Z',
+            lastSuccessAt: '2026-04-12T12:00:00.000Z',
+            lastFailureAt: null,
+            lastErrorCode: null,
+          },
+        ],
+      });
+      return;
+    }
+
     if (method === 'POST' && pathname === '/v1/connectors/lever_public_board/sync') {
       sendJson(res, 200, {
         contractVersion: 'v1',

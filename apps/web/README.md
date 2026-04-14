@@ -18,7 +18,7 @@ Server-rendered discovery and application workflow UI for Job Hunter.
 - Structured material assistant rendering backed by `GET /v1/applications/:applicationId/material-guidance`
 - Preference-aligned filtering (recommendation/remote/source) and deterministic sorting controls
 - Connector sync and canonical rebuild actions from the UI
-	- Sync now posts uncapped payloads for `greenhouse_public_board` and `arbeitnow_job_board` (partial notice if one source fails)
+	- Sync now fetches `/v1/connectors` and posts uncapped sync payloads for every configured connector source (partial notice if one source fails)
 	- Rebuild now posts an uncapped payload (no fixed max-source-job cap)
 - Resume/application material guidance checklists in job and application detail views
 - Integration tests for sign-in, feed/detail tracker actions, saved-search and high-fit alert panel workflows, sync/rebuild actions, and application workflow routes
