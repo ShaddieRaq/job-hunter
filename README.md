@@ -44,6 +44,7 @@ docs/
 - GET /v1/connectors
 - POST /v1/connectors/:sourceName/sync
 - GET /v1/source-jobs
+- GET /v1/source-jobs/:sourceName/:sourceJobId
 - POST /v1/canonical-jobs/rebuild
 - GET /v1/canonical-jobs
 - GET /v1/canonical-jobs/:canonicalJobId
@@ -94,7 +95,7 @@ docs/
 - Workflow persistence durability migration for saved searches and high-fit notification constraints under apps/api/migrations
 - In-memory repository adapters for local runtime behavior, with PostgreSQL adapters for connectors/canonical/workflow modules in durable deployments
 - In-memory and filesystem object storage adapters for resume files
-- In-memory connector repository + Greenhouse and Lever public board connector adapters
+- In-memory connector repository + Greenhouse, Lever, and Arbeitnow public job-board connector adapters
 - API unit and integration tests for auth/profile/preferences, resume upload/parsing, and AI provider behavior
 - Connector fixture-driven unit tests plus connector route integration tests
 - Fixture-driven AI extraction/explanation eval harness baseline in apps/api/test/evals
