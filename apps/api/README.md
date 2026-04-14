@@ -65,6 +65,12 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/applications/:applicationId/material-guidance`
 	- baseline flow stores one active application record per user/canonical job in MVP scope
 	- material-guidance endpoint returns deterministic resume-tailoring checklist items, keyword suggestions, bullet prompts, and cover-letter talking points based on profile/preferences + canonical role context
+- ATS target registry v1 endpoints:
+	- `GET /v1/ats-targets`
+	- `POST /v1/ats-targets`
+	- `PUT /v1/ats-targets/:targetId`
+	- list route supports deterministic filter/pagination query params: `atsVendor`, `verificationStatus`, `limit`, `offset`
+	- create/update writes persist audit metadata in `sourceProvenance` with actor/action/timestamp fields
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)
 	- deterministic fallback provider for resilient local/dev behavior
@@ -131,6 +137,7 @@ Optional tuning env vars:
 ## Workflow repository configuration
 
 - `WORKFLOW_REPOSITORY`: repository mode for auth/profile/resume/tracker/reminder/notification/application/saved-search modules (`in-memory` default, `postgres` optional; when omitted the API auto-selects `postgres` if `DATABASE_URL` is set)
+- `ATS_TARGET_REGISTRY_REPOSITORY`: repository mode for ATS target lifecycle module (`in-memory` default, `postgres` optional; when omitted the API auto-selects `postgres` if `DATABASE_URL` is set)
 - `RESUME_OBJECT_STORAGE_DIR`: filesystem directory used for resume uploads when `WORKFLOW_REPOSITORY=postgres` (default: `.data/resumes`)
 - `API_RUNTIME_MODE`: `development` (default), `validation`, or `production`
 
@@ -138,6 +145,7 @@ When `API_RUNTIME_MODE` is `validation` or `production`, durable runtime is enfo
 - `WORKFLOW_REPOSITORY=postgres`
 - `CONNECTOR_REPOSITORY=postgres`
 - `CANONICAL_JOBS_REPOSITORY=postgres`
+- `ATS_TARGET_REGISTRY_REPOSITORY=postgres`
 - `DATABASE_URL` must be configured
 
 ## PostgreSQL adapter configuration

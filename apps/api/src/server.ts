@@ -16,6 +16,13 @@ import {
   createAuthProfileService,
   type AuthProfileService,
 } from './modules/auth-profile/service.js';
+import { createInMemoryAtsTargetRegistryRepository } from './modules/ats-target-registry/in-memory-repository.js';
+import { createPostgresAtsTargetRegistryRepository } from './modules/ats-target-registry/postgres-repository.js';
+import { handleAtsTargetRegistryRoutes } from './modules/ats-target-registry/routes.js';
+import {
+  createAtsTargetRegistryService,
+  type AtsTargetRegistryService,
+} from './modules/ats-target-registry/service.js';
 import { handleAiRoutes } from './modules/ai/routes.js';
 import { createAiService, type AiService } from './modules/ai/service.js';
 import { createInMemoryCanonicalJobRepository } from './modules/canonical-jobs/in-memory-repository.js';
@@ -82,6 +89,10 @@ const connectorRepositoryMode = (
 
 const canonicalRepositoryMode = (
   process.env.CANONICAL_JOBS_REPOSITORY ?? (postgresPool ? 'postgres' : 'in-memory')
+).toLowerCase();
+
+const atsTargetRegistryRepositoryMode = (
+  process.env.ATS_TARGET_REGISTRY_REPOSITORY ?? (postgresPool ? 'postgres' : 'in-memory')
 ).toLowerCase();
 
 const resolvePostgresPool = (requiredBy: string) => {
@@ -195,6 +206,12 @@ const ensureDurableRuntimeConfiguration = (): void => {
     );
   }
 
+  if (atsTargetRegistryRepositoryMode !== 'postgres') {
+    throw new Error(
+      'API_RUNTIME_MODE requires ATS_TARGET_REGISTRY_REPOSITORY=postgres for durable ATS target lifecycle data',
+    );
+  }
+
   resolvePostgresPool('API_RUNTIME_MODE=validation|production');
 };
 
@@ -224,6 +241,16 @@ const resolveCanonicalRepository = () => {
   return createInMemoryCanonicalJobRepository();
 };
 
+const resolveAtsTargetRegistryRepository = () => {
+  if (atsTargetRegistryRepositoryMode === 'postgres') {
+    return createPostgresAtsTargetRegistryRepository(
+      resolvePostgresPool('ATS_TARGET_REGISTRY_REPOSITORY=postgres'),
+    );
+  }
+
+  return createInMemoryAtsTargetRegistryRepository();
+};
+
 const defaultConnectorService = createConnectorService({
   repository: resolveConnectorRepository(),
   connectors: [
@@ -247,6 +274,10 @@ const defaultConnectorService = createConnectorService({
 const defaultCanonicalJobsService = createCanonicalJobsService({
   sourceJobReader: defaultConnectorService,
   repository: resolveCanonicalRepository(),
+});
+
+const defaultAtsTargetRegistryService = createAtsTargetRegistryService({
+  repository: resolveAtsTargetRegistryRepository(),
 });
 
 const defaultResumeService = createResumeService({
@@ -314,6 +345,7 @@ export interface CreateApiServerOptions {
   aiService?: AiService;
   connectorService?: ConnectorService;
   canonicalJobsService?: CanonicalJobsService;
+  atsTargetRegistryService?: AtsTargetRegistryService;
   applicationService?: ApplicationService;
   reminderService?: ReminderService;
   notificationService?: NotificationService;
@@ -332,6 +364,7 @@ const handleRequest = async (
   aiService: AiService,
   connectorService: ConnectorService,
   canonicalJobsService: CanonicalJobsService,
+  atsTargetRegistryService: AtsTargetRegistryService,
   applicationService: ApplicationService,
   reminderService: ReminderService,
   notificationService: NotificationService,
@@ -389,6 +422,15 @@ const handleRequest = async (
   });
 
   if (canonicalHandled) {
+    return;
+  }
+
+  const atsTargetRegistryHandled = await handleAtsTargetRegistryRoutes(req, res, {
+    authProfileService,
+    atsTargetRegistryService,
+  });
+
+  if (atsTargetRegistryHandled) {
     return;
   }
 
@@ -460,6 +502,7 @@ export const createApiServer = ({
   aiService = defaultAiService,
   connectorService = defaultConnectorService,
   canonicalJobsService = defaultCanonicalJobsService,
+  atsTargetRegistryService = defaultAtsTargetRegistryService,
   applicationService = defaultApplicationService,
   reminderService = defaultReminderService,
   notificationService = defaultNotificationService,
@@ -475,6 +518,7 @@ export const createApiServer = ({
       aiService,
       connectorService,
       canonicalJobsService,
+      atsTargetRegistryService,
       applicationService,
       reminderService,
       notificationService,

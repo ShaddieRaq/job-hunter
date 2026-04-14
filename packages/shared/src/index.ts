@@ -13,6 +13,20 @@ export const appStates = {
 export type AppState = (typeof appStates)[keyof typeof appStates];
 
 export {
+  atsTargetCreateRequestSchema,
+  atsTargetIdentifierTypeSchema,
+  atsTargetIdSchema,
+  atsTargetListResponseSchema,
+  atsTargetRecordSchema,
+  atsTargetResponseSchema,
+  atsTargetsContractVersion,
+  atsTargetUpdateRequestSchema,
+  atsTargetVerificationStatusSchema,
+  atsVendorSchema,
+  companyRegistryIdSchema,
+} from './contracts/ats-targets/v1.js';
+
+export {
   applicationCreateRequestSchema,
   applicationGuidanceBulletSuggestionSchema,
   applicationGuidanceJobSnapshotSchema,
@@ -185,6 +199,20 @@ export {
   trackerTransitionRequestSchema,
   trackerTransitionResponseSchema,
 } from './contracts/tracker/v1.js';
+
+export type {
+  AtsTargetCompany,
+  AtsTargetCreateRequest,
+  AtsTargetId,
+  AtsTargetIdentifierType,
+  AtsTargetListResponse,
+  AtsTargetRecord,
+  AtsTargetResponse,
+  AtsTargetUpdateRequest,
+  AtsTargetVerificationStatus,
+  AtsVendor,
+  CompanyRegistryId,
+} from './contracts/ats-targets/v1.js';
 
 export type {
   ApplicationCreateRequest,

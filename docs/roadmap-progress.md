@@ -42,7 +42,7 @@ Owner: team
 
 ## Current focus
 - Active step: execute ATS target expansion dual-track plan (Milestone 0 coverage quick wins + Milestone 1 registry foundation) while enforcing explicit go/no-go quality gates from `docs/q2-q3-strategy-execution-plan.md`
-- Next PR target: ATS target expansion Milestone 0 + Milestone 1 first slice (schema + verifier adapters + coverage telemetry) aligned to `docs/ats-target-expansion-plan.md` and `docs/q2-q3-strategy-execution-plan.md`
+- Next PR target: ATS target expansion Milestone 1 PR8 event-history API (`GET /v1/ats-target-verification-events`) with per-target/per-vendor pagination filters and deterministic ordering aligned to `docs/ats-first-sprint-pr-sequence.md`
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -124,6 +124,7 @@ Owner: team
 - 2026-04-14: Implemented Greenhouse verification adapter (`apps/api/src/modules/ats-target-registry/greenhouse-verifier.ts`) with deterministic status/reason outputs, explicit retry classification (`none`, `transient`, `rate_limited`), and regression coverage for verified/failure/transient/invalid-payload scenarios in `apps/api/test/unit/ats-target-greenhouse-verifier.test.ts`.
 - 2026-04-14: Implemented Lever verification adapter (`apps/api/src/modules/ats-target-registry/lever-verifier.ts`) with contract parity to Greenhouse (deterministic status/reason outputs and retry classification), plus regression coverage for verified/missing-handle/transient/invalid-payload scenarios in `apps/api/test/unit/ats-target-lever-verifier.test.ts`.
 - 2026-04-14: Implemented ATS verification orchestration worker job (`apps/worker/src/ats-verification/scheduler.ts`) with batched candidate processing, configurable concurrency limits, idempotency-window skips, and per-target retry-budget enforcement; wired worker status/manual-run endpoints in `apps/worker/src/index.ts` and added worker unit coverage for healthy/degraded/retry-budget/concurrency behavior in `apps/worker/test/unit/ats-verification.scheduler.test.ts`.
+- 2026-04-14: Implemented ATS target registry CRUD/read API (`GET/POST /v1/ats-targets`, `PUT /v1/ats-targets/:targetId`) with authenticated Zod-validated boundaries, deterministic vendor/status filtering + pagination, and audit metadata persistence through write-time provenance envelopes; added ATS registry service/route unit+integration coverage under `apps/api/test/unit/ats-target-registry.service.test.ts` and `apps/api/test/integration/ats-target-registry.routes.test.ts`.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
