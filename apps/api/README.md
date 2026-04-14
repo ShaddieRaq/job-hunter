@@ -110,6 +110,9 @@ Structured Node.js API for the Job Hunter modular monolith.
 
 ## Connector configuration
 
+- `CONNECTOR_TARGET_MATERIALIZATION_MODE`: runtime ATS connector source mode (`legacy` default, `verified_registry` optional)
+	- `legacy`: materialize Greenhouse/Lever connectors from env (`GREENHOUSE_BOARD_TOKEN(S)`, `LEVER_COMPANY_HANDLE(S)`) plus Arbeitnow
+	- `verified_registry`: materialize Greenhouse/Lever connectors only from `verified` ATS registry targets (`/v1/ats-targets`) and exclude non-verified statuses (`pending`, `failed`, `stale`) by default; Arbeitnow remains enabled
 - `GREENHOUSE_BOARD_TOKEN`: fallback Greenhouse board token used when `GREENHOUSE_BOARD_TOKENS` is not set (default: `stripe` for local/dev bootstrap)
 - `GREENHOUSE_BOARD_TOKENS`: optional comma-separated Greenhouse board tokens; when set, API registers one connector per token using source names like `greenhouse_public_board_<token>`
 - `LEVER_COMPANY_HANDLE`: fallback Lever company handle used when `LEVER_COMPANY_HANDLES` is not set (default: `netflix` for local/dev bootstrap)

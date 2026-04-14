@@ -42,7 +42,7 @@ Owner: team
 
 ## Current focus
 - Active step: execute ATS target expansion dual-track plan (Milestone 0 coverage quick wins + Milestone 1 registry foundation) while enforcing explicit go/no-go quality gates from `docs/q2-q3-strategy-execution-plan.md`
-- Next PR target: ATS target expansion Milestone 2 PR9 runtime connector rewiring to verified registry targets with rollout guard controls aligned to `docs/ats-first-sprint-pr-sequence.md`
+- Next PR target: ATS target expansion Milestone 2 PR10 coverage metrics + backfill runbook/kill-switch procedures aligned to `docs/ats-first-sprint-pr-sequence.md`
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -126,6 +126,7 @@ Owner: team
 - 2026-04-14: Implemented ATS verification orchestration worker job (`apps/worker/src/ats-verification/scheduler.ts`) with batched candidate processing, configurable concurrency limits, idempotency-window skips, and per-target retry-budget enforcement; wired worker status/manual-run endpoints in `apps/worker/src/index.ts` and added worker unit coverage for healthy/degraded/retry-budget/concurrency behavior in `apps/worker/test/unit/ats-verification.scheduler.test.ts`.
 - 2026-04-14: Implemented ATS target registry CRUD/read API (`GET/POST /v1/ats-targets`, `PUT /v1/ats-targets/:targetId`) with authenticated Zod-validated boundaries, deterministic vendor/status filtering + pagination, and audit metadata persistence through write-time provenance envelopes; added ATS registry service/route unit+integration coverage under `apps/api/test/unit/ats-target-registry.service.test.ts` and `apps/api/test/integration/ats-target-registry.routes.test.ts`.
 - 2026-04-14: Implemented ATS verification event history API (`GET /v1/ats-target-verification-events`) with authenticated deterministic per-target/per-vendor pagination filters, route-level query validation, and shared response contracts; added API integration and unit coverage in `apps/api/test/integration/ats-target-verification-events.routes.test.ts` and `apps/api/test/unit/ats-target-verification-events.service.test.ts`.
+- 2026-04-14: Rewired runtime connector materialization with rollout control (`CONNECTOR_TARGET_MATERIALIZATION_MODE`) so `verified_registry` mode sources Greenhouse/Lever connectors exclusively from verified ATS registry targets while excluding non-verified statuses by default; added connector runtime materialization coverage in `apps/api/test/unit/connectors.runtime-materialization.test.ts` and route-level integration coverage for status-based connector list behavior in `apps/api/test/integration/connectors.runtime-registry.routes.test.ts`.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

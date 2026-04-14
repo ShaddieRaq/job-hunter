@@ -38,16 +38,13 @@ import {
   createCanonicalJobsService,
   type CanonicalJobsService,
 } from './modules/canonical-jobs/service.js';
-import { createArbeitnowJobBoardConnector } from './modules/connectors/arbeitnow-job-board-connector.js';
-import { createGreenhousePublicBoardConnectors } from './modules/connectors/greenhouse-board-connectors.js';
-import { createLeverPublicBoardConnectors } from './modules/connectors/lever-board-connectors.js';
 import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
 import { createPostgresConnectorRepository } from './modules/connectors/postgres-repository.js';
 import { handleConnectorRoutes } from './modules/connectors/routes.js';
 import {
-  createConnectorService,
-  type ConnectorService,
-} from './modules/connectors/service.js';
+  createRuntimeAwareConnectorService,
+} from './modules/connectors/runtime-materialization.js';
+import { type ConnectorService } from './modules/connectors/service.js';
 import { handleNotificationRoutes } from './modules/notifications/routes.js';
 import {
   createNotificationService,
@@ -277,24 +274,18 @@ const resolveAtsTargetVerificationEventRepository = (
 
 const defaultAtsTargetRegistryRepository = resolveAtsTargetRegistryRepository();
 
-const defaultConnectorService = createConnectorService({
+const defaultConnectorService = createRuntimeAwareConnectorService({
   repository: resolveConnectorRepository(),
-  connectors: [
-    ...createGreenhousePublicBoardConnectors({
-      boardTokenEnv: process.env.GREENHOUSE_BOARD_TOKEN,
-      boardTokensEnv: process.env.GREENHOUSE_BOARD_TOKENS,
-    }),
-    ...createLeverPublicBoardConnectors({
-      companyHandleEnv: process.env.LEVER_COMPANY_HANDLE,
-      companyHandlesEnv: process.env.LEVER_COMPANY_HANDLES,
-    }),
-    createArbeitnowJobBoardConnector({
-      sourceName: 'arbeitnow_job_board',
-      displayName: 'Arbeitnow Job Board',
-      endpointBaseUrl:
-        process.env.ARBEITNOW_API_BASE_URL ?? 'https://www.arbeitnow.com/api/job-board-api',
-    }),
-  ],
+  atsTargetRegistryService: createAtsTargetRegistryService({
+    repository: defaultAtsTargetRegistryRepository,
+  }),
+  runtimeModeEnv: process.env.CONNECTOR_TARGET_MATERIALIZATION_MODE,
+  greenhouseBoardTokenEnv: process.env.GREENHOUSE_BOARD_TOKEN,
+  greenhouseBoardTokensEnv: process.env.GREENHOUSE_BOARD_TOKENS,
+  leverCompanyHandleEnv: process.env.LEVER_COMPANY_HANDLE,
+  leverCompanyHandlesEnv: process.env.LEVER_COMPANY_HANDLES,
+  arbeitnowEndpointBaseUrl:
+    process.env.ARBEITNOW_API_BASE_URL ?? 'https://www.arbeitnow.com/api/job-board-api',
 });
 
 const defaultCanonicalJobsService = createCanonicalJobsService({
