@@ -69,7 +69,9 @@ Structured Node.js API for the Job Hunter modular monolith.
 	- `GET /v1/ats-targets`
 	- `POST /v1/ats-targets`
 	- `PUT /v1/ats-targets/:targetId`
+	- `GET /v1/ats-target-verification-events`
 	- list route supports deterministic filter/pagination query params: `atsVendor`, `verificationStatus`, `limit`, `offset`
+	- verification-event history route supports deterministic filter/pagination query params: `targetId`, `atsVendor`, `limit`, `offset`
 	- create/update writes persist audit metadata in `sourceProvenance` with actor/action/timestamp fields
 - AI provider orchestration:
 	- OpenAI structured JSON-schema adapter (when provider env is configured)

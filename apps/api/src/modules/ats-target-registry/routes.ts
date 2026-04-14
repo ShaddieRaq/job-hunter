@@ -7,6 +7,7 @@ import {
   atsTargetUpdateRequestSchema,
   atsTargetVerificationStatusSchema,
   atsVendorSchema,
+  type AtsTargetId,
   type AtsTargetVerificationStatus,
   type AtsVendor,
 } from '@job-hunter/shared';
@@ -15,10 +16,12 @@ import { HttpError } from '../../http/http-errors.js';
 import { readJsonBody, sendJson } from '../../http/json.js';
 import type { AuthProfileService } from '../auth-profile/service.js';
 import type { AtsTargetRegistryService } from './service.js';
+import type { AtsTargetVerificationEventService } from './verification-events-service.js';
 
 export interface AtsTargetRegistryRoutesDependencies {
   authProfileService: AuthProfileService;
   atsTargetRegistryService: AtsTargetRegistryService;
+  atsTargetVerificationEventService: AtsTargetVerificationEventService;
 }
 
 const mapValidationDetails = (
@@ -154,6 +157,21 @@ const parseStatusQuery = (
   return parsed.data;
 };
 
+const parseTargetIdQuery = (rawTargetId: string | null): AtsTargetId | undefined => {
+  if (rawTargetId === null) {
+    return undefined;
+  }
+
+  const parsed = atsTargetIdSchema.safeParse(rawTargetId);
+  if (!parsed.success) {
+    throw new HttpError(400, 'invalid_ats_target_id_filter', {
+      targetId: rawTargetId,
+    });
+  }
+
+  return parsed.data;
+};
+
 const parseTargetPathParam = (pathname: string): string | null => {
   const prefix = '/v1/ats-targets/';
   if (!pathname.startsWith(prefix)) {
@@ -171,11 +189,39 @@ const parseTargetPathParam = (pathname: string): string | null => {
 export const handleAtsTargetRegistryRoutes = async (
   req: IncomingMessage,
   res: ServerResponse,
-  { authProfileService, atsTargetRegistryService }: AtsTargetRegistryRoutesDependencies,
+  {
+    authProfileService,
+    atsTargetRegistryService,
+    atsTargetVerificationEventService,
+  }: AtsTargetRegistryRoutesDependencies,
 ): Promise<boolean> => {
   const method = req.method ?? 'GET';
   const requestUrl = getUrl(req);
   const pathname = requestUrl.pathname;
+
+  if (method === 'GET' && pathname === '/v1/ats-target-verification-events') {
+    const accessToken = requireAccessToken(req);
+    await authProfileService.authenticate(accessToken);
+
+    const limit = parseLimitQuery(requestUrl.searchParams.get('limit'));
+    const offset = parseOffsetQuery(requestUrl.searchParams.get('offset'));
+    const targetId = parseTargetIdQuery(requestUrl.searchParams.get('targetId'));
+    const atsVendor = parseVendorQuery(requestUrl.searchParams.get('atsVendor'));
+
+    const verificationEvents =
+      await atsTargetVerificationEventService.listVerificationEvents({
+        targetId,
+        atsVendor,
+        limit,
+        offset,
+      });
+
+    sendJson(res, 200, {
+      contractVersion: atsTargetsContractVersion,
+      verificationEvents,
+    });
+    return true;
+  }
 
   if (method === 'GET' && pathname === '/v1/ats-targets') {
     const accessToken = requireAccessToken(req);

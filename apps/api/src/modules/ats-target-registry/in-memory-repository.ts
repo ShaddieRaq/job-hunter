@@ -9,7 +9,9 @@ import type {
 } from './repository.js';
 
 interface InMemoryAtsTargetVerificationEventRepositoryOptions {
-  resolveVendorByTargetId?: (targetId: string) => AtsVendor | null;
+  resolveVendorByTargetId?: (
+    targetId: string,
+  ) => AtsVendor | null | Promise<AtsVendor | null>;
 }
 
 const companyNameKey = (normalizedName: string): string =>
@@ -283,16 +285,22 @@ export const createInMemoryAtsTargetVerificationEventRepository = (
       const normalizedLimit = Math.max(0, limit);
       const normalizedOffset = Math.max(0, offset);
 
-      return [...eventsById.values()]
+      const filteredByTarget = [...eventsById.values()]
         .filter((event) => (targetId ? event.targetId === targetId : true))
-        .filter((event) => {
-          if (!atsVendor) {
-            return true;
-          }
+      const filteredByVendor = atsVendor
+        ? (
+            await Promise.all(
+              filteredByTarget.map(async (event) => {
+                const resolvedVendor = await options.resolveVendorByTargetId?.(
+                  event.targetId,
+                );
+                return resolvedVendor === atsVendor ? event : null;
+              }),
+            )
+          ).filter((event): event is AtsTargetVerificationEvent => event !== null)
+        : filteredByTarget;
 
-          const resolvedVendor = options.resolveVendorByTargetId?.(event.targetId);
-          return resolvedVendor === atsVendor;
-        })
+      return filteredByVendor
         .sort((left, right) => {
           if (left.attemptedAt !== right.attemptedAt) {
             return right.attemptedAt.localeCompare(left.attemptedAt);

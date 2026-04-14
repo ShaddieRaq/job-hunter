@@ -17,12 +17,18 @@ import {
   type AuthProfileService,
 } from './modules/auth-profile/service.js';
 import { createInMemoryAtsTargetRegistryRepository } from './modules/ats-target-registry/in-memory-repository.js';
+import { createInMemoryAtsTargetVerificationEventRepository } from './modules/ats-target-registry/in-memory-repository.js';
 import { createPostgresAtsTargetRegistryRepository } from './modules/ats-target-registry/postgres-repository.js';
+import { createPostgresAtsTargetVerificationEventRepository } from './modules/ats-target-registry/postgres-repository.js';
 import { handleAtsTargetRegistryRoutes } from './modules/ats-target-registry/routes.js';
 import {
   createAtsTargetRegistryService,
   type AtsTargetRegistryService,
 } from './modules/ats-target-registry/service.js';
+import {
+  createAtsTargetVerificationEventService,
+  type AtsTargetVerificationEventService,
+} from './modules/ats-target-registry/verification-events-service.js';
 import { handleAiRoutes } from './modules/ai/routes.js';
 import { createAiService, type AiService } from './modules/ai/service.js';
 import { createInMemoryCanonicalJobRepository } from './modules/canonical-jobs/in-memory-repository.js';
@@ -70,6 +76,7 @@ import {
 import { handleTrackerRoutes } from './modules/tracker/routes.js';
 import { createTrackerService, type TrackerService } from './modules/tracker/service.js';
 import { createPostgresTrackerRepository } from './modules/tracker/postgres-repository.js';
+import type { AtsTargetRegistryPersistenceRepository } from './modules/ats-target-registry/repository.js';
 
 const postgresPool = getSharedPostgresPool();
 
@@ -251,6 +258,25 @@ const resolveAtsTargetRegistryRepository = () => {
   return createInMemoryAtsTargetRegistryRepository();
 };
 
+const resolveAtsTargetVerificationEventRepository = (
+  targetRepository: AtsTargetRegistryPersistenceRepository,
+) => {
+  if (atsTargetRegistryRepositoryMode === 'postgres') {
+    return createPostgresAtsTargetVerificationEventRepository(
+      resolvePostgresPool('ATS_TARGET_REGISTRY_REPOSITORY=postgres'),
+    );
+  }
+
+  return createInMemoryAtsTargetVerificationEventRepository({
+    async resolveVendorByTargetId(targetId) {
+      const target = await targetRepository.findAtsTargetById(targetId);
+      return target?.atsVendor ?? null;
+    },
+  });
+};
+
+const defaultAtsTargetRegistryRepository = resolveAtsTargetRegistryRepository();
+
 const defaultConnectorService = createConnectorService({
   repository: resolveConnectorRepository(),
   connectors: [
@@ -277,7 +303,14 @@ const defaultCanonicalJobsService = createCanonicalJobsService({
 });
 
 const defaultAtsTargetRegistryService = createAtsTargetRegistryService({
-  repository: resolveAtsTargetRegistryRepository(),
+  repository: defaultAtsTargetRegistryRepository,
+});
+
+const defaultAtsTargetVerificationEventService =
+  createAtsTargetVerificationEventService({
+    repository: resolveAtsTargetVerificationEventRepository(
+      defaultAtsTargetRegistryRepository,
+    ),
 });
 
 const defaultResumeService = createResumeService({
@@ -346,6 +379,7 @@ export interface CreateApiServerOptions {
   connectorService?: ConnectorService;
   canonicalJobsService?: CanonicalJobsService;
   atsTargetRegistryService?: AtsTargetRegistryService;
+  atsTargetVerificationEventService?: AtsTargetVerificationEventService;
   applicationService?: ApplicationService;
   reminderService?: ReminderService;
   notificationService?: NotificationService;
@@ -365,6 +399,7 @@ const handleRequest = async (
   connectorService: ConnectorService,
   canonicalJobsService: CanonicalJobsService,
   atsTargetRegistryService: AtsTargetRegistryService,
+  atsTargetVerificationEventService: AtsTargetVerificationEventService,
   applicationService: ApplicationService,
   reminderService: ReminderService,
   notificationService: NotificationService,
@@ -428,6 +463,7 @@ const handleRequest = async (
   const atsTargetRegistryHandled = await handleAtsTargetRegistryRoutes(req, res, {
     authProfileService,
     atsTargetRegistryService,
+    atsTargetVerificationEventService,
   });
 
   if (atsTargetRegistryHandled) {
@@ -503,6 +539,7 @@ export const createApiServer = ({
   connectorService = defaultConnectorService,
   canonicalJobsService = defaultCanonicalJobsService,
   atsTargetRegistryService = defaultAtsTargetRegistryService,
+  atsTargetVerificationEventService = defaultAtsTargetVerificationEventService,
   applicationService = defaultApplicationService,
   reminderService = defaultReminderService,
   notificationService = defaultNotificationService,
@@ -519,6 +556,7 @@ export const createApiServer = ({
       connectorService,
       canonicalJobsService,
       atsTargetRegistryService,
+      atsTargetVerificationEventService,
       applicationService,
       reminderService,
       notificationService,

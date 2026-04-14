@@ -32,6 +32,7 @@ export const atsTargetVerificationStatusSchema = z.enum([
 
 export const atsTargetIdSchema = z.string().uuid();
 export const companyRegistryIdSchema = z.string().uuid();
+export const atsTargetVerificationEventIdSchema = z.string().uuid();
 
 export const atsTargetCompanySchema = z
   .object({
@@ -112,6 +113,25 @@ export const atsTargetResponseSchema = z
   })
   .strict();
 
+export const atsTargetVerificationEventSchema = z
+  .object({
+    eventId: atsTargetVerificationEventIdSchema,
+    targetId: atsTargetIdSchema,
+    attemptedAt: z.string().datetime(),
+    outcomeStatus: atsTargetVerificationStatusSchema,
+    httpStatus: z.number().int().min(100).max(599).nullable(),
+    errorCode: nullableTrimmedText(240),
+    evidenceSummary: trimmedText(240),
+  })
+  .strict();
+
+export const atsTargetVerificationEventListResponseSchema = z
+  .object({
+    contractVersion: z.literal(atsTargetsContractVersion),
+    verificationEvents: z.array(atsTargetVerificationEventSchema).max(500),
+  })
+  .strict();
+
 export type AtsVendor = z.infer<typeof atsVendorSchema>;
 export type AtsTargetIdentifierType = z.infer<typeof atsTargetIdentifierTypeSchema>;
 export type AtsTargetVerificationStatus = z.infer<
@@ -119,9 +139,18 @@ export type AtsTargetVerificationStatus = z.infer<
 >;
 export type AtsTargetId = z.infer<typeof atsTargetIdSchema>;
 export type CompanyRegistryId = z.infer<typeof companyRegistryIdSchema>;
+export type AtsTargetVerificationEventId = z.infer<
+  typeof atsTargetVerificationEventIdSchema
+>;
 export type AtsTargetCompany = z.infer<typeof atsTargetCompanySchema>;
 export type AtsTargetRecord = z.infer<typeof atsTargetRecordSchema>;
 export type AtsTargetCreateRequest = z.infer<typeof atsTargetCreateRequestSchema>;
 export type AtsTargetUpdateRequest = z.infer<typeof atsTargetUpdateRequestSchema>;
 export type AtsTargetListResponse = z.infer<typeof atsTargetListResponseSchema>;
 export type AtsTargetResponse = z.infer<typeof atsTargetResponseSchema>;
+export type AtsTargetVerificationEvent = z.infer<
+  typeof atsTargetVerificationEventSchema
+>;
+export type AtsTargetVerificationEventListResponse = z.infer<
+  typeof atsTargetVerificationEventListResponseSchema
+>;
