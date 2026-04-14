@@ -102,10 +102,25 @@ Structured Node.js API for the Job Hunter modular monolith.
 
 - `GREENHOUSE_BOARD_TOKEN`: fallback Greenhouse board token used when `GREENHOUSE_BOARD_TOKENS` is not set (default: `stripe` for local/dev bootstrap)
 - `GREENHOUSE_BOARD_TOKENS`: optional comma-separated Greenhouse board tokens; when set, API registers one connector per token using source names like `greenhouse_public_board_<token>`
-- `LEVER_COMPANY_HANDLE`: Lever company handle used by the default public-board connector instance (default: `netflix` for local/dev bootstrap)
+- `LEVER_COMPANY_HANDLE`: fallback Lever company handle used when `LEVER_COMPANY_HANDLES` is not set (default: `netflix` for local/dev bootstrap)
+- `LEVER_COMPANY_HANDLES`: optional comma-separated Lever company handles; when set, API registers one connector per handle using source names like `lever_public_board_<handle>`
 	- Lever currently returns `0` postings for `netflix` from `https://api.lever.co/v0/postings/netflix?mode=json`; set this env var to an org handle with an active Lever public board if you want Lever ingestion volume
 - `ARBEITNOW_API_BASE_URL`: optional endpoint override for the default Arbeitnow job-board connector (default: `https://www.arbeitnow.com/api/job-board-api`)
 - `CONNECTOR_REPOSITORY`: repository mode for connector source state (`in-memory` default, `postgres` optional; when omitted the API auto-selects `postgres` if `DATABASE_URL` is set)
+
+### Board/Handle Discovery Helper
+
+Use the helper script to probe likely Greenhouse board tokens and Lever handles based on public company-name seeds:
+
+- `corepack pnpm --filter @job-hunter/api discover:boards`
+
+Optional tuning env vars:
+
+- `BOARD_DISCOVERY_COMPANIES`: comma-separated company-name seeds to include
+- `BOARD_DISCOVERY_MAX_PAGES`: Arbeitnow pages to scan for company seeds (default `6`)
+- `BOARD_DISCOVERY_MAX_CANDIDATES`: max slug candidates to probe (default `600`)
+- `BOARD_DISCOVERY_TIMEOUT_MS`: per-request timeout in ms (default `6000`)
+- `BOARD_DISCOVERY_CONCURRENCY`: concurrent probes (default `16`)
 
 ## Canonical catalog repository configuration
 

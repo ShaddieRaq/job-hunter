@@ -113,6 +113,7 @@ Owner: team
 - 2026-04-13: Iteration phase 3 landed with feed Today priorities queue rendering backed by pending reminder reads (`GET /v1/reminders?status=pending`), deterministic urgency ordering (pending reminders -> untouched high-fit -> shortlisted without progress), and web integration regression coverage for queue category ordering transitions.
 - 2026-04-14: Value iteration landed with web profile/preferences editor flows (`/profile`, `/actions/profile/save`) for skills and search-intent input, source listing full-description retrieval via `GET /v1/source-jobs/:sourceName/:sourceJobId`, and API repository auto-selection of Postgres when `DATABASE_URL` is configured.
 - 2026-04-14: Connector expansion landed with multi-board Greenhouse configuration via `GREENHOUSE_BOARD_TOKENS` (one registered source per board token) and web sync orchestration updated to discover and sync all configured connector sources through `GET /v1/connectors`.
+- 2026-04-14: Connector expansion continued with multi-handle Lever configuration via `LEVER_COMPANY_HANDLES` (one registered source per handle) plus an API discovery helper (`discover:boards`) that probes likely Greenhouse/Lever slugs from public company-name seeds.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

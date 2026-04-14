@@ -27,7 +27,7 @@ import {
 } from './modules/canonical-jobs/service.js';
 import { createArbeitnowJobBoardConnector } from './modules/connectors/arbeitnow-job-board-connector.js';
 import { createGreenhousePublicBoardConnectors } from './modules/connectors/greenhouse-board-connectors.js';
-import { createLeverPublicBoardConnector } from './modules/connectors/lever-public-board-connector.js';
+import { createLeverPublicBoardConnectors } from './modules/connectors/lever-board-connectors.js';
 import { createInMemoryConnectorRepository } from './modules/connectors/in-memory-repository.js';
 import { createPostgresConnectorRepository } from './modules/connectors/postgres-repository.js';
 import { handleConnectorRoutes } from './modules/connectors/routes.js';
@@ -231,10 +231,9 @@ const defaultConnectorService = createConnectorService({
       boardTokenEnv: process.env.GREENHOUSE_BOARD_TOKEN,
       boardTokensEnv: process.env.GREENHOUSE_BOARD_TOKENS,
     }),
-    createLeverPublicBoardConnector({
-      companyHandle: process.env.LEVER_COMPANY_HANDLE ?? 'netflix',
-      sourceName: 'lever_public_board',
-      displayName: 'Lever Public Board',
+    ...createLeverPublicBoardConnectors({
+      companyHandleEnv: process.env.LEVER_COMPANY_HANDLE,
+      companyHandlesEnv: process.env.LEVER_COMPANY_HANDLES,
     }),
     createArbeitnowJobBoardConnector({
       sourceName: 'arbeitnow_job_board',
