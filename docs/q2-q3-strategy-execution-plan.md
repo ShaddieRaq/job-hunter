@@ -3,6 +3,10 @@
 Last updated: 2026-04-14  
 Owner: product + engineering
 
+Execution artifacts:
+- `docs/ats-first-sprint-pr-sequence.md`
+- `docs/ats-go-no-go-gate-test-cases.md`
+
 ## Executive summary
 
 Job Hunter has shipped the full MVP workflow (feed, scoring, tracker, reminders, applications, and web flows) and is now constrained primarily by ATS tenant identifier discovery and lifecycle quality. The next two quarters should optimize for predictable coverage growth without trust regressions by running two tracks in parallel: immediate coverage gains and durable identifier governance. The operating model should enforce deterministic acceptance gates, explainable decisions, and strict data/privacy discipline inside the existing TypeScript modular monolith. Execution success is measured by verified active target growth, verification precision at 14 days, stale-target refresh performance, and sync pipeline reliability. We should not treat raw target volume as success unless precision and operational stability thresholds are met.
@@ -140,6 +144,8 @@ Recommended capacity split:
 
 ## 5) First sprint plan (12 tickets)
 
+Detailed PR slicing and day-by-day sequence: `docs/ats-first-sprint-pr-sequence.md`.
+
 1. **Add `company_registry` migration**  
    Acceptance: migration applies/rolls back cleanly; constraints + indexes included.
 
@@ -218,6 +224,8 @@ Decision rule:
    Trigger: nightly fixture failures >10% for any vendor.
 
 ## 8) Explicit go/no-go gates
+
+Objective gate checks and required evidence: `docs/ats-go-no-go-gate-test-cases.md`.
 
 ### Gate M0: quick-win coverage
 - **Go**: +300 verified targets and >=95% 14-day precision; sync stable.

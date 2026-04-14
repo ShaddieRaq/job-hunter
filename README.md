@@ -137,6 +137,8 @@ corepack pnpm -r typecheck
 - `docs/roadmap-progress.md` - current roadmap status and next step tracker
 - `docs/ats-target-expansion-plan.md` - concrete ATS target discovery, verification, and connector expansion plan
 - `docs/q2-q3-strategy-execution-plan.md` - hard-nosed state assessment, strategic direction, dual-track execution model, 30-60-90 milestones, and go/no-go gates for ATS coverage durability
+- `docs/ats-first-sprint-pr-sequence.md` - PR-by-PR execution sequence for the first ATS Milestone 0 + Milestone 1 sprint
+- `docs/ats-go-no-go-gate-test-cases.md` - objective acceptance test cases and evidence checklist for ATS go/no-go gates
 - `docs/mvp-validation-audit-2026-04-13.md` - strict MVP promise-versus-delivery audit and remediation priorities
 - `docs/ai-implementation-plan.md` - Phase A AI implementation checklist and contracts
 - `.github/copilot-instructions.md` - repo-wide Copilot guidance

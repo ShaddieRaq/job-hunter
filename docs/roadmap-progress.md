@@ -117,6 +117,7 @@ Owner: team
 - 2026-04-14: Published concrete execution plan for ATS target discovery and lifecycle management in `docs/ats-target-expansion-plan.md`, including milestones, schema outline, verification gates, and success metrics.
 - 2026-04-14: Refined ATS execution plan to dual-track delivery (`coverage now` + `durability`) with an explicit Milestone 0 30-day quick-win target and measurable acceptance criteria.
 - 2026-04-14: Added principal-level Q2–Q3 strategy and execution plan in `docs/q2-q3-strategy-execution-plan.md` with state assessment, strategic principles, 30-60-90 milestones, Track A/Track B model, first sprint ticketization, risk triggers, and explicit milestone go/no-go gates.
+- 2026-04-14: Added execution artifacts for immediate delivery: `docs/ats-first-sprint-pr-sequence.md` (PR-by-PR two-week implementation sequence) and `docs/ats-go-no-go-gate-test-cases.md` (objective gate acceptance tests and evidence checklist).
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

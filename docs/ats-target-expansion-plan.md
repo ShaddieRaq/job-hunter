@@ -3,8 +3,10 @@
 Last updated: 2026-04-14  
 Owner: team
 
-Companion strategy doc:
+Companion planning docs:
 - `docs/q2-q3-strategy-execution-plan.md` (principal-level state/direction/execution plan with first-sprint ticketization, risk triggers, and go/no-go milestone gates)
+- `docs/ats-first-sprint-pr-sequence.md` (two-week PR slicing and delivery order for Milestone 0 + Milestone 1 first slice)
+- `docs/ats-go-no-go-gate-test-cases.md` (objective gate test procedures, pass/fail criteria, and evidence requirements)
 
 ## Problem statement
 
