@@ -135,6 +135,7 @@ corepack pnpm -r typecheck
 - `docs/testing.md` - testing strategy and quality gates
 - `docs/manual-e2e-test-plan.md` - browser-driven regression runbook for key user workflows
 - `docs/roadmap-progress.md` - current roadmap status and next step tracker
+- `docs/ats-target-expansion-plan.md` - concrete ATS target discovery, verification, and connector expansion plan
 - `docs/mvp-validation-audit-2026-04-13.md` - strict MVP promise-versus-delivery audit and remediation priorities
 - `docs/ai-implementation-plan.md` - Phase A AI implementation checklist and contracts
 - `.github/copilot-instructions.md` - repo-wide Copilot guidance

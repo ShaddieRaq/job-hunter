@@ -41,8 +41,8 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: run iterative checkpoint delivery after phase 3 (daily-priority queue) and prioritize phase 4 motivation/progress panel
-- Next PR target: iteration phase 4 motivation/progress panel and confidence-preserving UX cues
+- Active step: execute ATS target expansion dual-track plan (Milestone 0 coverage quick wins + Milestone 1 registry foundation) while continuing feed UX iterations
+- Next PR target: ATS target expansion Milestone 0 + Milestone 1 first slice in `docs/ats-target-expansion-plan.md`
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -114,6 +114,8 @@ Owner: team
 - 2026-04-14: Value iteration landed with web profile/preferences editor flows (`/profile`, `/actions/profile/save`) for skills and search-intent input, source listing full-description retrieval via `GET /v1/source-jobs/:sourceName/:sourceJobId`, and API repository auto-selection of Postgres when `DATABASE_URL` is configured.
 - 2026-04-14: Connector expansion landed with multi-board Greenhouse configuration via `GREENHOUSE_BOARD_TOKENS` (one registered source per board token) and web sync orchestration updated to discover and sync all configured connector sources through `GET /v1/connectors`.
 - 2026-04-14: Connector expansion continued with multi-handle Lever configuration via `LEVER_COMPANY_HANDLES` (one registered source per handle) plus an API discovery helper (`discover:boards`) that probes likely Greenhouse/Lever slugs from public company-name seeds.
+- 2026-04-14: Published concrete execution plan for ATS target discovery and lifecycle management in `docs/ats-target-expansion-plan.md`, including milestones, schema outline, verification gates, and success metrics.
+- 2026-04-14: Refined ATS execution plan to dual-track delivery (`coverage now` + `durability`) with an explicit Milestone 0 30-day quick-win target and measurable acceptance criteria.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:
