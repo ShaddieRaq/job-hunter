@@ -41,8 +41,8 @@ Owner: team
    - Remaining: none.
 
 ## Current focus
-- Active step: execute ATS target expansion dual-track plan (Milestone 0 coverage quick wins + Milestone 1 registry foundation) while continuing feed UX iterations
-- Next PR target: ATS target expansion Milestone 0 + Milestone 1 first slice in `docs/ats-target-expansion-plan.md`
+- Active step: execute ATS target expansion dual-track plan (Milestone 0 coverage quick wins + Milestone 1 registry foundation) while enforcing explicit go/no-go quality gates from `docs/q2-q3-strategy-execution-plan.md`
+- Next PR target: ATS target expansion Milestone 0 + Milestone 1 first slice (schema + verifier adapters + coverage telemetry) aligned to `docs/ats-target-expansion-plan.md` and `docs/q2-q3-strategy-execution-plan.md`
 - Known blockers: package installation/check execution may be limited by network/proxy constraints in some environments
 
 ## MVP validation remediation checklist
@@ -116,6 +116,7 @@ Owner: team
 - 2026-04-14: Connector expansion continued with multi-handle Lever configuration via `LEVER_COMPANY_HANDLES` (one registered source per handle) plus an API discovery helper (`discover:boards`) that probes likely Greenhouse/Lever slugs from public company-name seeds.
 - 2026-04-14: Published concrete execution plan for ATS target discovery and lifecycle management in `docs/ats-target-expansion-plan.md`, including milestones, schema outline, verification gates, and success metrics.
 - 2026-04-14: Refined ATS execution plan to dual-track delivery (`coverage now` + `durability`) with an explicit Milestone 0 30-day quick-win target and measurable acceptance criteria.
+- 2026-04-14: Added principal-level Q2–Q3 strategy and execution plan in `docs/q2-q3-strategy-execution-plan.md` with state assessment, strategic principles, 30-60-90 milestones, Track A/Track B model, first sprint ticketization, risk triggers, and explicit milestone go/no-go gates.
 
 ## Update rule for every roadmap PR
 When a PR touches roadmap scope, update this file with:

@@ -3,6 +3,9 @@
 Last updated: 2026-04-14  
 Owner: team
 
+Companion strategy doc:
+- `docs/q2-q3-strategy-execution-plan.md` (principal-level state/direction/execution plan with first-sprint ticketization, risk triggers, and go/no-go milestone gates)
+
 ## Problem statement
 
 Job discovery coverage is constrained by ATS tenant identifier discovery (board tokens, company handles, subdomains, account slugs). For connectors like Greenhouse and Lever, there is no complete global directory of live public targets. A robust system must treat identifier discovery as an explicit lifecycle, not a one-time setup task.
